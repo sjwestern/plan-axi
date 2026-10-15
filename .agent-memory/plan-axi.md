@@ -18,6 +18,14 @@ Lightweight plan -> apply -> archive workflow. Inspired by OpenSpec, differs: no
 - Flags must come after command. `--file` per backlog. Parallel writes serialized OK (12x12 test).
 - `mv` moves tasks between files atomically.
 
+## More tasks-axi facts (verified)
+- `start` on an already-started task prints `already: true` (use as claim check). `start` on a DONE task moves it back to in flight - never do it.
+- `done` auto-prunes done tasks beyond `done_keep` (default 10) into `done-archive.md` next to the task file. Repo `.tasks.toml` (read from CWD) `[markdown] done_keep = 1000` avoids it; check-plan.mjs also reads done-archive.md.
+- `list` shows only ACTIVE blockers in `blocked_by`; `--fields blocked_by,body` works; no `--json` on list. `--kind` is free-form (we use `change` for backlog entries).
+- Ambient config can redirect: TASKS_AXI_FILE, ~/.tasks-axi/config.toml -> always pass `--file`.
+- treehouse: `treehouse get --lease -b <branch>` prints worktree path to stdout, banners to stderr; `treehouse return <path>` releases.
+- Review gate task dropped: committing the plan on main is the approval; apply preflight checks plan is committed + clean.
+
 ## Open / verify
 - tasks-axi `start` on already-started task reporting (for `claim`).
 - treehouse `lease` behavior, Windows builds.

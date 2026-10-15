@@ -12,7 +12,7 @@ Lightweight plan -> apply -> archive workflow for coding agents. Inspired by Ope
 |---|---|---|
 | `packages/docs-axi` | v0.1 | `docs/` folder (domain, architecture, decisions): generated index, search, scaffolding, ADR numbering, checks |
 | `packages/change-axi` | planned | change folders under `specs/changes/`, dependency/cycle checks, apply/archive preflights |
-| `skills/` | planned | explore, propose, apply, archive agent skills |
+| `skills/` | v0 (prompt-only) | `plan-explore`, `plan-propose`, `plan-apply`, `plan-archive`; interim `check-plan.mjs` (cycles, step/task links, Owns overlap) |
 
 ## Layout this workflow assumes
 
@@ -33,3 +33,9 @@ npm link -w packages/docs-axi   # optional: put docs-axi on PATH
 ```
 
 Design notes: `.agent-memory/plan-axi.md`.
+
+## Skills
+
+Install by symlinking or copying `skills/*` into your agent skills folder. They call `tasks-axi` (pin `0.2.6`) and `docs-axi`.
+
+Flow: `plan-explore` (read-only, reads `docs/`) -> `plan-propose` (writes the plan, no commit) -> you review and commit on main -> `plan-apply` (on main: start + treehouse worktree + prompt; in the worktree: run steps) -> `plan-archive`.
