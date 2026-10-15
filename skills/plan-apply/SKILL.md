@@ -15,7 +15,7 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 - Plan: `specs/changes/active/<slug>/` (`proposal.md`, `NN-*.md` step files, `tasks.md`). Repo level: `backlog.md`, one task per change, id = slug.
 - **`tasks.md` and `backlog.md` are changed only through `tasks-axi`**, always with `--file` after the command, run from the repo (or worktree) root. If missing: `npx -y tasks-axi@0.2.6 <args>`.
 - Step task id = step file stem; its body is `Spec: <file>.md`.
-- The check script: `plan-propose/scripts/check-plan.mjs` (sibling skill directory). Called `CHECK` below: `node <skills>/plan-propose/scripts/check-plan.mjs specs/changes/active/<slug> --waves`.
+- The check script: `plan-propose/scripts/check-plan.mjs` (sibling skill directory). Called `CHECK` below: `node <skills>/plan-propose/scripts/check-plan.mjs <slug> --waves`.
 - Docs: `docs-axi` (`npx -y docs-axi@0.1.0` if missing).
 
 ## Launch (on main)

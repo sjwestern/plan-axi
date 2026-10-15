@@ -12,7 +12,7 @@ Close a completed change. The archive is history only: current truth lives in `d
 - Active: `specs/changes/active/<slug>/`. Archived: `specs/changes/archived/<YYYY-MM-DD>-<slug>/` with the whole folder (including `tasks.md`, all tasks Done).
 - Date = **local** date, ISO: `node -p "new Date().toLocaleDateString('sv-SE')"` (works on Windows, Linux, macOS).
 - Task files change only through `tasks-axi ... --file`, from the repo root. `npx -y tasks-axi@0.2.6` / `npx -y docs-axi@0.1.0` if not installed.
-- `CHECK` = `node <skills>/plan-propose/scripts/check-plan.mjs specs/changes/active/<slug>`.
+- `CHECK` = `node <skills>/plan-propose/scripts/check-plan.mjs <slug>`.
 
 ## Where to run
 

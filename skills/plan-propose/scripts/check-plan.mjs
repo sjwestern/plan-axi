@@ -2,10 +2,10 @@
 // Validate a change folder: task graph (cycles), step file <-> task links,
 // and Owns overlap between tasks that can run in parallel.
 // Interim home of the future `change-axi check`. Node >= 20, no dependencies.
-// usage: node check-plan.mjs <change-dir> [--waves]
+// usage: node check-plan.mjs <slug|change-dir> [--waves]
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 const args = process.argv.slice(2);
 const dir = args.find((a) => !a.startsWith("--"));
@@ -15,7 +15,24 @@ if (!dir) {
   console.log("help: node check-plan.mjs specs/changes/active/<slug> [--waves]");
   process.exit(2);
 }
-const root = resolve(dir);
+// Accept a slug: resolve to <git root or cwd>/specs/changes/active/<slug>.
+function resolveChange(arg) {
+  if (existsSync(join(arg, "tasks.md")) || existsSync(join(arg, "proposal.md"))) return resolve(arg);
+  if (!/[\\/]/.test(arg)) {
+    let base = process.cwd();
+    try {
+      base = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    } catch {}
+    for (const b of new Set([base, process.cwd()])) {
+      const p = join(b, "specs", "changes", "active", arg);
+      if (existsSync(p)) return p;
+    }
+    console.log(`error: change "${arg}" not found in specs/changes/active/`);
+    process.exit(2);
+  }
+  return resolve(arg);
+}
+const root = resolveChange(dir);
 const tasksFile = join(root, "tasks.md");
 const errors = [];
 const warnings = [];
@@ -119,6 +136,52 @@ for (const f of stepFiles) {
   const stem = f.replace(/\.md$/, "");
   if (referenced.has(f) || archived.includes(`] ${stem} `)) continue;
   errors.push(`ORPHAN_STEP: ${f} has no task; add one or delete the file`);
+}
+
+// --- slug identity: valid, not already archived, not already done in the backlog.
+// tasks-axi `add` on an existing id is a silent no-op (even a done one), so a reused slug would look finished.
+const slug = basename(root);
+const changesDir = dirname(dirname(root));
+if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) || slug.length > 50) {
+  errors.push(`BAD_SLUG: "${slug}" must be kebab-case (a-z, 0-9, dashes), max 50 chars`);
+}
+const archivedDir = join(changesDir, "archived");
+if (existsSync(archivedDir)) {
+  const hit = readdirSync(archivedDir).find((d) => /^\d{4}-\d{2}-\d{2}-/.test(d) && d.slice(11) === slug);
+  if (hit) errors.push(`SLUG_ARCHIVED: slug "${slug}" already used by archived/${hit}; pick a new slug`);
+}
+{
+  const repoRoot = dirname(dirname(changesDir));
+  const backlog = join(repoRoot, "backlog.md");
+  if (existsSync(backlog)) {
+    try {
+      const o = execFileSync(bin, ["list", "--file", backlog, "--state", "done", "--limit", "1000"], {
+        encoding: "utf8",
+        shell: process.platform === "win32",
+      });
+      if (new RegExp(`^\\s+${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")},`, "m").test(o)) {
+        errors.push(`SLUG_DONE: backlog.md already has "${slug}" as done; archive that change or rename this one`);
+      }
+    } catch {
+      warnings.push("BACKLOG_UNREADABLE: could not run tasks-axi list on backlog.md; slug reuse not checked");
+    }
+  }
+}
+
+// --- Owns inside tool-owned dirs: allowed only when the proposal says so.
+// Owns = files the step edits. Files it only reads belong in Docs:/Context, not Owns.
+const TOOL_DIRS = [".agents", ".pi", ".claude", ".cursor", ".codex", ".gemini", ".opencode"];
+const proposalText = readFileSync(join(root, "proposal.md"), "utf8");
+for (const f of stepFiles) {
+  const m = /^Owns:\s*(.+)$/m.exec(readFileSync(join(root, f), "utf8").replace(/\r\n/g, "\n"));
+  for (const raw of (m?.[1] ?? "").split(",")) {
+    const e = raw.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+    if (!TOOL_DIRS.some((d) => e === d || e.startsWith(`${d}/`))) continue;
+    const declared = proposalText.includes(e) || proposalText.includes(e.replace(/[*?[{].*$/, "").replace(/\/+$/, ""));
+    if (!declared) {
+      errors.push(`OWNS_TOOL_DIR: ${f} edits ${e} (tool-owned dir) but proposal.md never mentions it. If the plan changes it, say so in the proposal; if the step only reads it, move it from Owns to Docs`);
+    }
+  }
 }
 
 // --- Owns overlap between tasks that may run in parallel
