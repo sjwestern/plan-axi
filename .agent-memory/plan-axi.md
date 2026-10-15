@@ -26,19 +26,41 @@ Lightweight plan -> apply -> archive workflow. Inspired by OpenSpec, differs: no
 - treehouse: `treehouse get --lease -b <branch>` prints worktree path to stdout, banners to stderr; `treehouse return <path>` releases.
 - Review gate task dropped: committing the plan on main is the approval; apply preflight checks plan is committed + clean.
 
-## Status (2026-10-15) - resume here
+## Status (2026-10-15, superseded by "Next steps" below)
 Built and committed (3 commits on `main`, local-only, no remote, nothing published):
 - `packages/docs-axi` v0.1.0 - DONE, 23 vitest tests pass, tested on Linux only. Commands: (home), init, list, search, show, new, adr, update, supersede, index, check. Doc frontmatter: title, summary, tags, status (ADRs), supersedes/superseded-by. Index is generated between markers in docs/README.md. Run: `npm install && npm run build && npm test`; `node packages/docs-axi/dist/bin/docs-axi.js`.
 - `skills/plan-{explore,propose,apply,archive}/SKILL.md` - v0, prompt-only, NOT yet used on a real repo. Templates in `skills/plan-propose/templates/` (proposal.md, step.md). Interim checker `skills/plan-propose/scripts/check-plan.mjs` (cycles, Spec/step-file links, Owns overlap, `--waves`); apply/archive reach it as sibling skill dir.
 - Scratch-repo dry run of propose -> apply -> archive command sequence passed (real tasks-axi + docs-axi). treehouse step NOT run.
 NOT built: `packages/change-axi`, CI, Windows/macOS verification, changesets config, publishing, skill install/symlink step.
 
-## Next steps (in order)
-1. User supplies a real test repo + small change. Run explore -> propose -> (user commits plan on main) -> apply (launch + execute in treehouse worktree) -> archive. Record every place the agent slipped; tune skill prompts.
-2. Verify `treehouse get --lease -b <slug>` + `treehouse return <path>`; check treehouse Windows builds (decides whether CLI may call it, else keep as skill text).
-3. Build `packages/change-axi` driven by observed slips. Planned commands: `check` (promote check-plan.mjs; add docs-impact + gate checks), `new <slug>` (scaffold from templates, slug validation, collision check), `archive <slug>` (branch, or main if merged; date-prefixed move), `status` (home view: aggregate in-flight/ready across active changes + worktrees, flag stale), `deps set|show` (declarative blocker edit with cycle validation, wave view), `next`/`claim` (overlap-aware; claim uses `start` -> `already: true`), `prompt <slug> <id>` (agent hand-off text), `apply` preflight (on main, plan committed). Shell out to `tasks-axi` (never parse tasks.md). No dependency on docs-axi (skill runs `docs-axi check`).
-4. CI matrix (ubuntu/windows/macos), changesets config, pin versions in skills, decide install path for skills (symlink to ~/.agents/skills or `npx skills add`).
-5. Report upstream to kunchenguid/tasks-axi: dependency cycles accepted silently; `start` on done task reopens it.
+## Built since (2026-10-16, after first real trial)
+- `scripts/install-skills.mjs` (`npm run skills:install|uninstall`): symlinks `skills/*` into `~/.agents/skills` (pi reads it). Idempotent, refuses non-link conflicts.
+- `check-plan.mjs <slug|dir>`: accepts a slug (git root, then cwd). New errors: BAD_SLUG, SLUG_ARCHIVED, SLUG_DONE (tasks-axi `add` of an existing id is a silent no-op, even if done), OWNS_TOOL_DIR (only when proposal.md does not name the path).
+- `Owns:` = files a step EDITS (write set for overlap checks). Read-only context goes in `Docs:`/Context. Tool dirs (.agents, .pi, .claude...) may be owned only if the proposal names them.
+- docs-axi config: `~/.config/plan-axi/config.toml` + repo `.plan-axi.toml` (`[docs] ignore`, `[docs.map]`). Default ignores: dot-entries, node_modules, _build, _site, site, dist, build.
+- docs-axi indexes EVERYTHING under docs/ that is not ignored. Files outside domain/architecture/decisions go under an "Other" index section, in place (title/first sentence derived, file not edited). Nothing outside docs/ is ever indexed. Other docs are not style-checked; mapped docs' style issues are warnings.
+- `docs-axi migrate [--plan f.json] [--apply] [--force]` + skill `plan-migrate-docs` (separate from plan work). Actions: move | keep (in place, frontmatter added, Other) | ignore. Rewrites relative links in all docs (incl. ignored), `git mv`, reindex, reports (does not edit) references outside docs/.
+
+## Trial log: example repo (plan-propose, then plan-migrate-docs by a separate agent; real names in private/example-repo-trial.md, gitignored)
+Real gaps found (fix status):
+1. FIXED: `migrate --plan f` (dry run) overwrote an existing edited plan file; agent applied the unreviewed proposal and had to revert. Now an existing plan is never overwritten (`--force` regenerates), dry run validates + shows it.
+2. FIXED: placeholder summaries. Heuristic summary = first sentence, falls back to title; agent left 9 sibling docs with the same prefix "Specification for X: <title>". Skill said to rewrite weak ones but it is only advice. Now: `weakSummaries()` flags summary == title, identical text on 2+ docs, same prefix on 3+ docs, `Status:`/`Note:`/`Authority:`/`Purpose:`/... lead-ins; dry run shows reason per doc; `--apply` refuses (`--allow-weak-summaries` overrides); skill step 4 says read each doc and write a real description. On the pre-migration example repo it flags 21 of 40 and refuses.
+3. FIXED (warnings): `docs-axi check` skipped link checks for docs outside the layout (Other), so pre-existing dead links (8x to one deleted file) only surfaced after migration. Check should report broken links for Other docs too (warning).
+4. OPEN: plan-propose put Docs in pre-layout paths (e.g. docs/domain.md) - outside the layout, so Docs impact was not validated by docs-axi. Fine now after migrate; skill should recommend migrate first when docs-axi shows Other docs.
+5. FIXED (skill text): after `git mv` the index has renames staged but reference fixes unstaged; commit skill must stage explicitly. Not a bug, note for apply/commit.
+6. NOT gaps (deliberate, user decisions): `reference/original-scope/` ignored (AGENTS.md rule, agent asked correctly); `QUESTIONS.md` ignored (working list). Asset folders next to docs: no support needed.
+7. docs-axi mixed line endings in an existing docs/README.md get normalized to the dominant EOL on first write (noisy diff). OPEN, low.
+
+## Next steps (resume here, as of 2026-10-16)
+Uncommitted in plan-axi: scripts/install-skills.mjs, check-plan slug/ownership checks, docs-axi config + Other + migrate + weak-summary gate (37 tests pass), skills `plan-migrate-docs` + edits. Commit these first (group: skills install; check-plan; docs-axi config/other; docs-axi migrate; skills/memory).
+Example repo state: docs migration applied but NOT committed (renames staged, outside-ref edits unstaged); 8 dead links to one deleted file remain (decide: remove in separate commit). The example plan is already committed on main (its docs paths updated by migration, uncommitted).
+1. Commit the example repo migration (stage explicitly: moves + .plan-axi.toml; outside refs; optional dead-link cleanup). Re-run `docs-axi check` + `check-plan.mjs <slug>`.
+2. Trial plan-apply and plan-archive on the example plan with a separate agent: verify `treehouse get --lease -b <slug>` / `treehouse return`, claim via `start` -> `already: true`, Owns overlap behavior, archive on branch. Record slips here.
+3. Verify the migrate skill again with a fresh agent on a different repo or after `git checkout` of the pre-migration state (check summaries gate, `--plan` review flow).
+4. Build `packages/change-axi` driven by observed slips (see list in older notes: check, new, archive, status, deps, next/claim, prompt, apply preflight). Promote check-plan.mjs into `change-axi check`.
+5. CI matrix (ubuntu/windows/macos), changesets, pin versions in skills (docs-axi is not published: skills fall back to `npx docs-axi@0.1.0` which will not work yet), publish docs-axi.
+6. Low: preserve mixed line endings in docs/README.md; report upstream tasks-axi issues (silent cycles, `start` on done task reopens, `add` on existing id is a silent no-op even if done).
+7. Open questions: apply hands off via printed commands or CLI calls treehouse; `Owns:` naming; archive on branch vs main.
 
 ## Decisions still open
 - Whether apply hands off via printed commands (current) or CLI calls treehouse.
