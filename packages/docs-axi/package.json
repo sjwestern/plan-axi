@@ -1,0 +1,19 @@
+{
+  "name": "docs-axi",
+  "version": "0.1.0",
+  "description": "AXI CLI for a structured repo docs folder (domain, architecture, decisions): generated index, search, scaffolding, checks",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "docs-axi": "dist/bin/docs-axi.js" },
+  "files": ["dist/**/*.js"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "node --experimental-strip-types bin/docs-axi.ts"
+  },
+  "dependencies": {
+    "@toon-format/toon": "^2.1.0",
+    "axi-sdk-js": "^0.1.13"
+  }
+}
