@@ -11,6 +11,7 @@ export interface Run {
 export function tempRepo(): { dir: string; run: (...argv: string[]) => Promise<Run>; cleanup: () => void } {
   const dir = mkdtempSync(join(tmpdir(), "docs-axi-"));
   mkdirSync(join(dir, ".git"));
+  process.env["XDG_CONFIG_HOME"] = join(dir, ".no-user-config");
   const run = async (...argv: string[]): Promise<Run> => {
     let out = "";
     process.exitCode = undefined;

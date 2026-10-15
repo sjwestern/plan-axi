@@ -3,9 +3,9 @@ import { AxiError } from "axi-sdk-js";
 import type { AxiStructuredOutput } from "../types.js";
 import { flagBool, flagStr, parseArgs, parseLimit, type CmdSpec } from "../args.js";
 import {
-  SECTIONS,
   displayTitle,
-  isSection,
+  isDocSection,
+  DOC_SECTIONS,
   loadDocs,
   requireDocsDir,
   resolveDocPath,
@@ -55,7 +55,7 @@ export function homeCommand(ctx: Ctx): AxiStructuredOutput {
   if (docs.length > shown.length) help.unshift(`Run \`docs-axi list\` for all ${docs.length} docs`);
   return {
     counts: Object.fromEntries(
-      SECTIONS.map((s) => [s, docs.filter((d) => d.section === s).length]),
+      DOC_SECTIONS.map((s) => [s, docs.filter((d) => d.section === s).length]),
     ),
     docs: shown.map((d) => row(d, withStatus)),
     help,
@@ -70,7 +70,7 @@ export const LIST_SPEC: CmdSpec = {
   usage: "docs-axi list [section] [--tag <t>] [--status <s>] [--limit <n>]",
   help: `usage: docs-axi list [section] [--tag <t>] [--status <s>] [--limit <n>]
 List docs with title and one-line summary, sorted by path.
-section: domain | architecture | decisions
+section: domain | architecture | decisions | other
 flags:
   --tag <t>      only docs with this tag
   --status <s>   only ADRs with this status (proposed|accepted|superseded|deprecated)
@@ -86,9 +86,9 @@ export function listCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(LIST_SPEC, args);
   requireDocsDir(ctx);
   const section = p.pos[0];
-  if (section !== undefined && !isSection(section)) {
+  if (section !== undefined && !isDocSection(section)) {
     throw new AxiError(`unknown section ${section}`, "VALIDATION_ERROR", [
-      `Sections: ${SECTIONS.join(", ")}`,
+      `Sections: ${DOC_SECTIONS.join(", ")}`,
     ]);
   }
   const tag = flagStr(p, "--tag");
@@ -128,7 +128,7 @@ export const SEARCH_SPEC: CmdSpec = {
 Lexical search over title, tags, summary, headings and body. Ranked, deterministic.
 Docs matching more of the terms rank first.
 flags:
-  --section <s>  domain | architecture | decisions
+  --section <s>  domain | architecture | decisions | other
   --limit <n>    max rows (default 10)
 examples:
   docs-axi search billing invoice
@@ -157,9 +157,9 @@ export function searchCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(SEARCH_SPEC, args);
   requireDocsDir(ctx);
   const section = flagStr(p, "--section");
-  if (section !== undefined && !isSection(section)) {
+  if (section !== undefined && !isDocSection(section)) {
     throw new AxiError(`unknown section ${section}`, "VALIDATION_ERROR", [
-      `Sections: ${SECTIONS.join(", ")}`,
+      `Sections: ${DOC_SECTIONS.join(", ")}`,
     ]);
   }
   const limit = parseLimit(p, 10);

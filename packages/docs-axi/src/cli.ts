@@ -3,6 +3,7 @@ import { runAxiCli } from "axi-sdk-js";
 import type { AxiRenderable } from "./types.js";
 import { findRepoRoot } from "./fsutil.js";
 import type { Ctx } from "./model.js";
+import { loadConfig } from "./config.js";
 import { checkCommand, CHECK_SPEC } from "./commands/check.js";
 import {
   LIST_SPEC,
@@ -27,14 +28,15 @@ import {
   supersedeCommand,
   updateCommand,
 } from "./commands/write.js";
+import { MIGRATE_SPEC, migrateCommand } from "./commands/migrate.js";
 import { VERSION } from "./version.js";
 
 export const DESCRIPTION =
   "Manage the repo docs folder (domain, architecture, decisions) with a generated index. Prefer this over hand-editing docs/README.md or ADR numbers.";
 
 export const TOP_HELP = `usage: docs-axi [command] [args] [flags]
-commands[10]:
-  (none)=docs map, init, list, search, show, new, adr, update, supersede, index, check
+commands[11]:
+  (none)=docs map, init, list, search, show, new, adr, update, supersede, index, check, migrate
 flags[2]:
   --docs <dir> (after command; default <repo>/docs), --help, -v/-V/--version
 examples:
@@ -60,6 +62,7 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   supersede: { run: supersedeCommand, help: SUPERSEDE_SPEC.help },
   index: { run: indexCommand, help: INDEX_SPEC.help },
   check: { run: checkCommand, help: CHECK_SPEC.help },
+  migrate: { run: migrateCommand, help: MIGRATE_SPEC.help },
 };
 
 function docsFlag(args: string[]): string | undefined {
@@ -83,7 +86,7 @@ export async function main(options: MainOptions = {}): Promise<void> {
     const root = findRepoRoot(cwd);
     const flag = docsFlag(args);
     const docsDir = flag === undefined ? resolve(root, "docs") : isAbsolute(flag) ? flag : resolve(cwd, flag);
-    return { root, docsDir };
+    return { root, docsDir, config: loadConfig(root) };
   };
   const commands: Record<string, (args: string[], ctx: Ctx | undefined) => AxiRenderable> = {};
   for (const [name, c] of Object.entries(COMMANDS)) {

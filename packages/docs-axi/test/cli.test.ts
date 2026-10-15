@@ -122,12 +122,12 @@ describe("check", () => {
     await repo.run("init");
   });
 
-  it("finds missing frontmatter, broken links, unmanaged files, stale index", async () => {
+  it("finds missing frontmatter, broken links, stale index", async () => {
     writeFileSync(join(repo.dir, "docs/domain/bare.md"), "# no frontmatter\n[x](./gone.md)\n");
     writeFileSync(join(repo.dir, "docs/stray.md"), "x\n");
     const r = await repo.run("check");
     expect(r.code).toBe(1);
-    for (const code of ["NO_FRONTMATTER", "BROKEN_LINK", "UNMANAGED", "INDEX_STALE"]) {
+    for (const code of ["NO_FRONTMATTER", "BROKEN_LINK", "INDEX_STALE"]) {
       expect(r.out).toContain(code);
     }
   });

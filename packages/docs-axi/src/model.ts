@@ -3,9 +3,15 @@ import { join, relative } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { cmp, readText, toPosix } from "./fsutil.js";
 import { parseDoc, type ParsedDoc } from "./frontmatter.js";
+import { deriveTitleSummary } from "./derive.js";
+import { matchesAny, type DocsConfig } from "./config.js";
 
 export const SECTIONS = ["domain", "architecture", "decisions"] as const;
 export type Section = (typeof SECTIONS)[number];
+/** `other` = docs outside the standard layout, indexed in place. */
+export const OTHER = "other" as const;
+export type DocSection = Section | typeof OTHER;
+export const DOC_SECTIONS = [...SECTIONS, OTHER] as const;
 
 export const ADR_STATUSES = [
   "proposed",
@@ -23,12 +29,13 @@ export const MAX_SUMMARY = 160;
 export interface Ctx {
   root: string;
   docsDir: string;
+  config: DocsConfig;
 }
 
 export interface Doc {
   /** Posix path relative to docs dir, e.g. `domain/billing.md`. */
   path: string;
-  section: Section;
+  section: DocSection;
   /** File name without `.md`. */
   slug: string;
   parsed: ParsedDoc;
@@ -39,6 +46,12 @@ export interface Doc {
   supersedes: string[];
   supersededBy: string | undefined;
   adrNumber: number | undefined;
+  /** Placed in a section via config `[docs.map]` instead of living under it. */
+  mapped: boolean;
+}
+
+export function isDocSection(s: string): s is DocSection {
+  return (DOC_SECTIONS as readonly string[]).includes(s);
 }
 
 export function isSection(s: string): s is Section {
@@ -55,76 +68,81 @@ function toList(v: unknown): string[] {
   return s === undefined ? [] : [s];
 }
 
-function walk(dir: string, rel: string, out: string[]): void {
-  const entries = readdirSync(join(dir, rel), { withFileTypes: true }).sort(
+/** All non-ignored `.md` files under the docs dir (posix, relative), sorted. Dot-entries are always skipped. */
+function walk(ctx: Ctx, rel: string, out: string[]): void {
+  const entries = readdirSync(join(ctx.docsDir, rel), { withFileTypes: true }).sort(
     (a, b) => cmp(a.name, b.name),
   );
   for (const e of entries) {
     if (e.name.startsWith(".")) continue;
     const next = rel === "" ? e.name : `${rel}/${e.name}`;
-    if (e.isDirectory()) walk(dir, next, out);
-    else if (e.isFile() && e.name.toLowerCase().endsWith(".md")) out.push(next);
+    if (matchesAny(ctx.config.ignore, next)) continue;
+    if (e.isDirectory()) walk(ctx, next, out);
+    else if (e.isFile() && e.name.toLowerCase().endsWith(".md")) {
+      if (next.toLowerCase() === "readme.md") continue;
+      out.push(next);
+    }
   }
 }
 
-export function loadDoc(ctx: Ctx, path: string): Doc {
-  const section = path.split("/")[0] as string;
-  if (!isSection(section)) {
-    throw new AxiError(`Not in a docs section: ${path}`, "VALIDATION_ERROR", [
-      `Sections: ${SECTIONS.join(", ")}`,
-    ]);
+/**
+ * Section for a docs-relative path: native folder first, then config map, else `other`
+ * (indexed in place). Mapped = placed by config rather than by folder.
+ */
+export function sectionOf(ctx: Ctx, path: string): { section: DocSection; mapped: boolean } {
+  const first = path.split("/")[0] as string;
+  if (path.includes("/") && isSection(first)) return { section: first, mapped: false };
+  for (const [section, pats] of Object.entries(ctx.config.map)) {
+    if (isDocSection(section) && matchesAny(pats, path)) {
+      return { section, mapped: section !== OTHER };
+    }
   }
+  return { section: OTHER, mapped: false };
+}
+
+export function loadDoc(ctx: Ctx, path: string): Doc {
+  const { section, mapped } = sectionOf(ctx, path);
   const parsed = parseDoc(readText(join(ctx.docsDir, path)));
   const file = path.slice(path.lastIndexOf("/") + 1);
   const slug = file.replace(/\.md$/i, "");
   const tagsRaw = parsed.data["tags"];
-  const adr = section === "decisions" ? ADR_FILE_RE.exec(file) : null;
+  const adr = section === "decisions" && !mapped ? ADR_FILE_RE.exec(file) : null;
+  let title = str(parsed.data["title"]);
+  let summary = str(parsed.data["summary"]);
+  if (section === OTHER && (title === undefined || summary === undefined)) {
+    // unmanaged doc: show something useful in the index without editing the file
+    const d = deriveTitleSummary(parsed.body, slug);
+    title ??= d.title;
+    summary ??= d.needsSummary ? undefined : d.summary;
+  }
   return {
     path,
     section,
     slug,
     parsed,
-    title: str(parsed.data["title"]),
-    summary: str(parsed.data["summary"]),
+    title,
+    summary,
     tags: Array.isArray(tagsRaw) ? tagsRaw : [],
     status: str(parsed.data["status"]),
     supersedes: toList(parsed.data["supersedes"]),
     supersededBy: str(parsed.data["superseded-by"]),
     adrNumber: adr ? Number(adr[1]) : undefined,
+    mapped,
   };
 }
 
-/** All managed docs, sorted by path. Files outside sections are not included. */
-export function loadDocs(ctx: Ctx): Doc[] {
-  const docs: Doc[] = [];
-  for (const section of SECTIONS) {
-    const dir = join(ctx.docsDir, section);
-    if (!existsSync(dir)) continue;
-    const files: string[] = [];
-    walk(dir, "", files);
-    for (const f of files) docs.push(loadDoc(ctx, `${section}/${f}`));
-  }
-  return docs.sort((a, b) => cmp(a.path, b.path));
+export function allFiles(ctx: Ctx): string[] {
+  if (!existsSync(ctx.docsDir)) return [];
+  const files: string[] = [];
+  walk(ctx, "", files);
+  return files;
 }
 
-/** `.md` files at the docs root (other than README.md) and unknown top-level dirs. */
-export function findUnmanaged(ctx: Ctx): string[] {
-  if (!existsSync(ctx.docsDir)) return [];
-  const out: string[] = [];
-  for (const e of readdirSync(ctx.docsDir, { withFileTypes: true }).sort(
-    (a, b) => cmp(a.name, b.name),
-  )) {
-    if (e.name.startsWith(".")) continue;
-    if (e.isDirectory()) {
-      if (!isSection(e.name)) out.push(`${e.name}/`);
-    } else if (
-      e.name.toLowerCase().endsWith(".md") &&
-      e.name.toLowerCase() !== "readme.md"
-    ) {
-      out.push(e.name);
-    }
-  }
-  return out;
+/** All managed docs (native sections plus config-mapped files), sorted by path. */
+export function loadDocs(ctx: Ctx): Doc[] {
+  const docs: Doc[] = [];
+  for (const f of allFiles(ctx)) docs.push(loadDoc(ctx, f));
+  return docs.sort((a, b) => cmp(a.path, b.path));
 }
 
 export function requireDocsDir(ctx: Ctx): void {

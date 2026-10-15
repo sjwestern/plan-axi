@@ -23,6 +23,21 @@ specs/changes/archived/<date>-<slug>/
 backlog.md                               repo level: one tasks-axi task per change
 ```
 
+## Config (docs-axi)
+
+Optional TOML, merged (arrays unioned): user `~/.config/plan-axi/config.toml` (or `$XDG_CONFIG_HOME/plan-axi/`), then repo `.plan-axi.toml`.
+
+```toml
+[docs]
+ignore = ["todo/", "reports/", "**/*.draft.md"]   # paths relative to docs/; never indexed or reported
+
+[docs.map]                                        # adopt legacy files in place, no moving
+domain = ["domain.md", "domain-glossary.md", "features/"]
+architecture = ["standards/"]
+```
+
+Always skipped: dot-entries, `node_modules/`, `_build/`, `_site/`, `site/`, `dist/`, `build/`. Files outside the layout are `UNMANAGED` warnings (exit 0). Mapped docs missing frontmatter or with odd names are warnings too.
+
 ## Develop
 
 ```sh
@@ -36,6 +51,6 @@ Design notes: `.agent-memory/plan-axi.md`.
 
 ## Skills
 
-Install by symlinking or copying `skills/*` into your agent skills folder. They call `tasks-axi` (pin `0.2.6`) and `docs-axi`.
+Install with `npm run skills:install` (symlinks `skills/*` into `~/.agents/skills`, which pi and other agents read; idempotent, refuses to overwrite non-link conflicts). Remove with `npm run skills:uninstall`. Use `node scripts/install-skills.mjs --dir <path>` for another location. They call `tasks-axi` (pin `0.2.6`) and `docs-axi`.
 
 Flow: `plan-explore` (read-only, reads `docs/`) -> `plan-propose` (writes the plan, no commit) -> you review and commit on main -> `plan-apply` (on main: start + treehouse worktree + prompt; in the worktree: run steps) -> `plan-archive`.

@@ -10,7 +10,6 @@ import {
   MAX_SUMMARY,
   SLUG_RE,
   TAG_RE,
-  findUnmanaged,
   loadDocs,
   requireDocsDir,
   type Ctx,
@@ -26,8 +25,10 @@ export const CHECK_SPEC: CmdSpec = {
   usage: "docs-axi check",
   help: `usage: docs-axi check
 Validate the docs folder. Exit 1 when problems are found.
+Config: [docs] ignore / [docs.map] in .plan-axi.toml (repo) or ~/.config/plan-axi/config.toml (user).
+Docs outside the layout are indexed under "Other" and not style-checked; style issues in mapped docs are warnings (exit 0).
 Checks: frontmatter (title, summary, tags), file names, ADR numbers/status/supersession,
-relative links resolve, files outside domain|architecture|decisions, index in sync.
+relative links resolve, index in sync.
 `,
 };
 
@@ -80,28 +81,40 @@ export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   requireDocsDir(ctx);
   const docs = loadDocs(ctx);
   const problems: Problem[] = [];
+  const warnings: Problem[] = [];
   const add = (code: string, path: string, detail: string): void => {
     problems.push({ code, path, detail });
+  };
+  // Docs placed via config [docs.map] are adopted as-is: style issues are warnings.
+  const addFor = (d: Doc, code: string, path: string, detail: string): void => {
+    (d.mapped ? warnings : problems).push({ code, path, detail });
   };
 
   const byNumber = new Map<number, Doc[]>();
   for (const d of docs) {
     for (const e of d.parsed.errors) add("FRONTMATTER_PARSE", d.path, e);
+    // Docs outside the layout are indexed in place: no style checks, but dead links are reported (warnings).
+    if (d.section === "other") {
+      checkLinks(ctx, d, warnings);
+      continue;
+    }
     if (!d.parsed.hasFrontmatter && d.parsed.errors.length === 0) {
-      add("NO_FRONTMATTER", d.path, "add frontmatter with title and summary");
+      addFor(d, "NO_FRONTMATTER", d.path, "add frontmatter with title and summary");
     }
     if (d.parsed.hasFrontmatter) {
-      if (!d.title) add("MISSING_TITLE", d.path, "frontmatter needs title");
-      if (!d.summary) add("MISSING_SUMMARY", d.path, "frontmatter needs a one-line summary");
+      if (!d.title) addFor(d, "MISSING_TITLE", d.path, "frontmatter needs title");
+      if (!d.summary) addFor(d, "MISSING_SUMMARY", d.path, "frontmatter needs a one-line summary");
       else if (d.summary.length > MAX_SUMMARY) {
-        add("SUMMARY_TOO_LONG", d.path, `${d.summary.length} chars (max ${MAX_SUMMARY})`);
+        addFor(d, "SUMMARY_TOO_LONG", d.path, `${d.summary.length} chars (max ${MAX_SUMMARY})`);
       }
     }
     for (const t of d.tags) {
-      if (!TAG_RE.test(t)) add("BAD_TAG", d.path, `invalid tag "${t}"`);
+      if (!TAG_RE.test(t)) addFor(d, "BAD_TAG", d.path, `invalid tag "${t}"`);
     }
     const file = d.path.slice(d.path.lastIndexOf("/") + 1);
-    if (d.section === "decisions") {
+    if (d.mapped) {
+      if (!SLUG_RE.test(d.slug)) addFor(d, "BAD_NAME", d.path, "file names are lowercase a-z, 0-9 and dashes");
+    } else if (d.section === "decisions") {
       if (d.path.split("/").length !== 2 || !ADR_FILE_RE.test(file)) {
         add("ADR_BAD_NAME", d.path, "ADR files are decisions/NNNN-slug.md (4-digit number, lowercase slug)");
       }
@@ -156,17 +169,27 @@ export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     }
   }
 
-  for (const u of findUnmanaged(ctx)) {
-    add("UNMANAGED", u, "outside domain/, architecture/, decisions/ - move it or delete it");
-  }
-
   const st = readmeState(ctx, docs);
   if (st.actual === undefined) add("INDEX_MISSING", "README.md", "run `docs-axi index`");
   else if (st.actual !== st.expected) add("INDEX_STALE", "README.md", "index out of date; run `docs-axi index`");
 
-  problems.sort((a, b) => cmp(a.path, b.path) || cmp(a.code, b.code) || cmp(a.detail, b.detail));
+  const order = (a: Problem, b: Problem): number =>
+    cmp(a.path, b.path) || cmp(a.code, b.code) || cmp(a.detail, b.detail);
+  problems.sort(order);
+  warnings.sort(order);
+  const cfg = ctx.config.sources.length > 0 ? ` config: ${ctx.config.sources.join("+")}` : "";
   if (problems.length === 0) {
-    return { check: `ok (${docs.length} docs, ${docsRel(ctx)})` };
+    const out: AxiStructuredOutput = {
+      check:
+        warnings.length === 0
+          ? `ok (${docs.length} docs, ${docsRel(ctx)})${cfg}`
+          : `ok with ${warnings.length} warning(s) (${docs.length} docs, ${docsRel(ctx)})${cfg}`,
+    };
+    if (warnings.length > 0) {
+      out["warnings"] = warnings;
+      out["help"] = ["Warnings do not fail the check. Silence with [docs] ignore / [docs.map] in .plan-axi.toml"];
+    }
+    return out;
   }
   process.exitCode = 1;
   const help: string[] = [];
@@ -177,9 +200,10 @@ export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     help.push('Run `docs-axi update <path> --title "<t>" --summary "<one line>"`');
   }
   const out: AxiStructuredOutput = {
-    check: `${problems.length} problem(s) in ${docs.length} docs`,
+    check: `${problems.length} problem(s) in ${docs.length} docs${cfg}`,
     problems,
   };
+  if (warnings.length > 0) out["warnings"] = warnings;
   if (help.length > 0) out["help"] = help;
   return out;
 }
