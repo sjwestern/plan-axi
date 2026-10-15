@@ -26,6 +26,26 @@ Lightweight plan -> apply -> archive workflow. Inspired by OpenSpec, differs: no
 - treehouse: `treehouse get --lease -b <branch>` prints worktree path to stdout, banners to stderr; `treehouse return <path>` releases.
 - Review gate task dropped: committing the plan on main is the approval; apply preflight checks plan is committed + clean.
 
+## Status (2026-10-15) - resume here
+Built and committed (3 commits on `main`, local-only, no remote, nothing published):
+- `packages/docs-axi` v0.1.0 - DONE, 23 vitest tests pass, tested on Linux only. Commands: (home), init, list, search, show, new, adr, update, supersede, index, check. Doc frontmatter: title, summary, tags, status (ADRs), supersedes/superseded-by. Index is generated between markers in docs/README.md. Run: `npm install && npm run build && npm test`; `node packages/docs-axi/dist/bin/docs-axi.js`.
+- `skills/plan-{explore,propose,apply,archive}/SKILL.md` - v0, prompt-only, NOT yet used on a real repo. Templates in `skills/plan-propose/templates/` (proposal.md, step.md). Interim checker `skills/plan-propose/scripts/check-plan.mjs` (cycles, Spec/step-file links, Owns overlap, `--waves`); apply/archive reach it as sibling skill dir.
+- Scratch-repo dry run of propose -> apply -> archive command sequence passed (real tasks-axi + docs-axi). treehouse step NOT run.
+NOT built: `packages/change-axi`, CI, Windows/macOS verification, changesets config, publishing, skill install/symlink step.
+
+## Next steps (in order)
+1. User supplies a real test repo + small change. Run explore -> propose -> (user commits plan on main) -> apply (launch + execute in treehouse worktree) -> archive. Record every place the agent slipped; tune skill prompts.
+2. Verify `treehouse get --lease -b <slug>` + `treehouse return <path>`; check treehouse Windows builds (decides whether CLI may call it, else keep as skill text).
+3. Build `packages/change-axi` driven by observed slips. Planned commands: `check` (promote check-plan.mjs; add docs-impact + gate checks), `new <slug>` (scaffold from templates, slug validation, collision check), `archive <slug>` (branch, or main if merged; date-prefixed move), `status` (home view: aggregate in-flight/ready across active changes + worktrees, flag stale), `deps set|show` (declarative blocker edit with cycle validation, wave view), `next`/`claim` (overlap-aware; claim uses `start` -> `already: true`), `prompt <slug> <id>` (agent hand-off text), `apply` preflight (on main, plan committed). Shell out to `tasks-axi` (never parse tasks.md). No dependency on docs-axi (skill runs `docs-axi check`).
+4. CI matrix (ubuntu/windows/macos), changesets config, pin versions in skills, decide install path for skills (symlink to ~/.agents/skills or `npx skills add`).
+5. Report upstream to kunchenguid/tasks-axi: dependency cycles accepted silently; `start` on done task reopens it.
+
+## Decisions still open
+- Whether apply hands off via printed commands (current) or CLI calls treehouse.
+- Within-change parallel steps share one worktree and one tasks.md (works: tasks-axi serializes writes; only commit-own-paths rule needed). Revisit if conflicts appear.
+- Name/placement of `Owns:` convention - only valuable if actually written reliably; evaluate in step 1.
+- Archive on branch (preferred) vs main-after-merge: both documented in plan-archive.
+
 ## Open / verify
 - tasks-axi `start` on already-started task reporting (for `claim`).
 - treehouse `lease` behavior, Windows builds.

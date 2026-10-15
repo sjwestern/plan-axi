@@ -13,4 +13,9 @@
 - [ ] Run skills on a real change in a real repo (user will provide)
 - [ ] Verify treehouse get --lease -b flow on a real repo
 - [ ] Next: change-axi (check first, then new/archive, deps, next, claim, prompt)
-- [ ] Verify: tasks-axi `start` on already-started task; treehouse `lease`; treehouse Windows builds
+- [x] Verified: tasks-axi `start` on already-started task reports `already: true`
+- [ ] Verify: treehouse `get --lease -b` + `return`; treehouse Windows builds
+- [ ] Report tasks-axi issues upstream (cycles accepted; start reopens done task)
+- [ ] CI + changesets config; skill install path
+
+See `.agent-memory/plan-axi.md` ("Status" and "Next steps") for the full resume notes.
