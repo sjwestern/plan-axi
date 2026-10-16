@@ -10,31 +10,32 @@ Docs read: `docs/domain/cli-quick-reference.md`, `docs/architecture/plan-workflo
 
 ## What changes
 
-- `archive` output on a branch includes one `next` line: `from the main checkout: change-axi finish <slug>`; nothing extra on main after merge.
-- New `change-axi finish <slug> [--dry-run]`, run from the main checkout: requires the change archived on branch `<slug>`, a clean tree and a fast-forwardable branch; runs `git merge --ff-only <slug>`, then `treehouse return <worktree>` when a worktree for the slug exists, and prints the repo build hint. Needs no shell exit when the agent was launched with `change-axi enter`.
+- `archive` stays a separate command (run on the branch, or by hand). Its output on a branch includes one `next` line: `from the main checkout: change-axi finish <slug>`; nothing extra on main after merge.
+- New `change-axi finish <slug> [--dry-run] [--skip-docs-check]`, run from the main checkout. If the change is not yet archived on branch `<slug>`, it runs archive (with commit) in that branch's worktree first; if already archived it skips that. Then it requires a clean main tree and a fast-forwardable branch, runs `git merge --ff-only <slug>`, runs `treehouse return <worktree>` when a worktree for the slug exists, and prints the repo build hint. Needs no shell exit when the agent was launched with `change-axi enter`.
 - `step add --after` accepts id prefixes (`01`) resolved like `dep`; ambiguous or unknown prefixes error.
 - plan-apply, plan-archive and docs describe `enter` then `finish`.
 
 ## Out of scope
 
-Deleting the branch; running the repo build; pushing; merge strategies other than ff-only; `--after` for `step set`.
+Merging archive into finish (they stay separate); deleting the branch; running the repo build; pushing; merge strategies other than ff-only; `--after` for `step set`.
 
 ## Approach
 
-Archive: add a `next` line in branch mode. Finish: new `finish.ts` reusing `git.ts` and the treehouse status lookup from `start.ts` (row tagged `[<slug>]`). Checks in order: on base branch, tree clean, branch `<slug>` exists and contains `specs/changes/archived/*-<slug>/proposal.md`, base is an ancestor of the branch. Then merge, then return (skipped with a note when no worktree is found; `return` also ends the lingering shell, so the hint to `exit` is not needed when launched via `enter`). Step add: extract the prefix resolver from `dep` in commands.ts. Alternatives: archive merges itself (rejected: archive runs inside the worktree, merge needs the main checkout); `finish` runs the repo build (rejected: repo-specific).
+Archive: add a `next` line in branch mode; the command is otherwise unchanged. Finish: new `finish.ts` reusing `git.ts`, the treehouse status lookup from `start.ts` (row tagged `[<slug>]`) and the exported `archiveChange`, called with a ctx rooted at the worktree path and `commit: true`. Order: find worktree, check main is clean and on base, archive in the worktree if the branch lacks `specs/changes/archived/*-<slug>/proposal.md` (archive's own preflight enforces done tasks, clean worktree, Docs impact), verify base is an ancestor of the branch, merge, return. Nothing on main changes before the merge, so an archive failure leaves main untouched (the branch may hold the archive commit). `return` also ends the lingering shell, so no `exit` hint is needed when launched via `enter`. Step add: extract the prefix resolver from `dep` in commands.ts. Alternatives: archive merges itself (rejected: archive runs on the branch, merge needs the main checkout); `finish` runs the repo build (rejected: repo-specific).
 
 ## Steps
 
 - `01-archive-prints-follow-up-commands.md` - archive next line points at finish
 - `02-step-add-accepts-prefix-ids.md` - prefix resolution for --after
-- `03-finish-command.md` - ff-merge and treehouse return from main
+- `03-finish-command.md` - archive if needed, ff-merge and treehouse return from main
 - `04-skills-and-docs-use-finish.md` - skills and docs describe enter then finish
 
 ## Acceptance
 
 - `npm test -w packages/change-axi` passes with new cases.
 - `change-axi archive <slug> --dry-run` on a branch shows the finish line; `step add ... --after 01` stores the full id as the blocker.
-- In a temp repo with an archived branch: `finish --dry-run` reports the plan; `finish` fast-forwards main and returns the worktree; `finish` on an unarchived or diverged branch errors without changing anything.
+- In a temp repo with a branch whose steps are done but not archived: `finish --dry-run` reports archive, merge and return as planned; `finish` archives on the branch, fast-forwards main and returns the worktree. With the branch already archived, `finish` skips archiving.
+- `finish` with unfinished tasks, a dirty main tree or a diverged branch errors; main `HEAD` is unchanged.
 - `change-axi check polish-archive-and-step-add` and `docs-axi check` pass.
 
 ## Docs impact
@@ -46,5 +47,6 @@ Archive: add a `next` line in branch mode. Finish: new `finish.ts` reusing `git.
 
 - Edits packages/change-axi/src/commands.ts, also edited by add-claim-done-commands; run sequentially.
 - Worktree lookup depends on treehouse status output format (already relied on by start).
+- Archive commits on the branch before the merge; if the merge then fails (diverged), the branch keeps the archive commit and main is untouched. Rerun `finish` after rebasing.
 - Overlaps docs and plan-apply skill with add-claim-done-commands; apply it first.
 - Whether `finish` should also delete the branch: left manual for now.
