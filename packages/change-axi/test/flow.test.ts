@@ -61,6 +61,12 @@ describe("change-axi", () => {
     expect((await repo.run("show", "demo-change", "02", "--section", "Goal")).out).toContain("x");
   });
 
+  it("creates a second change when backlog.md already exists", async () => {
+    await repo.run("new", "demo-change", "Demo change");
+    expect((await repo.run("new", "other-change", "Other")).code).toBe(0);
+    expect(read("backlog.md")).toContain("other-change");
+  });
+
   it("flags an orphan step file and a tool-dir Owns not named in the proposal", async () => {
     await repo.run("new", "demo-change", "Demo change");
     await repo.run("step", "add", "demo-change", "Edit skills", "--owns", ".agents/skills/foo/");

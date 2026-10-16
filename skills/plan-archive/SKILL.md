@@ -10,30 +10,24 @@ Close a completed change. The archive is history only: current truth lives in `d
 ## Conventions
 
 - Active: `specs/changes/active/<slug>/`. Archived: `specs/changes/archived/<YYYY-MM-DD>-<slug>/` with the whole folder (including `tasks.md`, all tasks Done).
-- Date = **local** date, ISO: `node -p "new Date().toLocaleDateString('sv-SE')"` (works on Windows, Linux, macOS).
 - Task files change only through `tasks-axi ... --file`, from the repo root. `npx -y tasks-axi@0.2.6` / `npx -y docs-axi@0.1.0` if not installed.
-- `CHECK` = `change-axi check <slug>` (`npx -y change-axi@0.1.0` if missing).
+- `change-axi` (`npx -y change-axi@0.1.0` if missing) does the mechanics; the date is the local date.
 
 ## Where to run
 
 - **On the feature branch (preferred).** The branch carries the final state; archive is its last commit, so one merge brings code, docs, history and backlog together.
-- **On main, after merge.** Allowed only when the branch is merged: `git branch --merged` (or `git merge-base --is-ancestor <slug> HEAD`) includes `<slug>`, and `specs/changes/active/<slug>/` still exists.
-- Anywhere else (another branch, dirty tree) -> stop and say why.
+- **On main, after merge** (branch `<slug>` merged, `specs/changes/active/<slug>/` still present).
+- Anywhere else -> `change-axi archive` refuses and says why.
 
 ## Steps
 
-1. **Clean tree** for the touched paths: `git status --porcelain -- specs docs backlog.md` prints nothing.
-2. **All tasks done.** `tasks-axi list --state queued --file specs/changes/active/<slug>/tasks.md`, then `--state in_flight`, then `--state held`: all must be empty. Otherwise list them and stop (the user may finish them or drop them with `tasks-axi rm`).
-3. **Plan sanity.** `CHECK` has no errors; `docs-axi check` passes.
-4. **Docs impact met.** Read `## Docs impact` in `proposal.md`. Each listed path must exist; for each, `git diff --name-only <default-branch>...HEAD` (branch mode) or the merged range (main mode) must include it. Report any listed doc that was not touched; unless the proposal says `None - <reason>`, stop and ask. Do not archive with stale docs.
-5. **Decisions.** For each ADR the plan created (`status: proposed`, listed in Docs impact): confirm the decision matches what was built, then `docs-axi update <number> --status accepted`. If it replaces an earlier ADR: `docs-axi supersede <old> --by <new>`. Ask the user if an ADR no longer matches.
-6. **Move.** `git mv specs/changes/active/<slug> specs/changes/archived/<date>-<slug>`. Refuse if the target exists.
-7. **Backlog.** `tasks-axi done <slug> --file backlog.md` (already done = no-op).
-8. **Commit** the move, docs and backlog together: `git add -- specs docs backlog.md && git commit -m "archive <slug>"`.
-9. **Report**: archived path, docs changed, ADRs accepted. Branch mode: tell the user to merge `<slug>` into main from the main checkout, then release the worktree (`treehouse return <path>`). Main mode: nothing left; the worktree can be released.
+1. **Dry run.** `change-axi archive <slug> --dry-run`. It checks: clean tree for `specs docs backlog.md`, all tasks done, plan check, every doc in Docs impact exists and changed since the plan commit (ADRs exempt), and lists the ADRs it would accept. Fix what it reports. Untouched docs: update them; only if the user explicitly agrees, pass `--skip-docs-check` and say why in the commit message.
+2. **Judge the ADRs.** For each ADR listed as `accept`, check the decision matches what was built (`docs-axi show <n> --section Decision`). If one no longer matches, fix it with `docs-axi write` first, or ask the user. If an ADR replaces an earlier one, run `docs-axi supersede <old> --by <new>` before step 3.
+3. **Archive.** `change-axi archive <slug> --commit`. It accepts the proposed ADRs (and reindexes), `git mv`s the folder to `archived/<date>-<slug>`, marks the backlog task done, and commits `archive <slug>`.
+4. **Report**: archived path, ADRs accepted, docs changed. Branch mode: tell the user to merge `<slug>` into main from the main checkout, then release the worktree (`treehouse return <path>`). Main mode: nothing left; the worktree can be released.
 
 ## Rules
 
 - Never archive with open tasks or untouched listed docs (unless the user explicitly overrides, and then say what was skipped in the commit message).
 - Never edit the archived `tasks.md` by hand. Do not delete the branch or worktree yourself.
-- Idempotent: if the archived folder already exists and the active one does not, report "already archived" and only ensure the backlog task is done.
+- Idempotent: an already archived change only ensures the backlog task is done.

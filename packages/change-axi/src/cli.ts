@@ -11,7 +11,7 @@ export const DESCRIPTION =
 
 export const TOP_HELP = `usage: change-axi [command] [args] [flags]
 commands[12]:
-  (none)=active changes, spec, new, step, dep, sections, show, write, append, check, status
+  (none)=active changes, spec, new, step, dep, sections, show, write, append, check, status, archive
 flags[2]:
   --root <dir> (after command; default git root), --help, -v/-V/--version
 examples:
@@ -33,6 +33,7 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   write: { run: c.writeCommand, help: c.WRITE_SPEC.help },
   append: { run: c.appendCommand, help: c.APPEND_SPEC.help },
   check: { run: c.checkCommand, help: c.CHECK_SPEC.help },
+  archive: { run: c.archiveCommand, help: c.ARCHIVE_SPEC.help },
   status: { run: c.statusCommand, help: c.STATUS_SPEC.help },
 };
 

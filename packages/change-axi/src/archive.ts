@@ -1,0 +1,181 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { AxiError } from "axi-sdk-js";
+import { loadConfig } from "docs-axi/lib/config";
+import { readText, writeText } from "docs-axi/lib/fsutil";
+import { parseDoc, setFrontmatter } from "docs-axi/lib/frontmatter";
+import { writeIndex } from "docs-axi/lib/indexgen";
+import { loadDocs } from "docs-axi/lib/model";
+import { splitDoc } from "docs-axi/lib/sectionedit";
+import { findSectionOrUndefined, sectionText } from "docs-axi/lib/sections";
+import { archivedDir, changeDir, type Ctx } from "./change.js";
+import { checkChange } from "./check.js";
+import { listTasks, runTasks } from "./tasks.js";
+
+function git(ctx: Ctx, args: string[], allowFail = false): string {
+  try {
+    return execFileSync("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  } catch (e) {
+    if (allowFail) return "";
+    const err = e as { stderr?: string; message?: string };
+    throw new AxiError(`git ${args[0]} failed: ${(err.stderr ?? err.message ?? "").trim().split("\n")[0]}`, "GIT_ERROR");
+  }
+}
+
+function defaultBranch(ctx: Ctx): string {
+  const head = git(ctx, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], true);
+  if (head.startsWith("origin/")) return head.slice(7);
+  for (const b of ["main", "master"]) if (git(ctx, ["rev-parse", "--verify", "--quiet", `refs/heads/${b}`], true)) return b;
+  return "main";
+}
+
+export interface DocsImpact {
+  path: string;
+  adr: boolean;
+  removal: boolean;
+}
+
+/** Markdown paths named in the proposal's "Docs impact" section. */
+export function parseDocsImpact(proposal: string): { none: boolean; docs: DocsImpact[] } {
+  const d = splitDoc(proposal);
+  const s = findSectionOrUndefined(d.secs.filter((x) => x.level === 2), "Docs impact");
+  const text = s ? sectionText(d.lines, s, true) : "";
+  const none = /^\s*(-\s*)?None\b/im.test(text) && !/`[^`]+\.md`/.test(text);
+  const docs: DocsImpact[] = [];
+  for (const line of text.split("\n")) {
+    const removal = /\b(delete|remove|drop)\b/i.test(line);
+    for (const m of line.matchAll(/`([^`\s]+\.md)`/g)) {
+      const path = (m[1] as string).replace(/^\.\//, "").replace(/\\/g, "/");
+      if (!docs.some((x) => x.path === path)) docs.push({ path, adr: /^docs\/decisions\/\d{4}-.+\.md$/.test(path), removal });
+    }
+  }
+  return { none, docs };
+}
+
+export interface ArchiveOptions {
+  dryRun: boolean;
+  commit: boolean;
+  skipDocsCheck: boolean;
+}
+
+export interface ArchiveReport {
+  mode: string;
+  target: string;
+  adrs: { path: string; action: string }[];
+  untouched: string[];
+  commit?: string;
+  already?: boolean;
+}
+
+export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): ArchiveReport {
+  const active = changeDir(ctx, slug);
+  const arch = archivedDir(ctx);
+  const done = existsSync(arch) ? readdirSync(arch).find((d) => /^\d{4}-\d{2}-\d{2}-/.test(d) && d.slice(11) === slug) : undefined;
+  if (!existsSync(active) && done) {
+    if (!o.dryRun) ensureBacklogDone(ctx, slug);
+    return { mode: "already archived", target: `specs/changes/archived/${done}`, adrs: [], untouched: [], already: true };
+  }
+  if (!existsSync(active)) throw new AxiError(`change "${slug}" not found in specs/changes/active/`, "NOT_FOUND");
+
+  // where
+  const base = defaultBranch(ctx);
+  const current = git(ctx, ["branch", "--show-current"]);
+  let mode: string;
+  if (current === slug) mode = "branch";
+  else if (current === base) {
+    if (!git(ctx, ["rev-parse", "--verify", "--quiet", `refs/heads/${slug}`], true) || !isAncestor(ctx, slug)) {
+      throw new AxiError(`on ${base} but branch "${slug}" is not merged`, "VALIDATION_ERROR", [`Merge ${slug} first, or run archive on the ${slug} branch`]);
+    }
+    mode = "main (after merge)";
+  } else {
+    throw new AxiError(`on branch "${current}"`, "VALIDATION_ERROR", [`Run archive on branch ${slug} (preferred) or on ${base} after merging ${slug}`]);
+  }
+
+  const dirty = git(ctx, ["status", "--porcelain", "--", "specs", "docs", "backlog.md"]);
+  if (dirty !== "") throw new AxiError("uncommitted changes in specs/, docs/ or backlog.md", "VALIDATION_ERROR", dirty.split("\n").slice(0, 10).concat("Commit them first"));
+
+  const tasks = listTasks(ctx.root, `specs/changes/active/${slug}/tasks.md`);
+  const open = tasks.filter((t) => t.state !== "done");
+  if (open.length > 0) {
+    throw new AxiError(`${open.length} task(s) not done: ${open.map((t) => `${t.id} (${t.state})`).join(", ")}`, "VALIDATION_ERROR", [
+      "Finish them, or drop with `tasks-axi rm <id> --file specs/changes/active/<slug>/tasks.md`",
+    ]);
+  }
+  const chk = checkChange(ctx, slug);
+  const errs = chk.errors.filter((e) => !e.startsWith("SLUG_DONE"));
+  if (errs.length > 0) throw new AxiError("plan check failed", "VALIDATION_ERROR", errs.concat(`Run \`change-axi check ${slug}\``));
+
+  // docs impact
+  const proposalPath = join(active, "proposal.md");
+  const impact = parseDocsImpact(readText(proposalPath));
+  if (!impact.none && impact.docs.length === 0) {
+    throw new AxiError('proposal "Docs impact" names no .md paths and is not "None - <reason>"', "VALIDATION_ERROR", ["List docs as `docs/x.md` in backticks, or write `None - <reason>`"]);
+  }
+  const planCommit = git(ctx, ["log", "--diff-filter=A", "--format=%H", "--", `specs/changes/active/${slug}/proposal.md`]).split("\n").filter(Boolean).pop();
+  if (!planCommit) throw new AxiError("proposal.md is not committed", "VALIDATION_ERROR", ["Commit the plan first"]);
+  const touched = new Set(git(ctx, ["diff", "--name-only", `${planCommit}..HEAD`]).split("\n").filter(Boolean));
+  const untouched: string[] = [];
+  for (const d of impact.docs) {
+    if (d.removal) continue;
+    if (!existsSync(join(ctx.root, d.path))) throw new AxiError(`Docs impact lists ${d.path} but it does not exist`, "VALIDATION_ERROR");
+    if (!d.adr && !touched.has(d.path)) untouched.push(d.path);
+  }
+  if (untouched.length > 0 && !o.skipDocsCheck) {
+    throw new AxiError(`${untouched.length} doc(s) in Docs impact not changed since the plan commit`, "VALIDATION_ERROR", [
+      ...untouched,
+      "Update them, or pass --skip-docs-check and say why in the commit message",
+    ]);
+  }
+
+  // ADRs
+  const adrs: ArchiveReport["adrs"] = [];
+  for (const d of impact.docs.filter((x) => x.adr && !x.removal)) {
+    const fm = parseDoc(readText(join(ctx.root, d.path))).data["status"];
+    adrs.push({ path: d.path, action: fm === "proposed" ? "accept" : `keep (${String(fm)})` });
+  }
+
+  const date = new Date().toLocaleDateString("sv-SE");
+  const targetRel = `specs/changes/archived/${date}-${slug}`;
+  const target = join(ctx.root, targetRel);
+  if (existsSync(target)) throw new AxiError(`${targetRel} already exists`, "VALIDATION_ERROR");
+  const report: ArchiveReport = { mode, target: targetRel, adrs, untouched };
+  if (o.dryRun) return report;
+
+  // apply
+  const accepted = adrs.filter((a) => a.action === "accept");
+  if (accepted.length > 0) {
+    for (const a of accepted) {
+      const abs = join(ctx.root, a.path);
+      writeText(abs, setFrontmatter(readText(abs), { status: "accepted" }));
+      a.action = "accepted";
+    }
+    const dctx = { root: ctx.root, docsDir: resolve(ctx.root, "docs"), config: loadConfig(ctx.root) };
+    writeIndex(dctx, loadDocs(dctx));
+  }
+  mkdirSync(dirname(target), { recursive: true });
+  git(ctx, ["mv", `specs/changes/active/${slug}`, targetRel]);
+  ensureBacklogDone(ctx, slug);
+  if (o.commit) {
+    git(ctx, ["add", "--", "specs", "docs", "backlog.md"]);
+    git(ctx, ["commit", "-q", "-m", `archive ${slug}`]);
+    report.commit = git(ctx, ["rev-parse", "--short", "HEAD"]);
+  }
+  return report;
+}
+
+function isAncestor(ctx: Ctx, slug: string): boolean {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", slug, "HEAD"], { cwd: ctx.root, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+
+function ensureBacklogDone(ctx: Ctx, slug: string): void {
+  if (!existsSync(join(ctx.root, "backlog.md"))) return;
+  const t = listTasks(ctx.root, "backlog.md").find((x) => x.id === slug);
+  if (t && t.state !== "done") runTasks(ctx.root, ["done", slug, "--file", "backlog.md"]);
+}

@@ -7,6 +7,7 @@ import { applyEol, writeText } from "docs-axi/lib/fsutil";
 import { editSection, splitDoc } from "docs-axi/lib/sectionedit";
 import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
+import { archiveChange } from "./archive.js";
 import { checkChange, computeWaves } from "./check.js";
 import {
   activeDir,
@@ -102,7 +103,7 @@ export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (existsSync(archivedDir(ctx)) && readdirSync(archivedDir(ctx)).some((d) => /^\d{4}-\d{2}-\d{2}-/.test(d) && d.slice(11) === slug)) {
     throw new AxiError(`slug "${slug}" is already archived`, "VALIDATION_ERROR", ["Pick a new slug"]);
   }
-  if (existsSync(join(ctx.root, "backlog.md")) && listTasks(ctx.root, "backlog.md", ["--limit", "1000"]).some((t) => t.id === slug)) {
+  if (existsSync(join(ctx.root, "backlog.md")) && listTasks(ctx.root, "backlog.md").some((t) => t.id === slug)) {
     throw new AxiError(`backlog.md already has a task "${slug}"`, "VALIDATION_ERROR", ["tasks-axi add ignores existing ids; pick a new slug"]);
   }
   mkdirSync(dir, { recursive: true });
@@ -432,4 +433,43 @@ export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     steps: tasks.map((t) => ({ id: t.id, state: t.state, blocked_by: t.blockers.join(",") || "none", wave: waveOf.get(t.id) ?? "-" })),
     ready: ready.join(",") || "none",
   };
+}
+
+// ---------------------------------------------------------------- archive
+
+export const ARCHIVE_SPEC: CmdSpec = {
+  name: "archive",
+  flags: { "--dry-run": "boolean", "--commit": "boolean", "--skip-docs-check": "boolean" },
+  min: 1,
+  max: 1,
+  usage: "change-axi archive <slug> [--dry-run] [--commit] [--skip-docs-check]",
+  help: `usage: change-axi archive <slug> [--dry-run] [--commit] [--skip-docs-check]
+Finish a change. Run on branch <slug> (preferred) or on the default branch after merging it.
+Checks: clean tree (specs, docs, backlog.md), all tasks done, plan check passes, every doc in Docs impact exists
+and changed since the plan commit (ADRs exempt). Then: accepts proposed ADRs listed in Docs impact (reindexes),
+git mv to specs/changes/archived/<date>-<slug>, marks the backlog task done.
+  --dry-run          run the checks, report ADRs that would be accepted, change nothing
+  --commit           commit everything as "archive <slug>"
+  --skip-docs-check  allow Docs impact docs that were not changed (say why in the commit message)
+Idempotent: an already archived change only ensures the backlog task is done.
+If an accepted ADR replaces an older one: docs-axi supersede <old> --by <new>.
+examples:
+  change-axi archive split-auth --dry-run
+  change-axi archive split-auth --commit
+`,
+};
+
+export function archiveCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(ARCHIVE_SPEC, args);
+  const slug = p.pos[0] as string;
+  const dry = flagBool(p, "--dry-run");
+  const r = archiveChange(ctx, slug, { dryRun: dry, commit: flagBool(p, "--commit"), skipDocsCheck: flagBool(p, "--skip-docs-check") });
+  if (r.already) return { archive: `${slug} already archived`, path: r.target, backlog: "done" };
+  const out: AxiStructuredOutput = { archive: dry ? `${slug} ready (dry run, nothing changed)` : `${slug} archived`, mode: r.mode, path: r.target };
+  if (r.adrs.length > 0) out["adrs"] = r.adrs;
+  if (r.untouched.length > 0) out["docs_not_updated"] = r.untouched.join(", ");
+  if (r.commit) out["commit"] = r.commit;
+  if (dry) out["help"] = [`Run \`change-axi archive ${slug} --commit\` to apply`];
+  else if (!r.commit) out["help"] = ["Commit: git add -- specs docs backlog.md && git commit -m \"archive " + slug + "\""];
+  return out;
 }

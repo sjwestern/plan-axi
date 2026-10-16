@@ -34,4 +34,5 @@ change-axi step set split-auth 02 --owns src/auth/,tests/auth/
 change-axi dep split-auth 03 --on 01,02    # cycles are reverted
 change-axi check split-auth --waves
 change-axi status split-auth
+change-axi archive split-auth --dry-run    # then --commit; accepts the change's ADRs
 ```
