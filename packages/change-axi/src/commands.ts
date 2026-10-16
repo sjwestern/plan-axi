@@ -14,6 +14,7 @@ import { buildCommand, resolveAgent, runAgent } from "./agent.js";
 import { finishChange } from "./finish.js";
 import { git } from "./git.js";
 import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
+import { listEnterable } from "./enter-list.js";
 import { leaseWorktree, startChange } from "./start.js";
 import { changeHome, currentChangeSlug } from "./home.js";
 import { checkChange, computeWaves } from "./check.js";
@@ -560,7 +561,7 @@ Idempotent: an in-flight change is not started twice; the worktree is looked up 
 Output: worktree path, an enter command to copy, the ready steps with their Owns, and the parallel waves.
 Then in the worktree tell the agent: apply <slug> <step-id>.
 examples:
-  change-axi start add-hangfire-foundation
+  change-axi start split-auth
 `,
 };
 
@@ -669,26 +670,35 @@ const SETUP_HINT = "Run `change-axi setup` so agents in the worktree know to use
 
 export const ENTER_SPEC: CmdSpec = {
   name: "enter",
-  flags: { "--print": "boolean", "--run": "boolean" },
-  min: 1,
+  flags: { "--print": "boolean", "--run": "boolean", "--list": "boolean" },
+  min: 0,
   max: 2,
-  usage: "change-axi enter <slug> [step] [--print] [--run]",
+  usage: "change-axi enter <slug> [step] [--print] [--run] | enter --list",
   help: `usage: change-axi enter <slug> [step] [--print] [--run]
+       change-axi enter --list
 Start the change if needed, find its worktree, and run the configured agent there with the prompt "apply <slug> [step]".
 Agent command: [apply] agent = "pi {prompt}" in .plan-axi.toml (repo) or the user config, then env CHANGE_AXI_AGENT,
 then the first of pi, claude, codex, gemini, opencode found on PATH. Placeholders: {prompt} {slug} {step} {path}.
 On branch <slug> the current directory is used. Without a TTY, or with --print, the command is printed, not run.
   --print   print the path and command only
   --run     run even when stdout is not a TTY
+  --list    list active changes with worktree, branch state and in-flight steps
 examples:
-  change-axi enter add-hangfire-foundation
-  change-axi enter add-hangfire-foundation 02-jobs --print
+  change-axi enter --list
+  change-axi enter split-auth
+  change-axi enter split-auth 02-tokens --print
 `,
 };
 
 export function enterCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(ENTER_SPEC, args);
-  const slug = p.pos[0] as string;
+  if (flagBool(p, "--list")) {
+    const rows = listEnterable(ctx);
+    if (rows.length === 0) return { changes: "0 active changes", help: ['Run `change-axi new <slug> "<title>"` to start a plan'] };
+    return { changes: rows, help: ["Run `change-axi enter <slug>` to start or resume one"] };
+  }
+  const slug = p.pos[0];
+  if (!slug) throw new AxiError("enter needs a slug", "VALIDATION_ERROR", ["Run `change-axi enter --list` to see active changes", "usage: change-axi enter <slug> [step]"]);
   let step = p.pos[1];
   requireChange(ctx, slug);
   if (step && !listTasks(ctx.root, tasksRel(slug)).some((t) => t.id === step)) {
