@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { AxiError } from "axi-sdk-js";
@@ -11,24 +10,8 @@ import { splitDoc } from "docs-axi/lib/sectionedit";
 import { findSectionOrUndefined, sectionText } from "docs-axi/lib/sections";
 import { archivedDir, changeDir, type Ctx } from "./change.js";
 import { checkChange } from "./check.js";
+import { defaultBranch, firstCommitOf, git, isAncestor } from "./git.js";
 import { listTasks, runTasks } from "./tasks.js";
-
-function git(ctx: Ctx, args: string[], allowFail = false): string {
-  try {
-    return execFileSync("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
-  } catch (e) {
-    if (allowFail) return "";
-    const err = e as { stderr?: string; message?: string };
-    throw new AxiError(`git ${args[0]} failed: ${(err.stderr ?? err.message ?? "").trim().split("\n")[0]}`, "GIT_ERROR");
-  }
-}
-
-function defaultBranch(ctx: Ctx): string {
-  const head = git(ctx, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], true);
-  if (head.startsWith("origin/")) return head.slice(7);
-  for (const b of ["main", "master"]) if (git(ctx, ["rev-parse", "--verify", "--quiet", `refs/heads/${b}`], true)) return b;
-  return "main";
-}
 
 export interface DocsImpact {
   path: string;
@@ -112,7 +95,7 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
   if (!impact.none && impact.docs.length === 0) {
     throw new AxiError('proposal "Docs impact" names no .md paths and is not "None - <reason>"', "VALIDATION_ERROR", ["List docs as `docs/x.md` in backticks, or write `None - <reason>`"]);
   }
-  const planCommit = git(ctx, ["log", "--diff-filter=A", "--format=%H", "--", `specs/changes/active/${slug}/proposal.md`]).split("\n").filter(Boolean).pop();
+  const planCommit = firstCommitOf(ctx, `specs/changes/active/${slug}/proposal.md`);
   if (!planCommit) throw new AxiError("proposal.md is not committed", "VALIDATION_ERROR", ["Commit the plan first"]);
   const touched = new Set(git(ctx, ["diff", "--name-only", `${planCommit}..HEAD`]).split("\n").filter(Boolean));
   const untouched: string[] = [];
@@ -163,16 +146,6 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
   }
   return report;
 }
-
-function isAncestor(ctx: Ctx, slug: string): boolean {
-  try {
-    execFileSync("git", ["merge-base", "--is-ancestor", slug, "HEAD"], { cwd: ctx.root, stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 
 function ensureBacklogDone(ctx: Ctx, slug: string): void {
   if (!existsSync(join(ctx.root, "backlog.md"))) return;

@@ -8,6 +8,7 @@ import { editSection, splitDoc } from "docs-axi/lib/sectionedit";
 import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
 import { archiveChange } from "./archive.js";
+import { startChange } from "./start.js";
 import { checkChange, computeWaves } from "./check.js";
 import {
   activeDir,
@@ -471,5 +472,51 @@ export function archiveCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (r.commit) out["commit"] = r.commit;
   if (dry) out["help"] = [`Run \`change-axi archive ${slug} --commit\` to apply`];
   else if (!r.commit) out["help"] = ["Commit: git add -- specs docs backlog.md && git commit -m \"archive " + slug + "\""];
+  return out;
+}
+
+// ---------------------------------------------------------------- start
+
+export const START_SPEC: CmdSpec = {
+  name: "start",
+  flags: { "--dry-run": "boolean", "--no-worktree": "boolean" },
+  min: 1,
+  max: 1,
+  usage: "change-axi start <slug> [--dry-run] [--no-worktree]",
+  help: `usage: change-axi start <slug> [--dry-run] [--no-worktree]
+Launch a committed plan. Run on the default branch (the main checkout).
+Preflight: not behind the remote, plan committed and clean, plan check passes, backlog task queued.
+Then: marks the change in flight in backlog.md and commits only that file ("start <slug>"),
+and leases a treehouse worktree on branch <slug> (reused if one already exists for it).
+Idempotent: an in-flight change is not started twice; the worktree is looked up instead.
+  --dry-run       run the preflight, change nothing
+  --no-worktree   skip the treehouse lease
+Output lists the ready steps with their Owns and the parallel waves. Then: treehouse enter <worktree>.
+examples:
+  change-axi start add-hangfire-foundation
+`,
+};
+
+export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(START_SPEC, args);
+  const slug = p.pos[0] as string;
+  const dry = flagBool(p, "--dry-run");
+  const r = startChange(ctx, slug, { dryRun: dry, worktree: !flagBool(p, "--no-worktree") });
+  const out: AxiStructuredOutput = {
+    start: dry ? `${slug} ready to start (dry run, nothing changed)` : r.already ? `${slug} already in flight` : `${slug} started`,
+  };
+  if (r.commit) out["commit"] = r.commit;
+  if (r.worktree) {
+    out["worktree"] = r.worktree.path;
+    if (r.worktree.name) out["worktree_id"] = r.worktree.name;
+    out["branch"] = slug;
+  }
+  out["ready"] = r.ready;
+  out["waves"] = [...r.waves].map(([w, ids]) => ({ wave: w, steps: ids.join(",") }));
+  if (r.warnings.length > 0) out["warnings"] = r.warnings;
+  const help: string[] = [];
+  if (r.worktree?.name) help.push(`Run \`treehouse enter ${r.worktree.name}\` to work in the worktree`);
+  help.push(`In the worktree, follow plan-apply Execute for ${slug}`);
+  out["help"] = help;
   return out;
 }

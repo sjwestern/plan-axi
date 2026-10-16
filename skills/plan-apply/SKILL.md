@@ -15,22 +15,17 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 - Plan: `specs/changes/active/<slug>/` (`proposal.md`, `NN-*.md` step files, `tasks.md`). Repo level: `backlog.md`, one task per change, id = slug.
 - **`tasks.md` and `backlog.md` are changed only through `tasks-axi`**, always with `--file` after the command, run from the repo (or worktree) root. If missing: `npx -y tasks-axi@0.2.6 <args>`.
 - Step task id = step file stem; its body is `Spec: <file>.md`.
-- Plan tool: `change-axi` (`npx -y change-axi@0.1.0` if missing). `CHECK` below = `change-axi check <slug> --waves`. `change-axi status <slug>` shows steps, waves and what is ready. `change-axi show <slug> <step> [--section Work]` reads a step or one section of it.
+- Plan tool: `change-axi` (`start` launches, `archive` finishes) (`npx -y change-axi@0.1.0` if missing). `CHECK` below = `change-axi check <slug> --waves`. `change-axi status <slug>` shows steps, waves and what is ready. `change-axi show <slug> <step> [--section Work]` reads a step or one section of it.
 - Docs: `docs-axi` (`npx -y docs-axi@0.1.0` if missing).
 
 ## Launch (on main)
 
 1. **Pick the change.** Use the slug given. Otherwise `tasks-axi list --state queued --kind change` (and `--state in_flight`) and ask.
-2. **Preflight.** Stop and report if any fails:
-   - On the default branch (`main`/`master`) and up to date with its remote if one is configured.
-   - Plan committed and clean: `git status --porcelain -- specs/changes/active/<slug> backlog.md docs` prints nothing, and `git log -1 -- specs/changes/active/<slug>` shows a commit. "Commit the plan on main first" otherwise.
-   - `CHECK` passes (no cycles, every step has a task, specs exist) and `docs-axi check` passes.
-3. **Already in flight?** `tasks-axi show <slug> --file backlog.md`: if in flight, the change was started earlier -> find its worktree (`treehouse status`, branch `<slug>`) and go to step 6 with "resume". Do not start twice.
-4. **Start.** `tasks-axi start <slug> --file backlog.md`, then commit only that file on main: `git add -- backlog.md && git commit -m "start <slug>" -- backlog.md`.
-5. **Worktree.** `treehouse get --lease -b <slug>` prints the absolute worktree path on stdout (banners go to stderr). Keep the path. The branch is the change slug.
-6. **Hand-off.** Do not implement in the main checkout. From `CHECK --waves` and `tasks-axi ready --file ...` tell the user:
-   - the worktree path and branch;
-   - which steps are ready now, and which of them are parallel-safe (different waves cannot run together; same wave and non-overlapping `Owns:` can). Recommend at most one agent per safe step, and say how many extra panes are useful;
+2. **Dry run.** `change-axi start <slug> --dry-run`. Preflight: on the default branch and not behind its remote, plan committed and clean, `change-axi check` passes, backlog task queued. Fix what it reports (usually "commit the plan on main first"). Also run `docs-axi check`.
+3. **Start.** `change-axi start <slug>`. It marks the change in flight, commits only `backlog.md` as `start <slug>`, and leases a treehouse worktree on branch `<slug>` (reusing an existing one). An already started change is not started twice; the worktree is looked up instead. `--no-worktree` skips the lease.
+4. **Hand-off.** Do not implement in the main checkout. From the output (`worktree`, `worktree_id`, `ready` with each step's Owns, `waves`) tell the user:
+   - the worktree path and id (`treehouse enter <worktree_id>` opens it) and the branch;
+   - which steps are ready now and which are parallel-safe (same wave and non-overlapping `Owns:` can run together; recommend at most one agent per safe step);
    - the prompts below, filled in.
 
 ### Prompt: first agent
