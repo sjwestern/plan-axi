@@ -2,6 +2,7 @@
 
 ## In flight
 ## Queued
+- [ ] enter-diagnostics-and-picker - Enter diagnostics, change listing and slug-less enter (kind: change) (since 2026-10-16)
 ## Done
 - [x] commands-on-own-lines - Skills and setup block: commands on their own lines (kind: change) (done 2026-10-16)
 - [x] finish-delete-branch - finish --delete-branch (kind: change) (done 2026-10-16)
