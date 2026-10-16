@@ -1,8 +1,8 @@
 # Backlog
 
 ## In flight
-## Queued
 - [ ] add-claim-done-commands - Add change-axi claim and done (kind: change) (since 2026-10-16)
+## Queued
 - [ ] polish-archive-and-step-add - Archive follow-up hints and step add prefix ids (kind: change) (since 2026-10-16)
 ## Done
 - [x] bootstrap-fresh-worktrees - Make fresh worktrees and skills work without npx guesswork (kind: change) (done 2026-10-16)
