@@ -31,6 +31,7 @@ import {
 } from "../model.js";
 import { adrBody, docBody } from "../templates.js";
 import { readBodyInput } from "../body.js";
+import { editSection } from "../sectionedit.js";
 
 function reindex(ctx: Ctx): "updated" | "unchanged" {
   return writeIndex(ctx, loadDocs(ctx)) ? "updated" : "unchanged";
@@ -143,13 +144,15 @@ examples:
 
 export const ADR_SPEC: CmdSpec = {
   name: "adr",
-  flags: { ...NEW_FLAGS, "--status": "string" },
+  flags: { ...NEW_FLAGS, "--status": "string", "--context": "string", "--decision": "string", "--consequences": "string" },
   min: 1,
   max: 1,
   usage: 'docs-axi adr "<title>" --summary "<one line>" [--slug <s>] [--tags a,b] [--status <s>]',
   help: `usage: docs-axi adr "<title>" --summary "<one line>" [flags]
 Alias for \`docs-axi new decisions\`. Picks the next ADR number (NNNN-slug.md),
-status proposed. Same flags as \`new\`.
+status proposed. Same flags as \`new\`, plus:
+  --context <t> --decision <t> --consequences <t>   fill those template sections in one call
+Without them the template headings are created empty; fill later with \`docs-axi write <n> --section Decision\`.
 examples:
   docs-axi adr "Use Postgres for the job queue" --summary "Why jobs live in Postgres, not Redis"
 `,
@@ -202,6 +205,19 @@ function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiS
     }
     body = given;
   }
+  if (section === "decisions") {
+    const parts: [string, string | undefined][] = [
+      ["Context", flagStr(p, "--context")],
+      ["Decision", flagStr(p, "--decision")],
+      ["Consequences", flagStr(p, "--consequences")],
+    ];
+    if (parts.some(([, v]) => v !== undefined) && given !== undefined) {
+      throw new AxiError("use either a body or --context/--decision/--consequences", "VALIDATION_ERROR");
+    }
+    for (const [name, v] of parts) {
+      if (v !== undefined) body = editSection(body, { mode: "write", selector: name, text: v.replace(/\r\n/g, "\n") }).next;
+    }
+  }
   const fields: Record<string, FmValue | undefined> = {
     title,
     summary,
@@ -213,7 +229,12 @@ function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiS
   return {
     created: path,
     index: idx,
-    help: [`Edit docs/${path} to write the content`, "Run `docs-axi check` before committing"],
+    help: [
+      section === "decisions"
+        ? `Fill sections with \`docs-axi write ${path} --section Context|Decision|Consequences\` (body on stdin)`
+        : `Add sections with \`docs-axi write ${path} --section "<name>" --add\` (body on stdin)`,
+      "Run `docs-axi check` before committing",
+    ],
   };
 }
 

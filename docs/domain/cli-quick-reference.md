@@ -17,7 +17,8 @@ docs-axi show domain/billing --section Refunds
 printf 'text' | docs-axi write domain/billing --section Refunds
 docs-axi append domain/billing --section "Open questions" --body "- Tax?"
 docs-axi new domain "Billing" --summary "Invoice rules" --body-file -
-docs-axi adr "Use Postgres" --summary "Why jobs live in Postgres"
+docs-axi adr "Use Postgres" --summary "Why jobs live in Postgres" \
+  --context "..." --decision "..." --consequences "..."
 docs-axi update 7 --status accepted
 docs-axi check
 ```
