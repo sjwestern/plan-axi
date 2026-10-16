@@ -9,6 +9,7 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json && node dist/bin/change-axi.js",
     "test": "vitest run"
   },
   "dependencies": {

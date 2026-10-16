@@ -1,0 +1,26 @@
+# Agent instructions
+
+## Bootstrap (fresh clone or worktree)
+
+```sh
+npm install && npm run build
+```
+
+Run this before tests or builds; fresh worktrees have no `node_modules` or `dist`.
+
+## Test
+
+```sh
+npm test
+```
+
+## Run the worktree's own CLI
+
+The global `change-axi`/`docs-axi` on PATH is the main checkout's build. To smoke-test code in this worktree:
+
+```sh
+node packages/change-axi/dist/bin/change-axi.js <args>
+node packages/docs-axi/dist/bin/docs-axi.js <args>
+```
+
+Rebuild and run in one step: `npm run dev -w packages/change-axi -- <args>`.

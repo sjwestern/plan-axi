@@ -50,6 +50,8 @@ npm link -w packages/docs-axi -w packages/change-axi   # docs-axi, change-axi on
 npm run skills:install                                  # skills for your agent
 ```
 
+The packages are not published to npm; build and `npm link` is the only install path. Skills call the binaries directly and stop if they are missing.
+
 Plan by hand (agents do the same through the skills):
 
 ```sh

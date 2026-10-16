@@ -6,6 +6,20 @@ npm run build     # docs-axi first, then change-axi (it imports docs-axi/lib/*)
 npm test          # vitest, both packages
 ```
 
+Fresh treehouse worktrees have no `node_modules` or `dist`; run the two lines above first.
+
+## Smoke-testing in a worktree
+
+The `change-axi`/`docs-axi` on PATH (via `npm link`) is the main checkout's build, so new commands are invisible there. Use the worktree's own build:
+
+```sh
+node packages/change-axi/dist/bin/change-axi.js --help
+node packages/docs-axi/dist/bin/docs-axi.js --help
+npm run dev -w packages/change-axi -- --help   # rebuilds, then runs
+```
+
+Treehouse hook: `treehouse init` generates a `treehouse.toml` with no post-create or setup hook (only pool, branch and path options), so bootstrap stays a manual step documented in AGENTS.md.
+
 Needs Node >= 20 and `tasks-axi` on PATH (change-axi tests call it; `TASKS_AXI=<bin>` overrides).
 
 ## Layout

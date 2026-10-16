@@ -40,6 +40,7 @@ change-axi enter split-auth [step]         # start if needed, run the agent in t
 change-axi setup [--remove]                # managed plan-axi block in AGENTS.md
 change-axi archive split-auth --dry-run    # then --commit; accepts the change's ADRs
 ```
+In a worktree the PATH binaries are the main checkout's build. Smoke-test your own code with `node packages/change-axi/dist/bin/change-axi.js <args>` (after `npm run build`) or `npm run dev -w packages/change-axi -- <args>` (rebuilds, then runs). docs-axi: use the `dist` form.
 
 ## Agent config
 
