@@ -56,6 +56,39 @@ export function statusRows(ctx: Ctx): { name: string; path: string; branch?: str
   return parseStatusRows(tryTreehouse(ctx, ["status"]));
 }
 
+export interface Diagnosis {
+  cause: string;
+  hint: string;
+}
+
+/** Explain a failed `treehouse get` from git state: where `slug` lives and how it compares with the base. */
+export function diagnose(ctx: Ctx, slug: string, stderr = ""): Diagnosis {
+  const base = defaultBranch(ctx);
+  if (git(ctx, ["rev-parse", "--verify", "--quiet", base], true) === "") {
+    return { cause: `base branch ${base} not found`, hint: `Create or fetch ${base} (git fetch, or git branch ${base}), then rerun enter` };
+  }
+  const trees = git(ctx, ["worktree", "list", "--porcelain"], true).split("\n");
+  let at: string | undefined;
+  let cur: string | undefined;
+  for (const l of trees) {
+    if (l.startsWith("worktree ")) cur = l.slice(9);
+    else if (l === `branch refs/heads/${slug}`) at = cur;
+  }
+  if (at) {
+    return { cause: `branch ${slug} is checked out in another worktree (${at})`, hint: `Run enter from that worktree, or free it: git -C ${at} switch --detach` };
+  }
+  if (git(ctx, ["rev-parse", "--verify", "--quiet", `refs/heads/${slug}`], true) !== "") {
+    const n = git(ctx, ["rev-list", "--count", `${base}..${slug}`], true);
+    if (/^\d+$/.test(n)) {
+      return n === "0"
+        ? { cause: `branch ${slug} exists with no commits beyond ${base}`, hint: `Delete it (git branch -D ${slug}) and rerun enter` }
+        : { cause: `branch ${slug} exists with ${n} commit(s) beyond ${base}`, hint: `Check it out in a free worktree: git switch ${slug}` };
+    }
+  }
+  const tail = stderr.trim().split("\n").filter(Boolean).pop();
+  return { cause: tail ? `unknown (${tail})` : "unknown", hint: "Run `treehouse status` and `treehouse get --lease` to see the failure directly" };
+}
+
 export function leaseWorktree(ctx: Ctx, slug: string): Worktree {
   const existing = statusRows(ctx).find((r) => r.branch === slug);
   if (existing) return { path: existing.path, name: existing.name, reused: true };
@@ -75,7 +108,14 @@ export function leaseWorktree(ctx: Ctx, slug: string): Worktree {
     if (unique === "0") git(ctx, ["branch", "-D", slug]); // no unique commits: safe to recreate from base
     else reuseBranch = true; // has work: check it out in the leased worktree
   }
-  const raw = tryTreehouse(ctx, reuseBranch ? ["get", "--lease", "--json"] : ["get", "--lease", "--json", "-b", slug]);
+  let raw: string;
+  try {
+    raw = tryTreehouse(ctx, reuseBranch ? ["get", "--lease", "--json"] : ["get", "--lease", "--json", "-b", slug]);
+  } catch (e) {
+    if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
+    const d = diagnose(ctx, slug, e.message);
+    throw new AxiError(`treehouse get failed: ${d.cause}`, "TREEHOUSE_ERROR", [d.hint, e.message]);
+  }
   let path: string;
   try {
     path = (JSON.parse(raw) as { path: string }).path;
