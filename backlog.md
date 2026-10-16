@@ -1,8 +1,8 @@
 # Backlog
 
 ## In flight
-## Queued
 - [ ] commands-on-own-lines - Skills and setup block: commands on their own lines (kind: change) (since 2026-10-16)
+## Queued
 ## Done
 - [x] finish-delete-branch - finish --delete-branch (kind: change) (done 2026-10-16)
 - [x] polish-archive-and-step-add - Archive follow-up hints and step add prefix ids (kind: change) (done 2026-10-16)
