@@ -1,9 +1,9 @@
 # Backlog
 
 ## In flight
-- [ ] commands-on-own-lines - Skills and setup block: commands on their own lines (kind: change) (since 2026-10-16)
 ## Queued
 ## Done
+- [x] commands-on-own-lines - Skills and setup block: commands on their own lines (kind: change) (done 2026-10-16)
 - [x] finish-delete-branch - finish --delete-branch (kind: change) (done 2026-10-16)
 - [x] polish-archive-and-step-add - Archive follow-up hints and step add prefix ids (kind: change) (done 2026-10-16)
 - [x] add-claim-done-commands - Add change-axi claim and done (kind: change) (done 2026-10-16)
