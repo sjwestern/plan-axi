@@ -1,7 +1,7 @@
 ---
 title: Agent launch uses a command template
 summary: Why enter runs a configurable command template instead of per-agent adapters
-status: proposed
+status: accepted
 tags: [workflow]
 ---
 

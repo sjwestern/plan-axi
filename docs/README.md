@@ -27,5 +27,5 @@ Manage with `docs-axi` (search, new, update, check). Keep files small and single
 - [0003 Agents read and write docs by section through the CLI](decisions/0003-agents-read-and-write-docs-by-section-through-the-cli.md) - Why docs-axi and change-axi edit single sections instead of whole files (accepted)
 - [0004 Plans are committed on main, steps run in a worktree](decisions/0004-plans-are-committed-on-main-steps-run-in-a-worktree.md) - Why plan approval is the main-branch commit and implementation happens in a treehouse worktree (accepted)
 - [0005 Owns lists the files a step edits](decisions/0005-owns-lists-the-files-a-step-edits.md) - Why steps declare a write set and how it is used for parallel safety (accepted)
-- [0006 Agent launch uses a command template](decisions/0006-agent-launch-uses-a-command-template.md) - Why enter runs a configurable command template instead of per-agent adapters (proposed)
+- [0006 Agent launch uses a command template](decisions/0006-agent-launch-uses-a-command-template.md) - Why enter runs a configurable command template instead of per-agent adapters (accepted)
 <!-- docs-axi:index:end -->
