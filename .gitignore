@@ -6,3 +6,4 @@ dist/
 # agent working files that hold real-repo details
 .agent-memory/private/
 .agent-memory/session-*
+.agent-todos/

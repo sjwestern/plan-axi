@@ -95,3 +95,13 @@ Trial review of the pi session (what to fix, by priority):
 Still open from before: step rm, ADR required-section checks in docs-axi check, CI (ubuntu/windows/macos), changesets, publishing, preserve mixed EOL in docs/README.md, tasks-axi upstream issues (silent cycles, `start` on done reopens, `add` existing id no-op), `change-axi check --all`.
 What worked (keep): claim via `tasks-axi start`, `show --section` reads, own-path commits, separate `done` commit, archive dry-run -> ADR check -> `archive --commit`. All step commits stayed inside Owns.
 Process notes: propose with change-axi only (dogfood); plan is committed on main = approval; `.tasks.toml`/`backlog.md` are created by `change-axi new`. Example repo (example-repo): 10 of 11 plans pass `change-axi check`; the oldest (example-change) was fixed by another agent (missing step Context sections).
+
+## Open work (current, 2026-10-17; supersedes older "Next steps" lists)
+Done since: change-axi claim/done/archive/start/enter/setup/finish, bootstrap docs, archive hints, step add prefixes.
+Open:
+- CI matrix (ubuntu/windows/macos), changesets, publish or scope `docs-axi`/`change-axi` names.
+- Verify treehouse lease flow on a real repo; treehouse Windows builds.
+- Run skills on a real change in a real repo.
+- Report tasks-axi issues upstream (silent cycles, `start` on done reopens, `add` existing id no-op).
+- change-axi: `step rm`, `check --all`; docs-axi: ADR section checks, preserve mixed EOL.
+- Verify non-pi agent launch syntax (claude/codex/gemini/opencode).
