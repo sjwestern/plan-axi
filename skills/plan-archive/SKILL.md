@@ -28,7 +28,7 @@ Close a completed change. The archive is history only: current truth lives in `d
 
 ## Finish in one step
 
-From the main checkout, `change-axi finish <slug>` archives on the branch if needed (same checks as `archive`), merges, and returns the worktree. Use `change-axi finish <slug> --dry-run` to review the ADRs it would accept. For a review gate, run steps 1-3 on the branch first, then `finish`.
+From the main checkout, `change-axi finish <slug>` archives on the branch if needed (same checks as `archive`), merges, and returns the worktree. Use `change-axi finish <slug> --dry-run` to review the ADRs it would accept. For a review gate, run steps 1-3 on the branch first, then `finish`. Add `--delete-branch` to also remove the merged branch (`git branch -d`) after the worktree is returned.
 
 ## Rules
 
