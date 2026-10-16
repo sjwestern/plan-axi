@@ -11,7 +11,7 @@ Lightweight plan -> apply -> archive workflow for coding agents. Inspired by Ope
 | Package | Status | Purpose |
 |---|---|---|
 | `packages/docs-axi` | v0.1 | `docs/` folder (domain, architecture, decisions): generated index, search, scaffolding, ADR numbering, checks, section read/write |
-| `packages/change-axi` | v0.1 | change folders under `specs/changes/`: scaffold proposal/steps (required sections), section read/write, task deps, check, status. Apply/archive preflights not yet built |
+| `packages/change-axi` | v0.1 | change folders under `specs/changes/`: scaffold proposal/steps (required sections), section read/write, task deps, check, status, archive, finish (merge and release worktree) |
 | `skills/` | v0 (prompt-only) | `plan-explore`, `plan-propose`, `plan-apply`, `plan-archive`, `plan-migrate-docs` |
 
 ## Layout this workflow assumes
@@ -64,10 +64,23 @@ change-axi check split-auth --waves      # verify before you commit the plan
 
 After committing the plan on main, launch it: `change-axi enter split-auth` starts the change, leases a worktree and runs your agent there (set `[apply] agent` in `.plan-axi.toml`, or it autodetects pi, claude, codex, gemini, opencode). `change-axi setup` adds an AGENTS.md block so agents know to use `plan-apply` on a change branch.
 
+When every step is done, preview from the worktree with `change-axi finish split-auth --dry-run` (checks rebase and archive readiness; rebase on the default branch if it asks). Then, from the main checkout, run `change-axi finish split-auth`: it archives the change on its branch if needed (tasks done, Docs impact updated), fast-forward merges the branch into the default branch, and returns the worktree. Add `--delete-branch` to remove the merged branch, `--skip-docs-check` to skip the docs check. `change-axi archive` alone archives without merging.
+
 Verify a plan: `change-axi check <slug>` (exit 1 on errors), `change-axi status <slug>`, `docs-axi check`, then read `git diff`. Docs: [docs/](docs/README.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Skills
 
 Install with `npm run skills:install` (symlinks `skills/*` into `~/.agents/skills`, which pi and other agents read; idempotent, refuses to overwrite non-link conflicts). Remove with `npm run skills:uninstall`. Use `node scripts/install-skills.mjs --dir <path>` for another location. They call `tasks-axi` (pin `0.2.6`) and `docs-axi`.
 
-Flow: `plan-explore` (read-only, reads `docs/`) -> `plan-propose` (writes the plan, no commit) -> you review and commit on main -> `plan-apply` (on main: `change-axi enter` = start + treehouse worktree + agent; in the worktree: run steps) -> `plan-archive`.
+Flow:
+
+```mermaid
+flowchart LR
+  A[plan-explore] --> B[plan-propose] --> C[review and commit on main]
+  C --> D["change-axi enter<br/>(worktree + agent)"]
+  D --> E["plan-apply: run steps<br/>(in worktree)"]
+  E --> F["finish --dry-run<br/>(in worktree)"]
+  F --> G["change-axi finish<br/>(from main: archive, merge, release)"]
+```
+
+`plan-explore` is read-only and reads `docs/`. `plan-propose` writes the plan without committing. `change-axi enter` = start + treehouse worktree + agent. `plan-archive` covers the archive step on its own.
