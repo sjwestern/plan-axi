@@ -27,7 +27,7 @@ Rebuild and run in one step: `npm run dev -w packages/change-axi -- <args>`.
 
 ## Skills
 
-`~/.agents/skills/*` are symlinks into `skills/` in this repo. Edit skills here (`skills/<name>/SKILL.md`), never via the `~/.agents` path, and commit them with the repo.
+Skills in `skills/` are symlinked from `~/.agents/skills/`. Edit those here (`skills/<name>/SKILL.md`), never via the `~/.agents` path, and commit them with the repo. Other skills in `~/.agents/skills/` are not part of this repo.
 
 <!-- plan-axi:start -->
 ## plan-axi
