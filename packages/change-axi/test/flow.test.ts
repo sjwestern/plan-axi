@@ -73,4 +73,15 @@ describe("change-axi", () => {
     const c = await repo.run("check", "demo-change");
     expect(c.out).toContain("OWNS_TOOL_DIR");
   });
+
+  it("step add --after resolves prefix ids", async () => {
+    await repo.run("new", "demo-change", "Demo change");
+    await repo.run("step", "add", "demo-change", "Build schema", "--owns", "src/db/");
+    const r = await repo.run("step", "add", "demo-change", "Build api", "--owns", "src/api/", "--after", "01");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("blocked_by: 01-build-schema");
+    const bad = await repo.run("step", "add", "demo-change", "Other", "--owns", "src/x/", "--after", "09");
+    expect(bad.code).not.toBe(0);
+    expect(bad.out).toContain("NOT_FOUND");
+  });
 });

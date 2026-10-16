@@ -180,6 +180,15 @@ export function stepCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   throw new AxiError(`unknown step command ${sub}`, "VALIDATION_ERROR", ["Use `step add` or `step set`"]);
 }
 
+/** Resolve an exact step id or a numeric/name prefix (`01` -> `01-name`). */
+export function resolveStepId(known: string[], id: string, ctxMsg = ""): string {
+  if (known.includes(id)) return id;
+  const hits = known.filter((k) => k.startsWith(`${id}-`)).sort();
+  if (hits.length === 1) return hits[0] as string;
+  if (hits.length > 1) throw new AxiError(`${ctxMsg}"${id}" is ambiguous`, "VALIDATION_ERROR", [`Matches: ${hits.join(", ")}`]);
+  throw new AxiError(`${ctxMsg}no step "${id}"`, "NOT_FOUND", [`Steps: ${[...known].sort().join(", ") || "(none)"}`]);
+}
+
 function stepAdd(ctx: Ctx, dir: string, slug: string, titleArg: string | undefined, p: ReturnType<typeof parseArgs>): AxiStructuredOutput {
   if (titleArg === undefined) throw new AxiError("step add needs a title", "VALIDATION_ERROR", [`usage: ${STEP_SPEC.usage}`]);
   const title = requireSingleLine("title", titleArg);
@@ -193,11 +202,8 @@ function stepAdd(ctx: Ctx, dir: string, slug: string, titleArg: string | undefin
   const num = String(next).padStart(2, "0");
   const id = `${num}-${name}`;
   if (next > 99) throw new AxiError("too many steps", "VALIDATION_ERROR", ["Split the change"]);
-  const known = new Set(listTasks(ctx.root, tasksRel(slug)).map((t) => t.id));
-  const after = splitList(flagStr(p, "--after"));
-  for (const a of after) {
-    if (!known.has(a)) throw new AxiError(`--after: no step "${a}"`, "NOT_FOUND", [`Steps: ${[...known].sort().join(", ") || "(none)"}`]);
-  }
+  const known = listTasks(ctx.root, tasksRel(slug)).map((t) => t.id);
+  const after = splitList(flagStr(p, "--after")).map((a) => resolveStepId(known, a, "--after: "));
   const file = join(dir, `${id}.md`);
   writeText(file, stepSkeleton(num, title, owns, docs));
   try {
@@ -274,11 +280,7 @@ export function depCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (on.length + off.length === 0) throw new AxiError("pass --on and/or --off", "VALIDATION_ERROR", [`usage: ${DEP_SPEC.usage}`]);
   const file = tasksRel(slug);
   const tasks = listTasks(ctx.root, file);
-  const find = (id: string): string => {
-    const hit = tasks.find((t) => t.id === id) ?? tasks.filter((t) => t.id.startsWith(`${id}-`)).sort()[0];
-    if (!hit) throw new AxiError(`no step "${id}"`, "NOT_FOUND", [`Steps: ${tasks.map((t) => t.id).join(", ")}`]);
-    return hit.id;
-  };
+  const find = (id: string): string => resolveStepId(tasks.map((t) => t.id), id);
   const step = find(p.pos[1] as string);
   const onIds = on.map(find);
   const offIds = off.map(find);
