@@ -16,6 +16,7 @@ import {
 import { readText, normalizeEol, toPosix } from "../fsutil.js";
 import { join } from "node:path";
 import { parseDoc } from "../frontmatter.js";
+import { showSection } from "./sections.js";
 
 const HOME_ROWS = 40;
 const SHOW_CHARS = 1500;
@@ -216,11 +217,12 @@ export function searchCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
 export const SHOW_SPEC: CmdSpec = {
   name: "show",
-  flags: { "--full": "boolean" },
+  flags: { "--full": "boolean", "--section": "string", "--tree": "boolean" },
   min: 1,
   max: 1,
-  usage: "docs-axi show <path|adr-number> [--full]",
-  help: `usage: docs-axi show <path|adr-number> [--full]
+  usage: "docs-axi show <path|adr-number> [--full] [--section <ref> [--tree]]",
+  help: `usage: docs-axi show <path|adr-number> [--full] [--section <ref> [--tree]]
+Print one doc, or one section with --section (see \`docs-axi sections\`; --tree adds subsections).
 Print one doc. Body is truncated at ${SHOW_CHARS} chars unless --full.
 <path> may be domain/foo, domain/foo.md, docs/domain/foo.md, or an ADR number.
 examples:
@@ -232,6 +234,8 @@ examples:
 export function showCommand(ctx: Ctx, args: string[]): string {
   const p = parseArgs(SHOW_SPEC, args);
   requireDocsDir(ctx);
+  const sel = flagStr(p, "--section");
+  if (sel !== undefined) return showSection(ctx, p.pos[0] as string, sel, flagBool(p, "--tree"));
   const d = resolveDocPath(ctx, p.pos[0] as string, loadDocs(ctx));
   const full = flagBool(p, "--full");
   const parsed = parseDoc(normalizeEol(readText(join(ctx.docsDir, d.path))));

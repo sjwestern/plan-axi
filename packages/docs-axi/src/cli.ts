@@ -28,6 +28,14 @@ import {
   supersedeCommand,
   updateCommand,
 } from "./commands/write.js";
+import {
+  APPEND_SPEC,
+  SECTIONS_SPEC,
+  WRITE_SPEC,
+  appendCommand,
+  sectionsCommand,
+  writeCommand,
+} from "./commands/sections.js";
 import { MIGRATE_SPEC, migrateCommand } from "./commands/migrate.js";
 import { VERSION } from "./version.js";
 
@@ -35,14 +43,15 @@ export const DESCRIPTION =
   "Manage the repo docs folder (domain, architecture, decisions) with a generated index. Prefer this over hand-editing docs/README.md or ADR numbers.";
 
 export const TOP_HELP = `usage: docs-axi [command] [args] [flags]
-commands[11]:
-  (none)=docs map, init, list, search, show, new, adr, update, supersede, index, check, migrate
+commands[14]:
+  (none)=docs map, init, list, search, show, sections, write, append, new, adr, update, supersede, index, check, migrate
 flags[2]:
   --docs <dir> (after command; default <repo>/docs), --help, -v/-V/--version
 examples:
   docs-axi
   docs-axi search billing invoice
-  docs-axi show domain/billing
+  docs-axi show domain/billing --section Refunds
+  docs-axi write domain/billing --section Refunds --body "..."
   docs-axi new domain "Billing rules" --summary "Invoice, proration and refund rules"
   docs-axi adr "Use Postgres for jobs" --summary "Why jobs live in Postgres, not Redis"
   docs-axi update 7 --status accepted
@@ -63,6 +72,9 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   index: { run: indexCommand, help: INDEX_SPEC.help },
   check: { run: checkCommand, help: CHECK_SPEC.help },
   migrate: { run: migrateCommand, help: MIGRATE_SPEC.help },
+  sections: { run: sectionsCommand, help: SECTIONS_SPEC.help },
+  write: { run: writeCommand, help: WRITE_SPEC.help },
+  append: { run: appendCommand, help: APPEND_SPEC.help },
 };
 
 function docsFlag(args: string[]): string | undefined {

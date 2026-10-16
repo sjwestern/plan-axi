@@ -30,6 +30,7 @@ import {
   type Section,
 } from "../model.js";
 import { adrBody, docBody } from "../templates.js";
+import { readBodyInput } from "./sections.js";
 
 function reindex(ctx: Ctx): "updated" | "unchanged" {
   return writeIndex(ctx, loadDocs(ctx)) ? "updated" : "unchanged";
@@ -115,6 +116,7 @@ const NEW_FLAGS = {
   "--slug": "string",
   "--tags": "string",
   "--body-file": "string",
+  "--body": "string",
 } as const;
 
 export const NEW_SPEC: CmdSpec = {
@@ -122,7 +124,7 @@ export const NEW_SPEC: CmdSpec = {
   flags: { ...NEW_FLAGS, "--status": "string" },
   min: 2,
   max: 2,
-  usage: 'docs-axi new <section> "<title>" --summary "<one line>" [--slug <s>] [--tags a,b] [--body-file <path>]',
+  usage: 'docs-axi new <section> "<title>" --summary "<one line>" [--slug <s>] [--tags a,b] [--body <t> | --body-file <path|->]',
   help: `usage: docs-axi new <section> "<title>" --summary "<one line>" [flags]
 Create a doc from a template and regenerate the index.
 section: domain | architecture | decisions (decisions get the next ADR number)
@@ -130,7 +132,8 @@ flags:
   --summary <text>    required, one line, max ${MAX_SUMMARY} chars: what it covers and when to read it
   --slug <s>          file slug (default: derived from title, max ${MAX_SLUG} chars, a-z0-9 and dashes)
   --tags a,b          lowercase tags
-  --body-file <path>  use this file as the body instead of the template (no frontmatter)
+  --body <t>          body text instead of the template (no frontmatter)
+  --body-file <path>  body from a file, or - for stdin
   --status <s>        decisions only: proposed (default) | accepted | superseded | deprecated
 examples:
   docs-axi new domain "Billing rules" --summary "Invoice, proration and refund rules" --tags billing
@@ -190,18 +193,14 @@ function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiS
     return { created: `${clash.path} already exists (no-op)`, help: [`Run \`docs-axi show ${clash.path}\``] };
   }
   let body = section === "decisions" ? adrBody(title) : docBody(title);
-  const bodyFile = flagStr(p, "--body-file");
-  if (bodyFile !== undefined) {
-    if (!existsSync(bodyFile)) {
-      throw new AxiError(`--body-file not found: ${bodyFile}`, "NOT_FOUND");
-    }
-    const text = normalizeEol(readText(bodyFile));
-    if (parseDoc(text).hasFrontmatter) {
-      throw new AxiError("--body-file must not contain frontmatter", "VALIDATION_ERROR", [
+  const given = readBodyInput(p, false);
+  if (given !== undefined) {
+    if (parseDoc(given).hasFrontmatter) {
+      throw new AxiError("body must not contain frontmatter", "VALIDATION_ERROR", [
         "Pass the body only; docs-axi writes the frontmatter",
       ]);
     }
-    body = text;
+    body = given;
   }
   const fields: Record<string, FmValue | undefined> = {
     title,
@@ -242,7 +241,7 @@ export const UPDATE_SPEC: CmdSpec = {
   max: 1,
   usage: "docs-axi update <path|adr-number> [--title <t>] [--summary <s>] [--tags a,b] [--status <s>]",
   help: `usage: docs-axi update <path|adr-number> [flags]
-Edit frontmatter only (the body is yours to edit directly) and regenerate the index.
+Edit frontmatter only (edit the body with write or append) and regenerate the index.
 Idempotent: unchanged values report a no-op.
 flags:
   --title <t>      new title
