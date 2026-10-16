@@ -27,3 +27,4 @@ A one-off, human-approved cleanup. Run it on its own branch/commit, not inside a
 - Never apply without user approval of the reviewed proposal.
 - Do not edit doc bodies during migration beyond what the tool does.
 - Do not touch `.agents/`, `.pi/`, `.claude/` or other tool-owned folders.
+- Copyable commands: put every command the user may paste in its own fenced code block, one command per line, after the sentence that introduces it. Never end a prose sentence with a command and never split one across lines; for long ones use a short form, a variable, or a script.

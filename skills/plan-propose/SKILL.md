@@ -42,3 +42,4 @@ Materialize the draft (from `plan-explore` or the user's description) as a revie
 - Docs outside `docs/{domain,architecture,decisions}`: do not move or restructure them as part of a plan. Reference them by their real path. If `docs-axi list other` shows many docs outside the layout, recommend a separate migration (`plan-migrate-docs` skill) before or after this change, and keep it out of this plan's steps.
 - Never hand-edit `tasks.md`. Never implement code. Never commit.
 - Keep plans small: if there are more than ~8 steps, propose splitting into two changes.
+- Copyable commands: put every command the user may paste in its own fenced code block, one command per line, after the sentence that introduces it. Never end a prose sentence with a command and never split one across lines; for long ones use a short form, a variable, or a script.

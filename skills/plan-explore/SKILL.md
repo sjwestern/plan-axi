@@ -37,3 +37,5 @@ Steps should be vertical, independently testable, and small enough to commit onc
 ## Hand-off
 
 When the draft is stable, say so and tell the user to ask to **propose** (skill `plan-propose`), which turns the draft into `specs/changes/active/<slug>/`. Do not start it yourself unprompted. If the user wants to change direction, update the draft; it is cheap.
+
+Copyable commands: put every command the user may paste in its own fenced code block, one command per line, after the sentence that introduces it. Never end a prose sentence with a command and never split one across lines; for long ones use a short form, a variable, or a script.

@@ -53,7 +53,13 @@ Then run bare `change-axi` for orientation (progress, in-flight, ready steps). W
 
 For a docs step: edit the files named in `Owns:`, keep them small and single-topic, then `docs-axi update/index` as needed and `docs-axi check`. ADR status stays `proposed` until archive.
 
-When no steps remain: if tasks are still queued but blocked, they wait on another agent's in-flight task - report and stop. If everything is done, tell the user the change is ready to finish: from the main checkout run `change-axi finish <slug>` (archives if needed, merges, releases the worktree; `--dry-run` to preview). See skill `plan-archive`.
+When no steps remain: if tasks are still queued but blocked, they wait on another agent's in-flight task - report and stop. If everything is done, tell the user the change is ready to finish. From the main checkout, run this (it archives if needed, merges, releases the worktree; add `--dry-run` to preview):
+
+```sh
+change-axi finish <slug>
+```
+
+See skill `plan-archive`.
 
 ## Plan changes during apply
 
@@ -65,3 +71,4 @@ The main-branch plan is frozen; amend it on this branch. Edit sections with `cha
 - Never hand-edit `tasks.md` or `backlog.md`.
 - One commit per finished step (code + tests), plus its `done` commit.
 - Stop and ask when the plan and reality disagree in a way the plan cannot absorb.
+- Copyable commands: put every command the user may paste in its own fenced code block, one command per line, after the sentence that introduces it. Never end a prose sentence with a command and never split one across lines; for long ones use a short form, a variable, or a script.
