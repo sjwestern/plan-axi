@@ -45,7 +45,7 @@ beforeEach(async () => {
   git("commit", "-q", "-m", "plan");
   git("worktree", "add", "-q", "-b", S, wt);
   // fake treehouse
-  writeFileSync(join(bin, "treehouse"), `#!/bin/sh\nif [ "$1" = status ]; then echo "1  ${wt} [${S}]"; elif [ "$1" = return ]; then echo "$2" >> "${bin}/returned.log"; fi\n`);
+  writeFileSync(join(bin, "treehouse"), `#!/bin/sh\nif [ "$1" = status ]; then echo "1  ${wt} [${S}]"; elif [ "$1" = return ]; then echo "$2" >> "${bin}/returned.log"; if [ -f "${bin}/detach" ]; then git -C "$2" checkout -q --detach; fi; fi\n`);
   chmodSync(join(bin, "treehouse"), 0o755);
   oldPath = process.env["PATH"];
   process.env["PATH"] = `${bin}:${oldPath}`;
@@ -133,5 +133,38 @@ describe("finish", () => {
     expect(wgit("rev-parse", "HEAD")).toBe(tip);
     expect(existsSync(join(wt, `specs/changes/active/${S}`))).toBe(true);
     expect(returnLog()).toBe("");
+  });
+
+  it("--delete-branch removes the branch after return", async () => {
+    completeStep();
+    writeFileSync(join(bin, "detach"), "");
+    const r = await run("finish", S, "--delete-branch");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("branch_deleted");
+    expect(git("branch", "--list", S)).toBe("");
+  });
+
+  it("keeps the branch without the flag", async () => {
+    completeStep();
+    writeFileSync(join(bin, "detach"), "");
+    const r = await run("finish", S);
+    expect(r.code).toBe(0);
+    expect(git("branch", "--list", S)).not.toBe("");
+  });
+
+  it("dry run with --delete-branch keeps the branch", async () => {
+    completeStep();
+    const r = await run("finish", S, "--dry-run", "--delete-branch");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain(`planned: delete ${S}`);
+    expect(git("branch", "--list", S)).not.toBe("");
+  });
+
+  it("warns and exits 0 when the branch cannot be deleted", async () => {
+    completeStep();
+    const r = await run("finish", S, "--delete-branch");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("could not delete");
+    expect(git("branch", "--list", S)).not.toBe("");
   });
 });

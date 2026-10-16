@@ -597,17 +597,18 @@ export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
 export const FINISH_SPEC: CmdSpec = {
   name: "finish",
-  flags: { "--dry-run": "boolean", "--skip-docs-check": "boolean" },
+  flags: { "--dry-run": "boolean", "--skip-docs-check": "boolean", "--delete-branch": "boolean" },
   min: 1,
   max: 1,
-  usage: "change-axi finish <slug> [--dry-run] [--skip-docs-check]",
-  help: `usage: change-axi finish <slug> [--dry-run] [--skip-docs-check]
+  usage: "change-axi finish <slug> [--dry-run] [--skip-docs-check] [--delete-branch]",
+  help: `usage: change-axi finish <slug> [--dry-run] [--skip-docs-check] [--delete-branch]
 Finish a change from the main checkout: archive it on its branch if not yet archived (commit "archive <slug>"),
 fast-forward merge the branch into the default branch, and release the treehouse worktree.
 Preflight: on the default branch with a clean tree, branch <slug> exists with a worktree, default branch is an ancestor of the branch.
 Archive checks apply unchanged (tasks done, Docs impact updated).
   --dry-run          run the preflight and archive checks, change nothing
   --skip-docs-check  pass through to archive
+  --delete-branch    after the worktree is returned, delete the merged branch (git branch -d); failure is a warning
 examples:
   change-axi finish split-auth --dry-run
   change-axi finish split-auth
@@ -618,13 +619,15 @@ export function finishCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(FINISH_SPEC, args);
   const slug = p.pos[0] as string;
   const dry = flagBool(p, "--dry-run");
-  const r = finishChange(ctx, slug, { dryRun: dry, skipDocsCheck: flagBool(p, "--skip-docs-check") });
+  const r = finishChange(ctx, slug, { dryRun: dry, skipDocsCheck: flagBool(p, "--skip-docs-check"), deleteBranch: flagBool(p, "--delete-branch") });
   const out: AxiStructuredOutput = { finish: dry ? `${slug} ready (dry run, nothing changed)` : `${slug} finished` };
   out["archived"] = r.archived;
   if (r.adrs.length > 0) out["adrs"] = r.adrs;
   if (r.untouched.length > 0) out["docs_not_updated"] = r.untouched.join(", ");
   out["merged"] = r.merged;
   out["returned"] = r.returned;
+  if (r.branchDeleted) out["branch_deleted"] = r.branchDeleted;
+  if (r.warnings) out["warnings"] = r.warnings;
   if (dry) out["help"] = [`Run \`change-axi finish ${slug}\` to apply`];
   else if (r.buildHint) out["help"] = [r.buildHint];
   return out;

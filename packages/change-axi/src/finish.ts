@@ -9,6 +9,7 @@ import { statusRows, tryTreehouse } from "./start.js";
 export interface FinishOptions {
   dryRun: boolean;
   skipDocsCheck: boolean;
+  deleteBranch: boolean;
 }
 
 export interface FinishReport {
@@ -17,6 +18,8 @@ export interface FinishReport {
   untouched: string[];
   merged: string;
   returned: string;
+  branchDeleted?: string;
+  warnings?: string[];
   buildHint?: string;
 }
 
@@ -56,15 +59,25 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
     untouched = r.untouched;
   }
 
-  if (o.dryRun) return { archived, adrs, untouched, merged: `planned: ff ${slug} into ${base}`, returned: `planned: ${row.path}` };
+  if (o.dryRun) return { archived, adrs, untouched, merged: `planned: ff ${slug} into ${base}`, returned: `planned: ${row.path}`, ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
 
   git(ctx, ["merge", "--ff-only", slug]);
   const merged = git(ctx, ["rev-parse", "--short", "HEAD"]);
   tryTreehouse(ctx, ["return", row.path]);
+  let branchDeleted: string | undefined;
+  const warnings: string[] = [];
+  if (o.deleteBranch) {
+    try {
+      git(ctx, ["branch", "-d", slug]);
+      branchDeleted = slug;
+    } catch (e) {
+      warnings.push(`could not delete ${slug}: ${(e as Error).message.replace(/^git branch failed: /, "")}; run git branch -d ${slug}`);
+    }
+  }
   const agents = join(ctx.root, "AGENTS.md");
   const hint = existsSync(agents) ? /`(npm (?:install && npm )?run build)`|^(npm run build)\s*$/m.exec(readFileSync(agents, "utf8")) : null;
   const cmd = hint ? (hint[1] ?? hint[2]) : undefined;
-  return { archived, adrs, untouched, merged, returned: row.path, ...(cmd ? { buildHint: `Rebuild if the change touched code: ${cmd}` } : {}) };
+  return { archived, adrs, untouched, merged, returned: row.path, ...(branchDeleted ? { branchDeleted } : {}), ...(warnings.length > 0 ? { warnings } : {}), ...(cmd ? { buildHint: `Rebuild if the change touched code: ${cmd}` } : {}) };
 }
 
 function isAncestorOf(ctx: Ctx, ancestor: string, ref: string): boolean {
