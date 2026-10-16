@@ -14,8 +14,8 @@ enter runs the agent as a child process with the worktree as cwd, so no treehous
 ## Work
 
 1. plan-apply: launch with `change-axi enter <slug>` from main (no `treehouse enter`); the last step is `change-axi finish <slug>` from main, which archives if needed.
-2. plan-archive: `archive` stays documented; after `archive --commit` on a branch, or instead of it, run `change-axi finish <slug>` from the main checkout.
-3. cli-quick-reference and plan-workflow: add finish via `docs-axi write`.
+2. plan-archive: `archive` stays documented; after `archive --commit` on a branch, or instead of it, run `change-axi finish <slug>` from the main checkout. Suggest `finish --dry-run` to review accepted ADRs and `--no-archive` to require a deliberate archive first.
+3. cli-quick-reference and plan-workflow: add finish (with --dry-run and --no-archive) via `docs-axi write`.
 
 ## Done when
 

@@ -11,9 +11,9 @@ Docs read: `docs/domain/cli-quick-reference.md`, `docs/architecture/plan-workflo
 ## What changes
 
 - `archive` stays a separate command (run on the branch, or by hand). Its output on a branch includes one `next` line: `from the main checkout: change-axi finish <slug>`; nothing extra on main after merge.
-- New `change-axi finish <slug> [--dry-run] [--skip-docs-check]`, run from the main checkout. If the change is not yet archived on branch `<slug>`, it runs archive (with commit) in that branch's worktree first; if already archived it skips that. Then it requires a clean main tree and a fast-forwardable branch, runs `git merge --ff-only <slug>`, runs `treehouse return <worktree>` when a worktree for the slug exists, and prints the repo build hint. Needs no shell exit when the agent was launched with `change-axi enter`.
+- New `change-axi finish <slug> [--dry-run] [--no-archive] [--skip-docs-check]`, run from the main checkout. If the change is not yet archived on branch `<slug>`, it runs archive (with commit) in that branch's worktree first and reports the ADRs it accepted; if already archived it skips that. `--no-archive` never archives: it errors when the branch is not already archived. `--dry-run` shows the archive result (ADRs, docs not updated), the merge and the return without changing anything. Then it requires a clean main tree and a fast-forwardable branch, runs `git merge --ff-only <slug>`, runs `treehouse return <worktree>` when a worktree exists, and prints the repo build hint. Needs no shell exit when the agent was launched with `change-axi enter`.
 - `step add --after` accepts id prefixes (`01`) resolved like `dep`; ambiguous or unknown prefixes error.
-- plan-apply, plan-archive and docs describe `enter` then `finish`.
+- plan-apply, plan-archive and docs describe `enter` then `finish` (review with `finish --dry-run`, gate with `--no-archive`).
 
 ## Out of scope
 
@@ -34,7 +34,8 @@ Archive: add a `next` line in branch mode; the command is otherwise unchanged. F
 
 - `npm test -w packages/change-axi` passes with new cases.
 - `change-axi archive <slug> --dry-run` on a branch shows the finish line; `step add ... --after 01` stores the full id as the blocker.
-- In a temp repo with a branch whose steps are done but not archived: `finish --dry-run` reports archive, merge and return as planned; `finish` archives on the branch, fast-forwards main and returns the worktree. With the branch already archived, `finish` skips archiving.
+- In a temp repo with a branch whose steps are done but not archived: `finish --dry-run` reports archive (with ADRs), merge and return as planned and changes nothing; `finish` archives on the branch, fast-forwards main and returns the worktree. With the branch already archived, `finish` skips archiving.
+- `finish --no-archive` on an unarchived branch errors and changes nothing; on an archived branch it merges.
 - `finish` with unfinished tasks, a dirty main tree or a diverged branch errors; main `HEAD` is unchanged.
 - `change-axi check polish-archive-and-step-add` and `docs-axi check` pass.
 
