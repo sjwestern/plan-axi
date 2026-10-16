@@ -15,7 +15,7 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 - Plan: `specs/changes/active/<slug>/` (`proposal.md`, `NN-*.md` step files, `tasks.md`). Repo level: `backlog.md`, one task per change, id = slug.
 - **`tasks.md` and `backlog.md` are changed only through `tasks-axi`**, always with `--file` after the command, run from the repo (or worktree) root. If missing: `npx -y tasks-axi@0.2.6 <args>`.
 - Step task id = step file stem; its body is `Spec: <file>.md`.
-- The check script: `plan-propose/scripts/check-plan.mjs` (sibling skill directory). Called `CHECK` below: `node <skills>/plan-propose/scripts/check-plan.mjs <slug> --waves`.
+- Plan tool: `change-axi` (`npx -y change-axi@0.1.0` if missing). `CHECK` below = `change-axi check <slug> --waves`. `change-axi status <slug>` shows steps, waves and what is ready. `change-axi show <slug> <step> [--section Work]` reads a step or one section of it.
 - Docs: `docs-axi` (`npx -y docs-axi@0.1.0` if missing).
 
 ## Launch (on main)
@@ -56,7 +56,7 @@ Work is one step at a time per agent. Loop until there are no ready steps you ca
 
 1. **Pick.** `tasks-axi ready --file specs/changes/active/<slug>/tasks.md`. If told a specific task, use it. Do not take a task whose `Owns:` overlaps a task already in flight (`tasks-axi list --state in_flight --file ...`; read both step files).
 2. **Claim.** `tasks-axi start <id> --file ...`. If the output says `already in flight`, another agent has it: pick another. Never `start` a done task (it moves it back to in flight).
-3. **Read.** The step file (`Spec:` in `tasks-axi show <id> --full --file ...`), the docs named in its `Docs:` line (`docs-axi show <path>`), and the proposal sections it relates to.
+3. **Read.** The step: `change-axi show <slug> <id>` (read only the sections you need with `--section`), the docs named in its `Docs:` line (`docs-axi show <path>`), and the proposal sections it relates to.
 4. **Implement** exactly the step's Work, staying inside `Owns:`. If you must touch other paths, stop: either the plan is wrong (see "Plan changes") or another step owns it.
 5. **Verify** the step's "Done when". Run the relevant tests/build. Do not mark done on a failing or unrun check.
 6. **Commit own paths only.** Never `git add -A`, `git commit -a`, or stash: another agent may have work in the tree. `git add -- <your paths> && git commit -m "<slug>: <step summary>" -- <your paths>`. If `index.lock` exists, wait and retry; delete it only when no git process is running.
@@ -69,7 +69,7 @@ When no steps remain: if tasks are still queued but blocked, they wait on anothe
 
 ## Plan changes during apply
 
-The main-branch plan is frozen; amend it on this branch. Edit the step/proposal files, and change the graph only with `tasks-axi block|unblock|add|rm|update --file ...`. Re-run `CHECK` after every edge edit (cycles are not rejected). Commit the plan change on its own, with a message saying why. Tell the other agent if it affects their task.
+The main-branch plan is frozen; amend it on this branch. Edit sections with `change-axi write|append`, add steps with `change-axi step add`, change order with `change-axi dep`. Change the graph with `change-axi dep` (it reverts cycles) and edit plan text with `change-axi write`; re-run `CHECK`. Commit the plan change on its own, with a message saying why. Tell the other agent if it affects their task.
 
 ## Rules
 

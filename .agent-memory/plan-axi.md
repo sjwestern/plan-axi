@@ -72,3 +72,9 @@ Example repo state: docs migration applied but NOT committed (renames staged, ou
 - tasks-axi `start` on already-started task reporting (for `claim`).
 - treehouse `lease` behavior, Windows builds.
 - Byte-stable output cross-platform: `/` in paths, LF, locale-independent sort.
+
+## Update 2026-10-17: section editing + change-axi v0.1
+- docs-axi: `sections`, `show --section [--tree]`, `write`, `append` (stdin/--body/--body-file), `new --body/--body-file -`. Pure logic in `src/sections.ts` + `src/sectionedit.ts`; exported to other packages as `docs-axi/lib/<module>` (no .js ext). Section = heading + text to next heading (own) or next same/higher heading (`--tree`). Refs: `Heading`, `Parent/Child`, `Heading#N`. Fences ignored; setext headings not supported.
+- change-axi (packages/change-axi): `new`, `spec`, `step add|set`, `dep --on|--off` (reverts cycles), `sections/show/write/append <slug> <proposal|NN>`, `check` (port of check-plan.mjs + EMPTY/MISSING_SECTION, STEP_NOT_LISTED), `status`. Required sections live in `src/spec.ts` (single source; templates dir removed). Shells out to tasks-axi (`TASKS_AXI` env override, npx fallback).
+- Skills propose/apply/archive/explore updated to use these; `check-plan.mjs` and templates removed. Build order matters: docs-axi before change-axi (root `npm run build` does it).
+- NOT built: change-axi `archive`, apply preflight/`next`/`claim`/`prompt`, `step rm`, CI, publishing (skills fall back to `npx change-axi@0.1.0`, unpublished). Not yet trialled by a real agent on a real plan (example repo mid-planning with old skills).

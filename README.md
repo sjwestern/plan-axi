@@ -10,9 +10,9 @@ Lightweight plan -> apply -> archive workflow for coding agents. Inspired by Ope
 
 | Package | Status | Purpose |
 |---|---|---|
-| `packages/docs-axi` | v0.1 | `docs/` folder (domain, architecture, decisions): generated index, search, scaffolding, ADR numbering, checks |
-| `packages/change-axi` | planned | change folders under `specs/changes/`, dependency/cycle checks, apply/archive preflights |
-| `skills/` | v0 (prompt-only) | `plan-explore`, `plan-propose`, `plan-apply`, `plan-archive`; interim `check-plan.mjs` (cycles, step/task links, Owns overlap) |
+| `packages/docs-axi` | v0.1 | `docs/` folder (domain, architecture, decisions): generated index, search, scaffolding, ADR numbering, checks, section read/write |
+| `packages/change-axi` | v0.1 | change folders under `specs/changes/`: scaffold proposal/steps (required sections), section read/write, task deps, check, status. Apply/archive preflights not yet built |
+| `skills/` | v0 (prompt-only) | `plan-explore`, `plan-propose`, `plan-apply`, `plan-archive`, `plan-migrate-docs` |
 
 ## Layout this workflow assumes
 
@@ -37,6 +37,10 @@ architecture = ["standards/"]
 ```
 
 Always skipped: dot-entries, `node_modules/`, `_build/`, `_site/`, `site/`, `dist/`, `build/`. Files outside the layout are `UNMANAGED` warnings (exit 0). Mapped docs missing frontmatter or with odd names are warnings too.
+
+## Section editing (docs-axi and change-axi)
+
+Agents write and read single `##` sections instead of whole files: `sections`, `show --section`, `write --section` (stdin/`--body`), `append`. Selectors: `Heading`, `Parent/Child`, `Heading#2`. Writes never echo the body. `change-axi spec proposal|step` lists required sections; `change-axi check` errors on missing or empty ones.
 
 ## Develop
 
