@@ -8,6 +8,7 @@ import { editSection, splitDoc } from "docs-axi/lib/sectionedit";
 import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
 import { archiveChange } from "./archive.js";
+import { applySetup, removeSetup } from "./setup.js";
 import { startChange } from "./start.js";
 import { changeHome, currentChangeSlug } from "./home.js";
 import { checkChange, computeWaves } from "./check.js";
@@ -527,4 +528,34 @@ export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
       ]
     : [`Open the ${slug} worktree, then start the agent there with: apply ${slug} ${step}`];
   return out;
+}
+
+// ---------------------------------------------------------------- setup
+
+export const SETUP_SPEC: CmdSpec = {
+  name: "setup",
+  flags: { "--file": "string", "--remove": "boolean" },
+  min: 0,
+  max: 0,
+  usage: "change-axi setup [--file <path>] [--remove]",
+  help: `usage: change-axi setup [--file <path>] [--remove]
+Add a managed block to AGENTS.md telling agents to use plan-apply on a change branch.
+Target: --file, else existing AGENTS.md, else existing CLAUDE.md, else a new AGENTS.md.
+Only text between <!-- plan-axi:start --> and <!-- plan-axi:end --> is ever touched. Re-running is a no-op.
+  --remove   delete the block
+examples:
+  change-axi setup
+  change-axi setup --remove
+`,
+};
+
+export function setupCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(SETUP_SPEC, args);
+  const file = flagStr(p, "--file");
+  if (flagBool(p, "--remove")) {
+    const r = removeSetup(ctx.root, file);
+    return { setup: r.changed ? "block removed" : "no block found (nothing changed)", path: r.path };
+  }
+  const r = applySetup(ctx.root, file);
+  return { setup: r.changed ? (r.created ? "file created with block" : "block added") : "block already present (nothing changed)", path: r.path };
 }
