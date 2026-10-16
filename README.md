@@ -60,7 +60,7 @@ change-axi dep split-auth 02-api --on 01-extract-token-store
 change-axi check split-auth --waves      # verify before you commit the plan
 ```
 
-Verify a plan: `change-axi check <slug>` (exit 1 on errors), `change-axi status <slug>`, `docs-axi check`, then read `git diff`. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
+Verify a plan: `change-axi check <slug>` (exit 1 on errors), `change-axi status <slug>`, `docs-axi check`, then read `git diff`. Docs: [docs/](docs/README.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Skills
 

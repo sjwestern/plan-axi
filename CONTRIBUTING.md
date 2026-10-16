@@ -36,4 +36,4 @@ change-axi reuses docs-axi code through `docs-axi/lib/<module>` (no `.js` extens
 - Output must be byte-stable across OSes: `/` paths, LF, locale-independent sort.
 - Change required plan sections only in `change-axi/src/spec.ts`; skills point at `change-axi spec`.
 
-Design notes and open items: `.agent-memory/plan-axi.md`.
+Design: `docs/` (architecture, ADRs). Open items and resume notes: `.agent-memory/plan-axi.md`.
