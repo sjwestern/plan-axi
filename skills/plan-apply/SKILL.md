@@ -28,26 +28,17 @@ Two modes, chosen by the current branch (`git branch --show-current`):
    - which steps are ready now and which are parallel-safe (same wave and non-overlapping `Owns:` can run together; recommend at most one agent per safe step);
    - the prompts below, filled in.
 
-### Prompt: first agent
+### Prompts
 
-```
-You are implementing change <slug> in the worktree <path> (branch <slug>).
-Read specs/changes/active/<slug>/proposal.md, then follow the plan-apply skill in Execute mode.
-Task graph: tasks-axi list --file specs/changes/active/<slug>/tasks.md
-Start with: <id> (<Spec file>). Owns: <paths>.
-```
+The skill picks its mode from the branch, so prompts stay short. Give the user these (filled in):
 
-### Prompt: additional agent (same worktree)
-
-```
-You are working in the worktree <path> (branch <slug>) alongside another agent who is working on task <other-id> (Owns: <paths>) in the same repo. Do not touch those paths.
-Follow the plan-apply skill in Execute mode and take only this task: <id> (<Spec file>). Owns: <paths>.
-Commit only your own paths.
-```
+- First agent, worktree `<path>` (`treehouse enter <id>`): `apply <slug>` (takes the next ready step, loops) or `apply <slug> <step-id>` (that step only, then stop).
+- Another agent in the same worktree: `apply <slug> <step-id>` for a parallel-safe step. Execute step 1 makes it skip steps whose `Owns:` overlap an in-flight step.
 
 ## Execute (in the worktree)
 
-Work is one step at a time per agent. Loop until there are no ready steps you can take:
+Work is one step at a time per agent. Given a step id (`apply <slug> <id>`), do that step only and stop. Otherwise loop until there are no ready steps you can take. Read the proposal only by section (`change-axi show <slug> proposal --section <name>`), starting with Why.
+
 
 1. **Pick.** `tasks-axi ready --file specs/changes/active/<slug>/tasks.md`. If told a specific task, use it. Do not take a task whose `Owns:` overlaps a task already in flight (`tasks-axi list --state in_flight --file ...`; read both step files).
 2. **Claim.** `tasks-axi start <id> --file ...`. If the output says `already in flight`, another agent has it: pick another. Never `start` a done task (it moves it back to in flight).
