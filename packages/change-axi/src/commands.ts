@@ -532,6 +532,7 @@ export function archiveCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (r.adrs.length > 0) out["adrs"] = r.adrs;
   if (r.untouched.length > 0) out["docs_not_updated"] = r.untouched.join(", ");
   if (r.commit) out["commit"] = r.commit;
+  if (r.next) out["next"] = r.next;
   if (dry) out["help"] = [`Run \`change-axi archive ${slug} --commit\` to apply`];
   else if (!r.commit) out["help"] = ["Commit: git add -- specs docs backlog.md && git commit -m \"archive " + slug + "\""];
   return out;

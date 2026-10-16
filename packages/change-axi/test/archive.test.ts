@@ -67,6 +67,7 @@ describe("archive", () => {
     const dry = await run("archive", "demo-change", "--dry-run");
     expect(dry.out).toContain("dry run");
     expect(dry.out).toContain("accept");
+    expect(dry.out).toContain("change-axi finish demo-change");
     expect(existsSync(join(dir, "specs/changes/active/demo-change"))).toBe(true);
 
     const r = await run("archive", "demo-change", "--commit");

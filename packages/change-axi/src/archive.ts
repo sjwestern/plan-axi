@@ -49,6 +49,7 @@ export interface ArchiveReport {
   untouched: string[];
   commit?: string;
   already?: boolean;
+  next?: string[];
 }
 
 export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): ArchiveReport {
@@ -123,6 +124,7 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
   const target = join(ctx.root, targetRel);
   if (existsSync(target)) throw new AxiError(`${targetRel} already exists`, "VALIDATION_ERROR");
   const report: ArchiveReport = { mode, target: targetRel, adrs, untouched };
+  if (mode === "branch") report.next = [`from the main checkout: change-axi finish ${slug}`];
   if (o.dryRun) return report;
 
   // apply
