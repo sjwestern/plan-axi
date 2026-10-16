@@ -34,6 +34,20 @@ change-axi step set split-auth 02 --owns src/auth/,tests/auth/
 change-axi dep split-auth 03 --on 01,02    # cycles are reverted
 change-axi check split-auth --waves
 change-axi status split-auth
+change-axi                                 # on branch <slug>: that change's steps, ready list, next prompt
 change-axi start split-auth                # on main: in flight + commit + worktree
+change-axi enter split-auth [step]         # start if needed, run the agent in the worktree (--print to only print)
+change-axi setup [--remove]                # managed plan-axi block in AGENTS.md
 change-axi archive split-auth --dry-run    # then --commit; accepts the change's ADRs
 ```
+
+## Agent config
+
+`enter` runs the first match of: `[apply] agent` in `.plan-axi.toml` (repo, over user config at `~/.config/plan-axi/config.toml`), env `CHANGE_AXI_AGENT`, then the first of `pi`, `claude`, `codex`, `gemini`, `opencode` on PATH.
+
+```toml
+[apply]
+agent = "pi {prompt}"    # placeholders: {prompt} (shell-quoted) {slug} {step} {path}
+```
+
+Without a TTY, `enter` prints the command instead of running it (`--run` overrides).

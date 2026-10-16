@@ -60,10 +60,12 @@ change-axi dep split-auth 02-api --on 01-extract-token-store
 change-axi check split-auth --waves      # verify before you commit the plan
 ```
 
+After committing the plan on main, launch it: `change-axi enter split-auth` starts the change, leases a worktree and runs your agent there (set `[apply] agent` in `.plan-axi.toml`, or it autodetects pi, claude, codex, gemini, opencode). `change-axi setup` adds an AGENTS.md block so agents know to use `plan-apply` on a change branch.
+
 Verify a plan: `change-axi check <slug>` (exit 1 on errors), `change-axi status <slug>`, `docs-axi check`, then read `git diff`. Docs: [docs/](docs/README.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Skills
 
 Install with `npm run skills:install` (symlinks `skills/*` into `~/.agents/skills`, which pi and other agents read; idempotent, refuses to overwrite non-link conflicts). Remove with `npm run skills:uninstall`. Use `node scripts/install-skills.mjs --dir <path>` for another location. They call `tasks-axi` (pin `0.2.6`) and `docs-axi`.
 
-Flow: `plan-explore` (read-only, reads `docs/`) -> `plan-propose` (writes the plan, no commit) -> you review and commit on main -> `plan-apply` (on main: start + treehouse worktree + prompt; in the worktree: run steps) -> `plan-archive`.
+Flow: `plan-explore` (read-only, reads `docs/`) -> `plan-propose` (writes the plan, no commit) -> you review and commit on main -> `plan-apply` (on main: `change-axi enter` = start + treehouse worktree + agent; in the worktree: run steps) -> `plan-archive`.

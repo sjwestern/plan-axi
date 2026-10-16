@@ -9,7 +9,7 @@ summary: How explore, propose, apply and archive work, and which tool owns what
 plan-explore  read-only, reads docs, drafts in conversation
 plan-propose  change-axi new/step add/write -> plan files, no commit
 (you)         review the diff, commit on main
-plan-apply    main: start + treehouse worktree + prompt | worktree: run steps
+plan-apply    main: start/enter + treehouse worktree + agent | worktree: run steps
 plan-archive  accept ADRs, move to archived/, mark backlog done
 ```
 
@@ -33,3 +33,9 @@ backlog.md                               one tasks-axi task per change
 ## Step execution
 
 Pick a ready step, claim it (`tasks-axi start`), implement inside `Owns:`, verify Done when, commit own paths only, `tasks-axi done`. See ADR 4 and ADR 5.
+
+## Launch and orientation
+
+`change-axi enter <slug> [step]` runs the `start` preflight and commit when the change is queued, finds or leases the worktree, then spawns the configured agent command there (cwd = worktree, no `treehouse enter`) with the prompt `apply <slug> [step]`. See ADR 6.
+
+An agent in the worktree orients itself by running bare `change-axi`: on a branch named like an active change it shows progress, steps, in-flight and ready steps, and the next prompt. `change-axi setup` adds an AGENTS.md block that points agents at this; `start` and `enter` hint when it is missing but never edit the file.
