@@ -1,8 +1,8 @@
 # Backlog
 
 ## In flight
-## Queued
 - [ ] finish-delete-branch - finish --delete-branch (kind: change) (since 2026-10-16)
+## Queued
 ## Done
 - [x] polish-archive-and-step-add - Archive follow-up hints and step add prefix ids (kind: change) (done 2026-10-16)
 - [x] add-claim-done-commands - Add change-axi claim and done (kind: change) (done 2026-10-16)
