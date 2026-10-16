@@ -9,6 +9,7 @@ export const SETUP_BLOCK = `${START_MARK}
 ## plan-axi
 
 - On a branch matching \`specs/changes/active/<slug>\`, use the plan-apply skill (Execute mode). Run \`change-axi\` with no args for the change status and next step.
+- For "what's next", "what's in progress", or "what needs doing" questions, run \`change-axi\` (active changes and next step) and \`tasks-axi list\` (backlog) instead of reading plan files.
 - Use \`change-axi\` and \`tasks-axi\` for plan files. Never hand-edit \`tasks.md\` or \`backlog.md\`.
 ${END_MARK}`;
 
