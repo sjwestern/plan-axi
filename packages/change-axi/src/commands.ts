@@ -689,7 +689,7 @@ examples:
 export function enterCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(ENTER_SPEC, args);
   const slug = p.pos[0] as string;
-  const step = p.pos[1];
+  let step = p.pos[1];
   requireChange(ctx, slug);
   if (step && !listTasks(ctx.root, tasksRel(slug)).some((t) => t.id === step)) {
     throw new AxiError(`no step "${step}" in ${slug}`, "NOT_FOUND", [`Run \`change-axi status ${slug}\` for step ids`]);
@@ -704,12 +704,26 @@ export function enterCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     path = w.path;
     enter = w.name ? `treehouse enter ${w.name}` : `cd ${w.path}`;
   }
+  const out_: string[] = [];
+  if (!step) {
+    // Resume: the worktree's branch holds the live step state.
+    let flying: string[] = [];
+    try {
+      flying = listTasks(path, tasksRel(slug)).filter((t) => t.state === "in_flight").map((t) => t.id);
+    } catch {
+      /* no tasks file yet */
+    }
+    if (flying.length === 1) {
+      step = flying[0];
+      out_.push(`Resuming in-flight step ${step}`);
+    }
+  }
   const prompt = step ? `apply ${slug} ${step}` : `apply ${slug}`;
   out["worktree"] = path;
   out["branch"] = slug;
   if (enter) out["enter"] = enter;
   out["prompt"] = prompt;
-  const help: string[] = [];
+  const help: string[] = out_;
   const agent = resolveAgent(path);
   if (!agent) {
     help.push('No agent found. Set one in .plan-axi.toml: [apply]  agent = "pi {prompt}"  (or export CHANGE_AXI_AGENT)');

@@ -34,7 +34,7 @@ export function tryTreehouse(ctx: Ctx, args: string[]): string {
   } catch (e) {
     const err = e as NodeJS.ErrnoException & { stderr?: string };
     if (err.code === "ENOENT") throw new AxiError("treehouse not found on PATH", "NOT_FOUND", ["Install treehouse, or pass --no-worktree and create the worktree yourself"]);
-    throw new AxiError(`treehouse ${args[0]} failed: ${(err.stderr ?? "").trim().split("\n").filter((l) => !/new version|treehouse update/i.test(l))[0] ?? ""}`, "TREEHOUSE_ERROR");
+    throw new AxiError(`treehouse ${args[0]} failed: ${(err.stderr ?? "").trim().split("\n").filter((l) => l.trim() && !/new version|treehouse update|setting up worktree/i.test(l)).slice(-3).join(" | ")}`, "TREEHOUSE_ERROR");
   }
 }
 
@@ -59,12 +59,36 @@ export function statusRows(ctx: Ctx): { name: string; path: string; branch?: str
 export function leaseWorktree(ctx: Ctx, slug: string): Worktree {
   const existing = statusRows(ctx).find((r) => r.branch === slug);
   if (existing) return { path: existing.path, name: existing.name, reused: true };
-  const raw = tryTreehouse(ctx, ["get", "--lease", "--json", "-b", slug]);
+  // Branch may already exist (e.g. from an earlier aborted enter).
+  const exists = git(ctx, ["rev-parse", "--verify", "--quiet", `refs/heads/${slug}`], true) !== "";
+  let reuseBranch = false;
+  if (exists) {
+    const base = defaultBranch(ctx);
+    const unique = git(ctx, ["rev-list", "--count", `${base}..${slug}`], true);
+    if (!/^\d+$/.test(unique)) {
+      throw new AxiError(`branch ${slug} exists but could not be compared with ${base}`, "VALIDATION_ERROR", [
+        `Check with \`git log ${base}..${slug}\``,
+        `If it holds nothing you need: \`git branch -D ${slug}\`, then rerun enter`,
+        `If it holds work: \`git switch ${slug}\` in a free worktree`,
+      ]);
+    }
+    if (unique === "0") git(ctx, ["branch", "-D", slug]); // no unique commits: safe to recreate from base
+    else reuseBranch = true; // has work: check it out in the leased worktree
+  }
+  const raw = tryTreehouse(ctx, reuseBranch ? ["get", "--lease", "--json"] : ["get", "--lease", "--json", "-b", slug]);
   let path: string;
   try {
     path = (JSON.parse(raw) as { path: string }).path;
   } catch {
     throw new AxiError("could not read treehouse lease output", "TREEHOUSE_ERROR", [raw.slice(0, 200)]);
+  }
+  if (reuseBranch) {
+    try {
+      execFileSync("git", ["switch", slug], { cwd: path, stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) {
+      const m = ((e as { stderr?: Buffer }).stderr ?? "").toString().trim().split("\n")[0];
+      throw new AxiError(`git switch ${slug} failed in ${path}: ${m}`, "GIT_ERROR", ["Branch may be checked out elsewhere"]);
+    }
   }
   // Match by path, then by branch label (the path can differ through symlinks).
   const rows = statusRows(ctx);
