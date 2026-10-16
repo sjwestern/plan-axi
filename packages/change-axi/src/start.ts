@@ -27,7 +27,7 @@ export interface StartReport {
   warnings: string[];
 }
 
-function tryTreehouse(ctx: Ctx, args: string[]): string {
+export function tryTreehouse(ctx: Ctx, args: string[]): string {
   try {
     return execFileSync("treehouse", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   } catch (e) {
@@ -38,7 +38,7 @@ function tryTreehouse(ctx: Ctx, args: string[]): string {
 }
 
 /** Rows of `treehouse status`: slot name, path and branch label. */
-function statusRows(ctx: Ctx): { name: string; path: string; branch?: string }[] {
+export function statusRows(ctx: Ctx): { name: string; path: string; branch?: string }[] {
   const out = tryTreehouse(ctx, ["status"]);
   const rows: { name: string; path: string; branch?: string }[] = [];
   for (const line of out.split("\n")) {
