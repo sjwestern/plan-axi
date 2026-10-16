@@ -1,87 +1,19 @@
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import type { AxiStructuredOutput } from "../types.js";
 import { flagBool, flagStr, parseArgs, type CmdSpec, type Parsed } from "../args.js";
-import { applyEol, detectEol, normalizeEol, readText, writeText } from "../fsutil.js";
-import { parseDoc } from "../frontmatter.js";
+import { readBodyInput } from "../body.js";
+import { readText, writeText } from "../fsutil.js";
 import { writeIndex } from "../indexgen.js";
 import { loadDocs, requireDocsDir, resolveDocPath, type Ctx } from "../model.js";
-import {
-  appendToSection,
-  checkBody,
-  findSection,
-  findSectionOrUndefined,
-  insertSection,
-  parseSections,
-  replaceSection,
-  sectionText,
-  splitLines,
-  type Section,
-} from "../sections.js";
+import { editSection, readSection, splitDoc } from "../sectionedit.js";
+import { sectionText } from "../sections.js";
 
-/** Body text from --body, --body-file (`-` = stdin) or piped stdin. */
-export function readBodyInput(p: Parsed, required = true): string | undefined {
-  const inline = flagStr(p, "--body");
-  const file = flagStr(p, "--body-file");
-  if (inline !== undefined && file !== undefined) {
-    throw new AxiError("pass only one of --body and --body-file", "VALIDATION_ERROR");
-  }
-  if (inline !== undefined) return normalizeEol(inline);
-  if (file !== undefined && file !== "-") {
-    if (!existsSync(file)) throw new AxiError(`--body-file not found: ${file}`, "NOT_FOUND");
-    return normalizeEol(readText(file));
-  }
-  if (file === "-" || (required && !process.stdin.isTTY)) return readStdin();
-  if (required) {
-    throw new AxiError("no body given", "VALIDATION_ERROR", [
-      "Pipe the text on stdin, or pass --body <text> or --body-file <path>",
-    ]);
-  }
-  return undefined;
-}
-
-function readStdin(): string {
-  try {
-    return normalizeEol(readFileSync(0, "utf8"));
-  } catch {
-    throw new AxiError("could not read stdin", "VALIDATION_ERROR", ["Pass --body <text> or --body-file <path>"]);
-  }
-}
-
-interface Loaded {
-  path: string;
-  abs: string;
-  eol: "\n" | "\r\n";
-  norm: string;
-  prefix: string;
-  lead: string;
-  core: string;
-  lines: string[];
-  secs: Section[];
-}
-
-function load(ctx: Ctx, ref: string): Loaded {
+function locate(ctx: Ctx, ref: string): { path: string; abs: string; raw: string } {
   requireDocsDir(ctx);
   const d = resolveDocPath(ctx, ref, loadDocs(ctx));
   const abs = join(ctx.docsDir, d.path);
-  const raw = readText(abs);
-  const norm = normalizeEol(raw);
-  const parsed = parseDoc(norm);
-  const prefix = norm.slice(0, norm.length - parsed.body.length);
-  const lead = /^\n*/.exec(parsed.body)?.[0] ?? "";
-  const core = parsed.body.slice(lead.length);
-  return {
-    path: d.path,
-    abs,
-    eol: detectEol(raw),
-    norm,
-    prefix,
-    lead,
-    core,
-    lines: splitLines(core),
-    secs: parseSections(core),
-  };
+  return { path: d.path, abs, raw: readText(abs) };
 }
 
 function needSection(p: Parsed): string {
@@ -109,18 +41,24 @@ examples:
 `,
 };
 
+export function sectionsTable(raw: string): Record<string, string | number>[] {
+  const l = splitDoc(raw);
+  return l.secs.map((s) => {
+    const chars = sectionText(l.lines, s, false).length;
+    return { ref: s.ref, level: s.level, line: s.head + 1, chars, empty: chars === 0 ? "yes" : "no" };
+  });
+}
+
 export function sectionsCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(SECTIONS_SPEC, args);
-  const l = load(ctx, p.pos[0] as string);
-  if (l.secs.length === 0) {
+  const l = locate(ctx, p.pos[0] as string);
+  const rows = sectionsTable(l.raw);
+  if (rows.length === 0) {
     return { doc: l.path, sections: "0 headings", help: ["Add one with `docs-axi write <doc> --section <name> --add`"] };
   }
   return {
     doc: l.path,
-    sections: l.secs.map((s) => {
-      const chars = sectionText(l.lines, s, false).length;
-      return { ref: s.ref, level: s.level, line: s.head + 1, chars, empty: chars === 0 ? "yes" : "no" };
-    }),
+    sections: rows,
     help: [
       "Run `docs-axi show <doc> --section <ref>` to read one",
       "Run `docs-axi write <doc> --section <ref>` (stdin) to replace one",
@@ -130,17 +68,20 @@ export function sectionsCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
 // ---------------------------------------------------------------- show --section
 
-export function showSection(ctx: Ctx, docRef: string, selector: string, tree: boolean): string {
-  const l = load(ctx, docRef);
-  const s = findSection(l.secs, selector);
-  const text = sectionText(l.lines, s, tree);
-  const out = [`doc: ${l.path}`, `section: ${s.ref} (line ${s.head + 1}, level ${s.level}${tree ? ", with subsections" : ""})`, ""];
-  out.push(text === "" ? "(empty)" : text);
-  const kids = l.secs.filter((c) => c.head > s.head && c.head < s.treeEnd && c.parents.length === s.parents.length + 1);
-  if (!tree && kids.length > 0) {
-    out.push("", "help[1]:", `  Subsections not shown: ${kids.map((k) => k.title).join(", ")}. Add --tree to include them`);
+export function renderSection(raw: string, label: string, selector: string, tree: boolean): string {
+  const r = readSection(raw, selector, tree);
+  const s = r.section;
+  const out = [`doc: ${label}`, `section: ${s.ref} (line ${s.head + 1}, level ${s.level}${tree ? ", with subsections" : ""})`, ""];
+  out.push(r.text === "" ? "(empty)" : r.text);
+  if (!tree && r.children.length > 0) {
+    out.push("", "help[1]:", `  Subsections not shown: ${r.children.join(", ")}. Add --tree to include them`);
   }
   return out.join("\n");
+}
+
+export function showSection(ctx: Ctx, docRef: string, selector: string, tree: boolean): string {
+  const l = locate(ctx, docRef);
+  return renderSection(l.raw, l.path, selector, tree);
 }
 
 // ---------------------------------------------------------------- write / append
@@ -190,45 +131,24 @@ examples:
 };
 
 function applyEdit(ctx: Ctx, args: string[], mode: "write" | "append"): AxiStructuredOutput {
-  const spec = mode === "write" ? WRITE_SPEC : APPEND_SPEC;
-  const p = parseArgs(spec, args);
+  const p = parseArgs(mode === "write" ? WRITE_SPEC : APPEND_SPEC, args);
   const selector = needSection(p);
-  const add = flagBool(p, "--add");
-  const tree = flagBool(p, "--tree");
-  if (mode === "append" && (tree || flagStr(p, "--after") !== undefined)) {
-    throw new AxiError("--tree and --after do not apply to append", "VALIDATION_ERROR");
-  }
-  const l = load(ctx, p.pos[0] as string);
+  const l = locate(ctx, p.pos[0] as string);
   const text = readBodyInput(p) as string;
   const afterSel = flagStr(p, "--after");
-  if (afterSel !== undefined && !add) throw new AxiError("--after needs --add", "VALIDATION_ERROR");
-  const found = add ? findSectionOrUndefined(l.secs, selector) : findSection(l.secs, selector);
-  let nextCore: string;
-  let ref: string;
-  let action: string;
-  if (!found) {
-    const after = afterSel === undefined ? undefined : findSection(l.secs, afterSel);
-    const r = insertSection(l.core, l.secs, selector, text, after);
-    nextCore = r.body;
-    ref = r.ref;
-    action = "created";
-  } else {
-    checkBody(text, found.level);
-    nextCore =
-      mode === "write"
-        ? replaceSection(l.core, found, text, tree)
-        : appendToSection(l.core, found, text);
-    ref = found.ref;
-    action = mode === "write" ? "replaced" : "appended";
-  }
-  const next = l.prefix + l.lead + nextCore;
-  if (next === l.norm) return { [mode]: `${l.path} "${ref}" unchanged (no-op)` };
-  writeText(l.abs, applyEol(next, l.eol));
-  const s = findSection(parseSections(nextCore), ref);
-  const nLines = splitLines(sectionText(splitLines(nextCore), s, mode === "write" && tree)).length;
+  const r = editSection(l.raw, {
+    mode,
+    selector,
+    text,
+    add: flagBool(p, "--add"),
+    tree: flagBool(p, "--tree"),
+    ...(afterSel !== undefined ? { after: afterSel } : {}),
+  });
+  if (!r.changed) return { [mode]: `${l.path} "${r.ref}" unchanged (no-op)` };
+  writeText(l.abs, r.next);
   return {
-    [mode]: `${l.path} "${ref}" ${action}`,
-    lines: nLines,
+    [mode]: `${l.path} "${r.ref}" ${r.action}`,
+    lines: r.lines,
     index: writeIndex(ctx, loadDocs(ctx)) ? "updated" : "unchanged",
   };
 }

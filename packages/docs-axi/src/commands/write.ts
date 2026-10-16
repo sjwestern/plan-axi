@@ -30,7 +30,7 @@ import {
   type Section,
 } from "../model.js";
 import { adrBody, docBody } from "../templates.js";
-import { readBodyInput } from "./sections.js";
+import { readBodyInput } from "../body.js";
 
 function reindex(ctx: Ctx): "updated" | "unchanged" {
   return writeIndex(ctx, loadDocs(ctx)) ? "updated" : "unchanged";

@@ -1,0 +1,18 @@
+{
+  "name": "change-axi",
+  "version": "0.1.0",
+  "description": "AXI CLI for change plans (specs/changes): scaffold proposal and steps, write sections, task graph checks",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "change-axi": "dist/bin/change-axi.js" },
+  "files": ["dist/**/*.js"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "axi-sdk-js": "^0.1.13",
+    "docs-axi": "0.1.0"
+  }
+}

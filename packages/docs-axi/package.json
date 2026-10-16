@@ -4,9 +4,16 @@
   "description": "AXI CLI for a structured repo docs folder (domain, architecture, decisions): generated index, search, scaffolding, checks",
   "license": "MIT",
   "type": "module",
-  "bin": { "docs-axi": "dist/bin/docs-axi.js" },
-  "files": ["dist/**/*.js"],
-  "engines": { "node": ">=20" },
+  "bin": {
+    "docs-axi": "dist/bin/docs-axi.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -15,5 +22,12 @@
   "dependencies": {
     "@toon-format/toon": "^2.1.0",
     "axi-sdk-js": "^0.1.13"
+  },
+  "exports": {
+    "./lib/*": {
+      "types": "./dist/src/*.d.ts",
+      "default": "./dist/src/*.js"
+    },
+    "./package.json": "./package.json"
   }
 }

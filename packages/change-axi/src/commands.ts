@@ -1,0 +1,435 @@
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { AxiError } from "axi-sdk-js";
+import { flagBool, flagStr, parseArgs, requireSingleLine, type CmdSpec } from "docs-axi/lib/args";
+import { readBodyInput } from "docs-axi/lib/body";
+import { applyEol, writeText } from "docs-axi/lib/fsutil";
+import { editSection, splitDoc } from "docs-axi/lib/sectionedit";
+import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
+import type { AxiStructuredOutput } from "docs-axi/lib/types";
+import { checkChange, computeWaves } from "./check.js";
+import {
+  activeDir,
+  archivedDir,
+  changeDir,
+  checkSlug,
+  headerLine,
+  readLf,
+  requireChange,
+  resolveDoc,
+  splitList,
+  stepFiles,
+  tasksRel,
+  SLUG_RE,
+  type Ctx,
+} from "./change.js";
+import { PROPOSAL_SECTIONS, STEP_HEADER_LINES, STEP_SECTIONS, proposalSkeleton, stepSkeleton } from "./spec.js";
+import { listTasks, runTasks } from "./tasks.js";
+
+const guideRows = (list: { name: string; guide: string }[]): Record<string, string>[] => list.map((s) => ({ section: s.name, guide: s.guide }));
+
+// ---------------------------------------------------------------- home
+
+export function homeCommand(ctx: Ctx): AxiStructuredOutput {
+  const dir = activeDir(ctx);
+  const slugs = existsSync(dir) ? readdirSync(dir).filter((f) => existsSync(join(dir, f, "proposal.md")) || existsSync(join(dir, f, "tasks.md"))).sort() : [];
+  if (slugs.length === 0) {
+    return { changes: "0 active changes", help: ['Run `change-axi new <slug> "<title>"` to start a plan', "Run `change-axi spec proposal` for the required sections"] };
+  }
+  const rows = slugs.map((slug) => {
+    const tasks = existsSync(join(dir, slug, "tasks.md")) ? listTasks(ctx.root, tasksRel(slug)) : [];
+    const done = tasks.filter((t) => t.state === "done").length;
+    return { slug, steps: tasks.length, done, in_flight: tasks.filter((t) => t.state === "in_flight").length };
+  });
+  return { changes: rows, help: ["Run `change-axi status <slug>` for the step graph", "Run `change-axi check <slug>` to validate a plan"] };
+}
+
+// ---------------------------------------------------------------- spec
+
+export const SPEC_SPEC: CmdSpec = {
+  name: "spec",
+  flags: {},
+  min: 0,
+  max: 1,
+  usage: "change-axi spec [proposal|step]",
+  help: `usage: change-axi spec [proposal|step]
+Print the required sections of a proposal or step file, with what each must contain.
+examples:
+  change-axi spec proposal
+  change-axi spec step
+`,
+};
+
+export function specCommand(_ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(SPEC_SPEC, args);
+  const which = p.pos[0];
+  if (which === "proposal") return { proposal: guideRows(PROPOSAL_SECTIONS), help: ['Fill with `change-axi write <slug> proposal --section "<name>" --body "..."`'] };
+  if (which === "step") {
+    return {
+      header: guideRows(STEP_HEADER_LINES),
+      step: guideRows(STEP_SECTIONS),
+      help: ["Set Owns/Docs with `change-axi step set <slug> <step> --owns a,b --docs x`", 'Fill sections with `change-axi write <slug> <step> --section "<name>"`'],
+    };
+  }
+  if (which !== undefined) throw new AxiError(`unknown kind ${which}`, "VALIDATION_ERROR", ["Kinds: proposal, step"]);
+  return { proposal: guideRows(PROPOSAL_SECTIONS), step: guideRows(STEP_SECTIONS), header: guideRows(STEP_HEADER_LINES) };
+}
+
+// ---------------------------------------------------------------- new
+
+export const NEW_SPEC: CmdSpec = {
+  name: "new",
+  flags: {},
+  min: 2,
+  max: 2,
+  usage: 'change-axi new <slug> "<title>"',
+  help: `usage: change-axi new <slug> "<title>"
+Create specs/changes/active/<slug>/proposal.md (empty required sections), ensure .tasks.toml, and queue the change in backlog.md.
+slug: kebab-case, verb first, max 50 chars. Must not be active, archived, or already in the backlog.
+Does not commit.
+examples:
+  change-axi new split-auth-module "Split the auth module"
+`,
+};
+
+export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(NEW_SPEC, args);
+  const slug = p.pos[0] as string;
+  const title = requireSingleLine("title", p.pos[1] as string);
+  checkSlug(slug);
+  const dir = changeDir(ctx, slug);
+  if (existsSync(dir)) return { created: `specs/changes/active/${slug} already exists (no-op)`, help: [`Run \`change-axi status ${slug}\``] };
+  if (existsSync(archivedDir(ctx)) && readdirSync(archivedDir(ctx)).some((d) => /^\d{4}-\d{2}-\d{2}-/.test(d) && d.slice(11) === slug)) {
+    throw new AxiError(`slug "${slug}" is already archived`, "VALIDATION_ERROR", ["Pick a new slug"]);
+  }
+  if (existsSync(join(ctx.root, "backlog.md")) && listTasks(ctx.root, "backlog.md", ["--limit", "1000"]).some((t) => t.id === slug)) {
+    throw new AxiError(`backlog.md already has a task "${slug}"`, "VALIDATION_ERROR", ["tasks-axi add ignores existing ids; pick a new slug"]);
+  }
+  mkdirSync(dir, { recursive: true });
+  writeText(join(dir, "proposal.md"), proposalSkeleton(title));
+  const toml = join(ctx.root, ".tasks.toml");
+  let tomlNote = "present";
+  if (!existsSync(toml)) {
+    writeFileSync(toml, "[markdown]\ndone_keep = 1000\n");
+    tomlNote = "created";
+  }
+  runTasks(ctx.root, ["add", slug, title, "--kind", "change", "--file", "backlog.md"]);
+  return {
+    created: `specs/changes/active/${slug}/proposal.md`,
+    backlog: `${slug} queued`,
+    tasks_toml: tomlNote,
+    sections: guideRows(PROPOSAL_SECTIONS),
+    help: [
+      `Fill each with \`change-axi write ${slug} proposal --section "<name>"\` (body on stdin)`,
+      `Add steps with \`change-axi step add ${slug} "<title>" --owns <paths>\``,
+    ],
+  };
+}
+
+// ---------------------------------------------------------------- step add / set
+
+const STEP_FLAGS = {
+  "--owns": "string",
+  "--docs": "string",
+  "--after": "string",
+  "--name": "string",
+  "--title": "string",
+} as const;
+
+export const STEP_SPEC: CmdSpec = {
+  name: "step",
+  flags: STEP_FLAGS,
+  min: 2,
+  max: 4,
+  usage: 'change-axi step add <slug> "<title>" --owns a,b [--docs x,y] [--after id,id] [--name <kebab>] | step set <slug> <step> [--owns ..] [--docs ..] [--title ..]',
+  help: `usage:
+  change-axi step add <slug> "<title>" --owns a,b [--docs x,y] [--after id,id] [--name <kebab>]
+  change-axi step set <slug> <step> [--owns a,b] [--docs x,y] [--title "<t>"]
+add: next number NN, creates NN-<name>.md (empty required sections) and its task (body "Spec: NN-<name>.md").
+  --owns   repo paths/globs the step EDITS (required)
+  --docs   docs to read first (default none)
+  --after  step ids this step depends on (must exist)
+  --name   file slug (default from title)
+set: edit the Owns/Docs header lines or the title (also retitles the task).
+Dependencies later: change-axi dep <slug> <step> --on|--off <ids>
+examples:
+  change-axi step add split-auth "Extract token store" --owns src/auth/tokens/ --after 01-schema
+`,
+};
+
+function slugName(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
+}
+
+export function stepCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(STEP_SPEC, args);
+  const [sub, slug] = p.pos as [string, string];
+  const dir = requireChange(ctx, slug);
+  if (sub === "add") return stepAdd(ctx, dir, slug, p.pos[2], p);
+  if (sub === "set") return stepSet(ctx, dir, slug, p.pos[2], p);
+  throw new AxiError(`unknown step command ${sub}`, "VALIDATION_ERROR", ["Use `step add` or `step set`"]);
+}
+
+function stepAdd(ctx: Ctx, dir: string, slug: string, titleArg: string | undefined, p: ReturnType<typeof parseArgs>): AxiStructuredOutput {
+  if (titleArg === undefined) throw new AxiError("step add needs a title", "VALIDATION_ERROR", [`usage: ${STEP_SPEC.usage}`]);
+  const title = requireSingleLine("title", titleArg);
+  const owns = splitList(flagStr(p, "--owns"));
+  if (owns.length === 0) throw new AxiError("--owns is required", "VALIDATION_ERROR", ["Paths the step edits, e.g. --owns src/auth/,tests/auth/"]);
+  const docs = splitList(flagStr(p, "--docs"));
+  const name = flagStr(p, "--name") ?? slugName(title);
+  if (!SLUG_RE.test(name)) throw new AxiError(`bad step name "${name}"`, "VALIDATION_ERROR", ["kebab-case, from --name or the title"]);
+  const existing = stepFiles(dir);
+  const next = existing.reduce((m, f) => Math.max(m, Number(f.slice(0, 2))), 0) + 1;
+  const num = String(next).padStart(2, "0");
+  const id = `${num}-${name}`;
+  if (next > 99) throw new AxiError("too many steps", "VALIDATION_ERROR", ["Split the change"]);
+  const known = new Set(listTasks(ctx.root, tasksRel(slug)).map((t) => t.id));
+  const after = splitList(flagStr(p, "--after"));
+  for (const a of after) {
+    if (!known.has(a)) throw new AxiError(`--after: no step "${a}"`, "NOT_FOUND", [`Steps: ${[...known].sort().join(", ") || "(none)"}`]);
+  }
+  const file = join(dir, `${id}.md`);
+  writeText(file, stepSkeleton(num, title, owns, docs));
+  try {
+    runTasks(ctx.root, [
+      "add", id, title, "--file", tasksRel(slug), "--body", `Spec: ${id}.md`,
+      ...after.flatMap((a) => ["--blocked-by", a]),
+    ]);
+  } catch (e) {
+    rmSync(file, { force: true });
+    throw e;
+  }
+  return {
+    created: `specs/changes/active/${slug}/${id}.md`,
+    task: id,
+    blocked_by: after.length > 0 ? after.join(",") : "none",
+    sections: guideRows(STEP_SECTIONS),
+    help: [`Fill each with \`change-axi write ${slug} ${id} --section "<name>"\``, `List it in proposal "Steps": \`change-axi append ${slug} proposal --section Steps --body "- \\\`${id}.md\\\` - ${title}"\``],
+  };
+}
+
+function stepSet(ctx: Ctx, dir: string, slug: string, which: string | undefined, p: ReturnType<typeof parseArgs>): AxiStructuredOutput {
+  if (which === undefined) throw new AxiError("step set needs a step", "VALIDATION_ERROR", [`usage: ${STEP_SPEC.usage}`]);
+  const file = resolveDoc(dir, which);
+  if (file === "proposal.md") throw new AxiError("not a step", "VALIDATION_ERROR");
+  const abs = join(dir, file);
+  const raw = readLf(abs);
+  let text = raw;
+  const owns = flagStr(p, "--owns");
+  const docs = flagStr(p, "--docs");
+  const title = flagStr(p, "--title");
+  if (owns === undefined && docs === undefined && title === undefined) throw new AxiError("nothing to set", "VALIDATION_ERROR", [`usage: ${STEP_SPEC.usage}`]);
+  const setLine = (key: string, value: string): void => {
+    const re = new RegExp(`^${key}:.*$`, "m");
+    text = re.test(text) ? text.replace(re, `${key}: ${value}`) : text.replace(/^(# .*\n\n?)/, `$1${key}: ${value}\n`);
+  };
+  if (owns !== undefined) {
+    const list = splitList(owns);
+    if (list.length === 0) throw new AxiError("--owns needs at least one path", "VALIDATION_ERROR");
+    setLine("Owns", list.join(", "));
+  }
+  if (docs !== undefined) setLine("Docs", splitList(docs).join(", ") || "none");
+  if (title !== undefined) {
+    const t = requireSingleLine("--title", title);
+    text = text.replace(/^# (\d+) - .*$/m, `# $1 - ${t}`);
+  }
+  const changed = text !== raw;
+  if (changed) writeText(abs, applyEol(text, "\n"));
+  if (title !== undefined) runTasks(ctx.root, ["update", file.replace(/\.md$/, ""), "--title", title.trim(), "--file", tasksRel(slug)]);
+  return { step: `${file} ${changed || title !== undefined ? "updated" : "unchanged (no-op)"}`, owns: headerLine(text, "Owns") ?? "-", docs: headerLine(text, "Docs") ?? "-" };
+}
+
+// ---------------------------------------------------------------- dep
+
+export const DEP_SPEC: CmdSpec = {
+  name: "dep",
+  flags: { "--on": "string", "--off": "string" },
+  min: 2,
+  max: 2,
+  usage: "change-axi dep <slug> <step> --on <ids> | --off <ids>",
+  help: `usage: change-axi dep <slug> <step> --on <ids> | --off <ids>
+Add (--on) or remove (--off) dependencies of a step, comma separated. An edge that creates a cycle is reverted and fails.
+examples:
+  change-axi dep split-auth 03-api --on 01-schema,02-store
+  change-axi dep split-auth 03-api --off 02-store
+`,
+};
+
+export function depCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(DEP_SPEC, args);
+  const slug = p.pos[0] as string;
+  requireChange(ctx, slug);
+  const on = splitList(flagStr(p, "--on"));
+  const off = splitList(flagStr(p, "--off"));
+  if (on.length + off.length === 0) throw new AxiError("pass --on and/or --off", "VALIDATION_ERROR", [`usage: ${DEP_SPEC.usage}`]);
+  const file = tasksRel(slug);
+  const tasks = listTasks(ctx.root, file);
+  const find = (id: string): string => {
+    const hit = tasks.find((t) => t.id === id) ?? tasks.filter((t) => t.id.startsWith(`${id}-`)).sort()[0];
+    if (!hit) throw new AxiError(`no step "${id}"`, "NOT_FOUND", [`Steps: ${tasks.map((t) => t.id).join(", ")}`]);
+    return hit.id;
+  };
+  const step = find(p.pos[1] as string);
+  const onIds = on.map(find);
+  const offIds = off.map(find);
+  if (onIds.includes(step)) throw new AxiError("a step cannot depend on itself", "VALIDATION_ERROR");
+  for (const b of onIds) runTasks(ctx.root, ["block", step, "--by", b, "--file", file]);
+  for (const b of offIds) runTasks(ctx.root, ["unblock", step, "--by", b, "--file", file]);
+  const now = listTasks(ctx.root, file).filter((t) => t.state !== "done");
+  const { cycle } = computeWaves(now);
+  if (cycle.length > 0) {
+    for (const b of onIds) runTasks(ctx.root, ["unblock", step, "--by", b, "--file", file]);
+    for (const b of offIds) runTasks(ctx.root, ["block", step, "--by", b, "--file", file]);
+    throw new AxiError(`dependency would create a cycle (${cycle.join(", ")}); reverted`, "VALIDATION_ERROR");
+  }
+  const after = now.find((t) => t.id === step);
+  return { dep: `${step} blocked_by ${after && after.blockers.length > 0 ? after.blockers.join(",") : "none"}` };
+}
+
+// ---------------------------------------------------------------- doc sections
+
+const DOC_FLAGS = {
+  "--section": "string",
+  "--body": "string",
+  "--body-file": "string",
+  "--add": "boolean",
+  "--after": "string",
+  "--tree": "boolean",
+} as const;
+
+export const SECTIONS_SPEC: CmdSpec = {
+  name: "sections",
+  flags: {},
+  min: 2,
+  max: 2,
+  usage: "change-axi sections <slug> <proposal|step>",
+  help: `usage: change-axi sections <slug> <proposal|step>
+List headings of a change doc with their ref, level, line and chars (empty = no text yet).
+<step> is 01, 01-name or 01-name.md.
+`,
+};
+export const SHOW_SPEC: CmdSpec = {
+  name: "show",
+  flags: { "--section": "string", "--tree": "boolean" },
+  min: 2,
+  max: 2,
+  usage: "change-axi show <slug> <proposal|step> [--section <ref> [--tree]]",
+  help: `usage: change-axi show <slug> <proposal|step> [--section <ref> [--tree]]
+Print a change doc, or one section of it. Refs: see \`change-axi sections\`.
+`,
+};
+export const WRITE_SPEC: CmdSpec = {
+  name: "write",
+  flags: DOC_FLAGS,
+  min: 2,
+  max: 2,
+  usage: "change-axi write <slug> <proposal|step> --section <ref> [--body <t> | --body-file <p>] [--add] [--after <ref>] [--tree]",
+  help: `usage: change-axi write <slug> <proposal|step> --section <ref> [flags]
+Replace one section's content (body from stdin, --body or --body-file; - = stdin). Heading kept. Output never echoes the body.
+--add creates a missing section; --after places it; --tree also replaces subsections.
+examples:
+  printf 'Slow builds.' | change-axi write split-auth proposal --section Why
+`,
+};
+export const APPEND_SPEC: CmdSpec = { ...WRITE_SPEC, name: "append", usage: WRITE_SPEC.usage.replace("write", "append"), help: WRITE_SPEC.help.replace(/write/g, "append").replace("Replace one section's content", "Add to the end of a section's content") };
+
+function docPath(ctx: Ctx, slug: string, which: string): { abs: string; label: string } {
+  const dir = requireChange(ctx, slug);
+  const file = resolveDoc(dir, which);
+  return { abs: join(dir, file), label: `specs/changes/active/${slug}/${file}` };
+}
+
+export function sectionsCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(SECTIONS_SPEC, args);
+  const d = docPath(ctx, p.pos[0] as string, p.pos[1] as string);
+  return { doc: d.label, sections: sectionsTable(readLf(d.abs)) };
+}
+
+export function showCommand(ctx: Ctx, args: string[]): string {
+  const p = parseArgs(SHOW_SPEC, args);
+  const d = docPath(ctx, p.pos[0] as string, p.pos[1] as string);
+  const raw = readLf(d.abs);
+  const sel = flagStr(p, "--section");
+  if (sel !== undefined) return renderSection(raw, d.label, sel, flagBool(p, "--tree"));
+  return `doc: ${d.label}\n\n${raw.replace(/\n+$/, "")}`;
+}
+
+function edit(ctx: Ctx, args: string[], mode: "write" | "append"): AxiStructuredOutput {
+  const p = parseArgs(mode === "write" ? WRITE_SPEC : APPEND_SPEC, args);
+  const sel = flagStr(p, "--section");
+  if (sel === undefined || sel.trim() === "") throw new AxiError("--section is required", "VALIDATION_ERROR", [`Run \`change-axi sections ${p.pos[0]} ${p.pos[1]}\``]);
+  const d = docPath(ctx, p.pos[0] as string, p.pos[1] as string);
+  const raw = readLf(d.abs);
+  const text = readBodyInput(p) as string;
+  const afterSel = flagStr(p, "--after");
+  const r = editSection(raw, { mode, selector: sel, text, add: flagBool(p, "--add"), tree: flagBool(p, "--tree"), ...(afterSel !== undefined ? { after: afterSel } : {}) });
+  if (!r.changed) return { [mode]: `${d.label} "${r.ref}" unchanged (no-op)` };
+  writeText(d.abs, r.next);
+  const out: AxiStructuredOutput = { [mode]: `${d.label} "${r.ref}" ${r.action}`, lines: r.lines };
+  const remaining = sectionsTable(r.next).filter((s) => s["level"] === 2 && s["empty"] === "yes").map((s) => s["ref"]);
+  if (remaining.length > 0) out["still_empty"] = remaining.join(", ");
+  return out;
+}
+
+export const writeCommand = (ctx: Ctx, args: string[]): AxiStructuredOutput => edit(ctx, args, "write");
+export const appendCommand = (ctx: Ctx, args: string[]): AxiStructuredOutput => edit(ctx, args, "append");
+
+// ---------------------------------------------------------------- check / status
+
+export const CHECK_SPEC: CmdSpec = {
+  name: "check",
+  flags: { "--waves": "boolean" },
+  min: 1,
+  max: 1,
+  usage: "change-axi check <slug> [--waves]",
+  help: `usage: change-axi check <slug> [--waves]
+Validate a plan: task graph cycles, step file <-> task links, required non-empty sections, slug reuse,
+Owns in tool dirs, and Owns overlap between steps that can run in parallel. Exit 1 on errors.
+tasks-axi accepts dependency cycles silently; this catches them.
+  --waves   print parallel waves
+`,
+};
+
+export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(CHECK_SPEC, args);
+  const slug = p.pos[0] as string;
+  requireChange(ctx, slug);
+  const r = checkChange(ctx, slug);
+  const out: AxiStructuredOutput = {
+    check: r.errors.length === 0 ? `ok (${r.tasks.length} tasks, ${r.active.length} unfinished, ${r.steps} step files)` : `${r.errors.length} error(s)`,
+  };
+  if (r.errors.length > 0) out["errors"] = r.errors;
+  if (r.warnings.length > 0) out["warnings"] = r.warnings;
+  if (flagBool(p, "--waves") && r.waves.size > 0) out["waves"] = [...r.waves].map(([w, ids]) => ({ wave: w, steps: ids.join(",") }));
+  if (r.errors.length > 0) process.exitCode = 1;
+  return out;
+}
+
+export const STATUS_SPEC: CmdSpec = {
+  name: "status",
+  flags: {},
+  min: 1,
+  max: 1,
+  usage: "change-axi status <slug>",
+  help: `usage: change-axi status <slug>
+Steps with state, dependencies, wave, and which are ready to start now.
+`,
+};
+
+export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(STATUS_SPEC, args);
+  const slug = p.pos[0] as string;
+  requireChange(ctx, slug);
+  const tasks = listTasks(ctx.root, tasksRel(slug));
+  const active = tasks.filter((t) => t.state !== "done");
+  const { waves } = computeWaves(active);
+  const waveOf = new Map<string, number>();
+  for (const [w, ids] of waves) for (const id of ids) waveOf.set(id, w);
+  const ready = active.filter((t) => t.state === "queued" && t.blockers.length === 0).map((t) => t.id);
+  return {
+    change: slug,
+    progress: `${tasks.length - active.length}/${tasks.length} done`,
+    steps: tasks.map((t) => ({ id: t.id, state: t.state, blocked_by: t.blockers.join(",") || "none", wave: waveOf.get(t.id) ?? "-" })),
+    ready: ready.join(",") || "none",
+  };
+}
