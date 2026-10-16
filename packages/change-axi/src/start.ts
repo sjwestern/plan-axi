@@ -42,8 +42,11 @@ function statusRows(ctx: Ctx): { name: string; path: string; branch?: string }[]
   const out = tryTreehouse(ctx, ["status"]);
   const rows: { name: string; path: string; branch?: string }[] = [];
   for (const line of out.split("\n")) {
-    const m = /^(\d+)\s+\S+\s+(\/\S*|[A-Za-z]:\\\S*)(?:\s+\[([^\]]+)\])?/.exec(line.trim());
-    if (m) rows.push({ name: m[1] as string, path: m[2] as string, ...(m[3] ? { branch: m[3] } : {}) });
+    const m = /^(\d+)\s+(.*)$/.exec(line.trim());
+    if (!m) continue;
+    const branch = /\[([^\]]+)\]\s*$/.exec(m[2] as string)?.[1];
+    const path = /(\/\S*|[A-Za-z]:\\\S*)/.exec(m[2] as string)?.[1];
+    if (path) rows.push({ name: m[1] as string, path, ...(branch ? { branch } : {}) });
   }
   return rows;
 }
@@ -58,7 +61,9 @@ function leaseWorktree(ctx: Ctx, slug: string): Worktree {
   } catch {
     throw new AxiError("could not read treehouse lease output", "TREEHOUSE_ERROR", [raw.slice(0, 200)]);
   }
-  const row = statusRows(ctx).find((r) => r.path === path);
+  // Match by path, then by branch label (the path can differ through symlinks).
+  const rows = statusRows(ctx);
+  const row = rows.find((r) => r.path === path) ?? rows.find((r) => r.branch === slug);
   return { path, ...(row ? { name: row.name } : {}), reused: false };
 }
 

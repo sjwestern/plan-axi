@@ -491,7 +491,8 @@ and leases a treehouse worktree on branch <slug> (reused if one already exists f
 Idempotent: an in-flight change is not started twice; the worktree is looked up instead.
   --dry-run       run the preflight, change nothing
   --no-worktree   skip the treehouse lease
-Output lists the ready steps with their Owns and the parallel waves. Then: treehouse enter <worktree>.
+Output: worktree path, an enter command to copy, the ready steps with their Owns, and the parallel waves.
+Then in the worktree tell the agent: apply <slug> <step-id>.
 examples:
   change-axi start add-hangfire-foundation
 `,
@@ -508,15 +509,15 @@ export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (r.commit) out["commit"] = r.commit;
   if (r.worktree) {
     out["worktree"] = r.worktree.path;
-    if (r.worktree.name) out["worktree_id"] = r.worktree.name;
     out["branch"] = slug;
+    out["enter"] = r.worktree.name ? `treehouse enter ${r.worktree.name}` : `cd ${r.worktree.path}`;
   }
   out["ready"] = r.ready;
   out["waves"] = [...r.waves].map(([w, ids]) => ({ wave: w, steps: ids.join(",") }));
   if (r.warnings.length > 0) out["warnings"] = r.warnings;
-  const help: string[] = [];
-  if (r.worktree?.name) help.push(`Run \`treehouse enter ${r.worktree.name}\` to work in the worktree`);
-  help.push(`In the worktree, follow plan-apply Execute for ${slug}`);
-  out["help"] = help;
+  const step = r.ready[0]?.id ?? "<step-id>";
+  out["help"] = r.worktree
+    ? [`Run the \`enter\` command above, then start the agent there with: apply ${slug} ${step}`, "Other ready steps in the same wave can run in parallel if their Owns do not overlap"]
+    : [`Open the ${slug} worktree, then start the agent there with: apply ${slug} ${step}`];
   return out;
 }

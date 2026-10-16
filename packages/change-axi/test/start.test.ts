@@ -77,7 +77,7 @@ describe("start", () => {
     try {
       const r = await run("start", P);
       expect(r.out).toContain("worktree:");
-      expect(r.out).toContain("worktree_id");
+      expect(r.out).toMatch(/enter: treehouse enter \d+/);
       const again = await run("start", P);
       expect(again.out).toContain("already in flight");
       const path = /worktree: (\S+)/.exec(r.out)?.[1] as string;

@@ -23,8 +23,8 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 1. **Pick the change.** Use the slug given. Otherwise `tasks-axi list --state queued --kind change` (and `--state in_flight`) and ask.
 2. **Dry run.** `change-axi start <slug> --dry-run`. Preflight: on the default branch and not behind its remote, plan committed and clean, `change-axi check` passes, backlog task queued. Fix what it reports (usually "commit the plan on main first"). Also run `docs-axi check`.
 3. **Start.** `change-axi start <slug>`. It marks the change in flight, commits only `backlog.md` as `start <slug>`, and leases a treehouse worktree on branch `<slug>` (reusing an existing one). An already started change is not started twice; the worktree is looked up instead. `--no-worktree` skips the lease.
-4. **Hand-off.** Do not implement in the main checkout. From the output (`worktree`, `worktree_id`, `ready` with each step's Owns, `waves`) tell the user:
-   - the worktree path and id (`treehouse enter <worktree_id>` opens it) and the branch;
+4. **Hand-off.** Do not implement in the main checkout. From the output (`worktree`, `enter`, `ready` with each step's Owns, `waves`) tell the user:
+   - the worktree path and id (run the `enter` command from the output) and the branch;
    - which steps are ready now and which are parallel-safe (same wave and non-overlapping `Owns:` can run together; recommend at most one agent per safe step);
    - the prompts below, filled in.
 
@@ -32,7 +32,7 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 
 The skill picks its mode from the branch, so prompts stay short. Give the user these (filled in):
 
-- First agent, worktree `<path>` (`treehouse enter <id>`): `apply <slug>` (takes the next ready step, loops) or `apply <slug> <step-id>` (that step only, then stop).
+- First agent, worktree `<path>` (run the `enter` command from the start output): `apply <slug>` (takes the next ready step, loops) or `apply <slug> <step-id>` (that step only, then stop).
 - Another agent in the same worktree: `apply <slug> <step-id>` for a parallel-safe step. Execute step 1 makes it skip steps whose `Owns:` overlap an in-flight step.
 
 ## Execute (in the worktree)
