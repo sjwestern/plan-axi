@@ -512,12 +512,16 @@ export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     out["branch"] = slug;
     out["enter"] = r.worktree.name ? `treehouse enter ${r.worktree.name}` : `cd ${r.worktree.path}`;
   }
-  out["ready"] = r.ready;
+  // Owns lists are long; show them only when parallel work is possible (more than one ready step).
+  out["ready"] = r.ready.length > 1 ? r.ready : r.ready.map((x) => ({ id: x.id, owns: `${x.owns.split(",").length} path(s)` }));
   out["waves"] = [...r.waves].map(([w, ids]) => ({ wave: w, steps: ids.join(",") }));
   if (r.warnings.length > 0) out["warnings"] = r.warnings;
   const step = r.ready[0]?.id ?? "<step-id>";
   out["help"] = r.worktree
-    ? [`Run the \`enter\` command above, then start the agent there with: apply ${slug} ${step}`, "Other ready steps in the same wave can run in parallel if their Owns do not overlap"]
+    ? [
+        `Run the \`enter\` command above, then start the agent there with: apply ${slug} ${step}`,
+        ...(r.ready.length > 1 ? ["Ready steps can run in parallel if their Owns do not overlap (see `change-axi check` OVERLAP warnings)"] : []),
+      ]
     : [`Open the ${slug} worktree, then start the agent there with: apply ${slug} ${step}`];
   return out;
 }
