@@ -35,11 +35,35 @@ function withAgentHint(e: unknown, slug: string): never {
   throw e;
 }
 
+/** Dry-run readiness check from inside the change worktree (agent's last step). */
+function checkOnBranch(ctx: Ctx, slug: string, base: string, o: FinishOptions): FinishReport {
+  if (!o.dryRun) {
+    throw new AxiError(`on branch "${slug}", finish runs on ${base}`, "VALIDATION_ERROR", [`From here use \`change-axi finish ${slug} --dry-run\` to check readiness`, "The human runs the real finish from the main checkout"]);
+  }
+  const dirty = git(ctx, ["status", "--porcelain", "--untracked-files=no"]);
+  if (dirty !== "") throw new AxiError("uncommitted changes in the worktree", "VALIDATION_ERROR", dirty.split("\n").slice(0, 10).concat("Commit them first"));
+  if (!isAncestorOf(ctx, base, slug)) {
+    const behind = git(ctx, ["rev-list", "--count", `${slug}..${base}`], true);
+    throw new AxiError(`${slug} is behind ${base}${behind ? ` by ${behind} commits` : ""}: rebase needed`, "VALIDATION_ERROR", [`Run \`git rebase ${base}\`, resolve conflicts, run the tests, then check again`]);
+  }
+  const archivedPaths = git(ctx, ["ls-tree", "-r", "--name-only", slug, "--", "specs/changes/archived"]).split("\n");
+  const already = archivedPaths.some((f) => new RegExp(`^specs/changes/archived/\\d{4}-\\d{2}-\\d{2}-${slug}/`).test(f));
+  let adrs: FinishReport["adrs"] = [];
+  let untouched: string[] = [];
+  if (!already) {
+    const r = archiveChange(ctx, slug, { dryRun: true, commit: true, skipDocsCheck: o.skipDocsCheck });
+    adrs = r.adrs;
+    untouched = r.untouched;
+  }
+  return { archived: already ? "skipped (already archived)" : "dry run (would archive)", adrs, untouched, merged: `ready: ${slug} is up to date with ${base}; the human runs \`change-axi finish ${slug}\` from the main checkout`, returned: "n/a (run from main)" };
+}
+
 export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishReport {
   const base = defaultBranch(ctx);
   const current = git(ctx, ["branch", "--show-current"]);
+  if (current === slug) return checkOnBranch(ctx, slug, base, o);
   if (current !== base) {
-    throw new AxiError(`on branch "${current}", finish runs on ${base}`, "VALIDATION_ERROR", [`git switch ${base} (the main checkout)`]);
+    throw new AxiError(`on branch "${current}", finish runs on ${base}`, "VALIDATION_ERROR", [`git switch ${base} (the main checkout)`, `Or, from the ${slug} worktree: \`change-axi finish ${slug} --dry-run\` to check readiness`]);
   }
   const dirty = git(ctx, ["status", "--porcelain", "--untracked-files=no"]);
   if (dirty !== "") throw new AxiError(`${base} has uncommitted changes`, "VALIDATION_ERROR", dirty.split("\n").slice(0, 10).concat("Commit or stash them first"));
