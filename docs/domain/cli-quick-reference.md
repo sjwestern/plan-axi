@@ -55,3 +55,5 @@ agent = "pi {prompt}"    # placeholders: {prompt} (shell-quoted) {slug} {step} {
 ```
 
 Without a TTY, `enter` prints the command instead of running it (`--run` overrides).
+
+If branch `<slug>` already exists, `enter` recreates it when it holds no commits beyond the default branch, and switches to it (keeping the commits) when it does. If the comparison cannot be made, `enter` errors without deleting; inspect with `git log <base>..<slug>`, then delete or switch manually. Without a step, `enter` resumes the single in-flight step; zero or several in-flight steps give the plain `apply <slug>` prompt.
