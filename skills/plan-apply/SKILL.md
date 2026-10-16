@@ -13,10 +13,10 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 ## Conventions
 
 - Plan: `specs/changes/active/<slug>/` (`proposal.md`, `NN-*.md` step files, `tasks.md`). Repo level: `backlog.md`, one task per change, id = slug.
-- **`tasks.md` and `backlog.md` are changed only through `tasks-axi`**, always with `--file` after the command, run from the repo (or worktree) root. If missing: `npx -y tasks-axi@0.2.6 <args>`.
+- **`tasks.md` and `backlog.md` are changed only through `tasks-axi`**, always with `--file` after the command, run from the repo (or worktree) root. If `tasks-axi` is "command not found", fall back to `npx -y tasks-axi@0.2.6 <args>`.
 - Step task id = step file stem; its body is `Spec: <file>.md`.
-- Plan tool: `change-axi` (`enter`/`start` launch, `archive` finishes; bare `change-axi` on a change branch shows its status) (`npx -y change-axi@0.1.0` if missing). `CHECK` below = `change-axi check <slug> --waves`. `change-axi status <slug>` shows steps, waves and what is ready. `change-axi show <slug> <step> [--section Work]` reads a step or one section of it.
-- Docs: `docs-axi` (`npx -y docs-axi@0.1.0` if missing).
+- Plan tool: `change-axi` (`enter`/`start` launch, `archive` finishes; bare `change-axi` on a change branch shows its status) (call the binary on PATH; if "command not found", stop and tell the user to install it with `npm run build && npm link`). `CHECK` below = `change-axi check <slug> --waves`. `change-axi status <slug>` shows steps, waves and what is ready. `change-axi show <slug> <step> [--section Work]` reads a step or one section of it.
+- Docs: `docs-axi` (binary on PATH; if "command not found", stop and tell the user to install it).
 
 ## Launch (on main)
 
@@ -37,13 +37,15 @@ The skill picks its mode from the branch, so prompts stay short. Give the user t
 
 ## Execute (in the worktree)
 
-Begin by running bare `change-axi` for orientation (progress, in-flight, ready steps). Work is one step at a time per agent. Given a step id (`apply <slug> <id>`), do that step only and stop. Otherwise loop until there are no ready steps you can take. Read the proposal only by section (`change-axi show <slug> proposal --section <name>`), starting with Why.
+**Bootstrap first.** In a fresh worktree, if `node_modules` or build output is missing, run the repo's bootstrap (see AGENTS.md or CONTRIBUTING) before anything else.
+
+Then run bare `change-axi` for orientation (progress, in-flight, ready steps). Work is one step at a time per agent. Given a step id (`apply <slug> <id>`), do that step only and stop. Otherwise loop until there are no ready steps you can take. Read the proposal only by section (`change-axi show <slug> proposal --section <name>`), starting with Why.
 
 
 1. **Pick.** `tasks-axi ready --file specs/changes/active/<slug>/tasks.md`. If told a specific task, use it. Do not take a task whose `Owns:` overlaps a task already in flight (`tasks-axi list --state in_flight --file ...`; read both step files).
 2. **Claim.** `tasks-axi start <id> --file ...`. If the output says `already in flight`, another agent has it: pick another. Never `start` a done task (it moves it back to in flight).
 3. **Read.** The step: `change-axi show <slug> <id>` (read only the sections you need with `--section`), the docs named in its `Docs:` line (`docs-axi show <path>`), and the proposal sections it relates to.
-4. **Implement** exactly the step's Work, staying inside `Owns:`. If you must touch other paths, stop: either the plan is wrong (see "Plan changes") or another step owns it.
+4. **Implement** exactly the step's Work, staying inside `Owns:`. If you must touch other paths, stop: either the plan is wrong (see "Plan changes") or another step owns it. If the step touches CLI code, smoke-test with the repo's in-worktree form (named in AGENTS.md), not the global binary, which is the main checkout's build.
 5. **Verify** the step's "Done when". Run the relevant tests/build. Do not mark done on a failing or unrun check.
 6. **Commit own paths only.** Never `git add -A`, `git commit -a`, or stash: another agent may have work in the tree. `git add -- <your paths> && git commit -m "<slug>: <step summary>" -- <your paths>`. If `index.lock` exists, wait and retry; delete it only when no git process is running.
 7. **Done.** `tasks-axi done <id> --file ...`, then commit that file: `git add -- specs/changes/active/<slug>/tasks.md && git commit -m "<slug>: done <id>" -- specs/changes/active/<slug>/tasks.md`. (Its diff may include another agent's `start` line; that is accurate.)

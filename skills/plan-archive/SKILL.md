@@ -10,8 +10,8 @@ Close a completed change. The archive is history only: current truth lives in `d
 ## Conventions
 
 - Active: `specs/changes/active/<slug>/`. Archived: `specs/changes/archived/<YYYY-MM-DD>-<slug>/` with the whole folder (including `tasks.md`, all tasks Done).
-- Task files change only through `tasks-axi ... --file`, from the repo root. `npx -y tasks-axi@0.2.6` / `npx -y docs-axi@0.1.0` if not installed.
-- `change-axi` (`npx -y change-axi@0.1.0` if missing) does the mechanics; the date is the local date.
+- Task files change only through `tasks-axi ... --file`, from the repo root. `npx -y tasks-axi@0.2.6` only if `tasks-axi` is "command not found". `docs-axi` is called directly.
+- `change-axi` (call the binary on PATH; if "command not found", stop and tell the user to install it with `npm run build && npm link`) does the mechanics; the date is the local date.
 
 ## Where to run
 

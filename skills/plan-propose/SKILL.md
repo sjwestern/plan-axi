@@ -10,7 +10,7 @@ Materialize the draft (from `plan-explore` or the user's description) as a revie
 ## Conventions
 
 - Plan folder: `specs/changes/active/<slug>/` containing `proposal.md`, step files `NN-<name>.md`, and `tasks.md`.
-- **Use `change-axi` for everything in the plan folder.** It creates the folder and files, owns the required section list, writes single sections, and manages tasks. Never create plan files by hand, never edit `tasks.md` (owned by tasks-axi), never read a whole file just to change one section. If `change-axi` is missing: `npx -y change-axi@0.1.0 <args>`.
+- **Use `change-axi` for everything in the plan folder.** It creates the folder and files, owns the required section list, writes single sections, and manages tasks. Never create plan files by hand, never edit `tasks.md` (owned by tasks-axi), never read a whole file just to change one section. If `change-axi` is "command not found", stop and tell the user to install it (`npm run build && npm link`).
 - Run from the repo root. `change-axi spec proposal|step` prints the required sections and what each must contain; do not memorize them.
 - Body text goes in on stdin (`printf '...' | change-axi write ...`, or a heredoc), or `--body "..."`. Writes print a one-line result, never the body. `change-axi show <slug> <doc> --section <name>` reads one section.
 - Task id = step file stem (`01-schema`). Numbers are reading order; the dependency graph is the real order.
@@ -18,7 +18,7 @@ Materialize the draft (from `plan-explore` or the user's description) as a revie
 
 ## Steps
 
-1. **Read docs first.** `docs-axi` (map), `docs-axi search <terms>`, `docs-axi show <path> [--section <name>]` for relevant docs and ADRs. If `docs-axi` is missing: `npx -y docs-axi@0.1.0 <args>`. Re-read if the scope changed.
+1. **Read docs first.** `docs-axi` (map), `docs-axi search <terms>`, `docs-axi show <path> [--section <name>]` for relevant docs and ADRs. If `docs-axi` is "command not found", stop and tell the user to install it. Re-read if the scope changed.
 2. **Slug.** Kebab-case, verb first, max 50 chars; must be unused (active, archived, backlog). `change-axi new` rejects collisions. Stop and ask on one. To revise an existing active plan, skip to "Revising a plan".
 3. **Scaffold.** `change-axi new <slug> "<title>"`. It writes `proposal.md` with every required section empty, ensures `.tasks.toml`, and queues the change in `backlog.md`.
 4. **Fill the proposal**, one section at a time: `change-axi write <slug> proposal --section "<name>"` with the body on stdin. "Context" lists the docs actually read and ADRs that apply. **Docs impact** names every doc created or updated, or `None - <reason>`. `change-axi sections <slug> proposal` shows which are still empty.

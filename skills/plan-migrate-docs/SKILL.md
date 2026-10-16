@@ -9,7 +9,7 @@ A one-off, human-approved cleanup. Run it on its own branch/commit, not inside a
 
 ## Steps
 
-1. **Preflight.** Git tree clean for `docs/` (commit or stash first). `docs-axi` on PATH (else `npx -y docs-axi@0.1.0`). Run `docs-axi check` and note the baseline.
+1. **Preflight.** Git tree clean for `docs/` (commit or stash first). `docs-axi` on PATH (else stop and tell the user to install it). Run `docs-axi check` and note the baseline.
 2. **Config first.** Planning/delivery folders (`todo/`, `plans/`, `reports/`, `.agents`-style tool content) are not docs. Add them to `[docs] ignore` in the repo's `.plan-axi.toml` (the dry run suggests a line). Ask the user before writing it.
 3. **Propose.** `docs-axi migrate --plan migration.json` (dry run; writes only the JSON, and only if the file does not exist yet - an existing plan is never overwritten, `--force` regenerates it). Read the table.
 4. **Review and fix the proposal** (edit `migration.json`, not the docs):
