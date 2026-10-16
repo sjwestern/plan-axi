@@ -35,7 +35,7 @@ describe("change-axi", () => {
 
     let c = await repo.run("check", "demo-change");
     expect(c.code).toBe(1);
-    expect(c.out).toContain('EMPTY_SECTION: proposal.md: Context; Why;');
+    expect(c.out).toContain('EMPTY_SECTION: proposal.md: Why; Context;');
     expect(c.out).toContain("OVERLAP: 01-build-schema and 02-build-api");
 
     expect((await repo.run("dep", "demo-change", "02", "--on", "01")).out).toContain("blocked_by 01-build-schema");
