@@ -43,12 +43,12 @@ Then run bare `change-axi` for orientation (progress, in-flight, ready steps). W
 
 
 1. **Pick.** `tasks-axi ready --file specs/changes/active/<slug>/tasks.md`. If told a specific task, use it. Do not take a task whose `Owns:` overlaps a task already in flight (`tasks-axi list --state in_flight --file ...`; read both step files).
-2. **Claim.** `tasks-axi start <id> --file ...`. If the output says `already in flight`, another agent has it: pick another. Never `start` a done task (it moves it back to in flight).
+2. **Claim.** `change-axi claim <slug> [id]` starts the step and prints Owns, Docs and Goal/Context/Work/Done when. `already: true` means another agent has it: pick another. It refuses done and blocked steps.
 3. **Read.** The step: `change-axi show <slug> <id>` (read only the sections you need with `--section`), the docs named in its `Docs:` line (`docs-axi show <path>`), and the proposal sections it relates to.
 4. **Implement** exactly the step's Work, staying inside `Owns:`. If you must touch other paths, stop: either the plan is wrong (see "Plan changes") or another step owns it. If the step touches CLI code, smoke-test with the repo's in-worktree form (named in AGENTS.md), not the global binary, which is the main checkout's build.
 5. **Verify** the step's "Done when". Run the relevant tests/build. Do not mark done on a failing or unrun check.
 6. **Commit own paths only.** Never `git add -A`, `git commit -a`, or stash: another agent may have work in the tree. `git add -- <your paths> && git commit -m "<slug>: <step summary>" -- <your paths>`. If `index.lock` exists, wait and retry; delete it only when no git process is running.
-7. **Done.** `tasks-axi done <id> --file ...`, then commit that file: `git add -- specs/changes/active/<slug>/tasks.md && git commit -m "<slug>: done <id>" -- specs/changes/active/<slug>/tasks.md`. (Its diff may include another agent's `start` line; that is accurate.)
+7. **Done.** `change-axi done <slug> <id>` (after your own work commit). It marks the step done and commits only tasks.md. Act on any `OUTSIDE_OWNS` warning (its diff may include another agent's `start` line; that is accurate).
 8. Back to 1.
 
 For a docs step: edit the files named in `Owns:`, keep them small and single-topic, then `docs-axi update/index` as needed and `docs-axi check`. ADR status stays `proposed` until archive.

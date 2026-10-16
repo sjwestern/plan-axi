@@ -32,7 +32,7 @@ backlog.md                               one tasks-axi task per change
 
 ## Step execution
 
-Pick a ready step, claim it (`tasks-axi start`), implement inside `Owns:`, verify Done when, commit own paths only, `tasks-axi done`. See ADR 4 and ADR 5.
+Pick a ready step, claim it (`change-axi claim`), implement inside `Owns:`, verify Done when, commit own paths only, then `change-axi done` (commits only tasks.md, warns on writes outside Owns). See ADR 4 and ADR 5.
 
 ## Launch and orientation
 

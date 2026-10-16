@@ -35,6 +35,8 @@ change-axi dep split-auth 03 --on 01,02    # cycles are reverted
 change-axi check split-auth --waves
 change-axi status split-auth
 change-axi                                 # on branch <slug>: that change's steps, ready list, next prompt
+change-axi claim split-auth [step]         # start a step, print Owns/Docs/Goal/Work/Done when
+change-axi done split-auth 01              # mark done, commit only tasks.md, warn outside Owns
 change-axi start split-auth                # on main: in flight + commit + worktree
 change-axi enter split-auth [step]         # start if needed, run the agent in the worktree (--print to only print)
 change-axi setup [--remove]                # managed plan-axi block in AGENTS.md
