@@ -9,6 +9,7 @@ import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
 import { archiveChange } from "./archive.js";
 import { startChange } from "./start.js";
+import { changeHome, currentChangeSlug } from "./home.js";
 import { checkChange, computeWaves } from "./check.js";
 import {
   activeDir,
@@ -33,6 +34,8 @@ const guideRows = (list: { name: string; guide: string }[]): Record<string, stri
 // ---------------------------------------------------------------- home
 
 export function homeCommand(ctx: Ctx): AxiStructuredOutput {
+  const current = currentChangeSlug(ctx);
+  if (current) return changeHome(ctx, current);
   const dir = activeDir(ctx);
   const slugs = existsSync(dir) ? readdirSync(dir).filter((f) => existsSync(join(dir, f, "proposal.md")) || existsSync(join(dir, f, "tasks.md"))).sort() : [];
   if (slugs.length === 0) {
