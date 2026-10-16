@@ -36,8 +36,8 @@ npm test passes. In a scratch repo: enter on a slug whose branch equals main suc
 
 ## Docs impact
 
-docs/domain/cli-quick-reference.md - update: enter --list, optional slug.
-docs/architecture/plan-workflow.md - update: enter recovery and resume behavior.
+`docs/domain/cli-quick-reference.md` - update: enter --list, optional slug.
+`docs/architecture/plan-workflow.md` - update: enter recovery and resume behavior.
 
 ## Risks and open questions
 
