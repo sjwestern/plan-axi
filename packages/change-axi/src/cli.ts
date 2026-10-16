@@ -10,8 +10,8 @@ export const DESCRIPTION =
   "Manage change plans under specs/changes: scaffold proposal and steps, write sections, check the task graph. Prefer this over hand-creating plan files or editing tasks.md.";
 
 export const TOP_HELP = `usage: change-axi [command] [args] [flags]
-commands[16]:
-  (none)=active changes, spec, new, step, dep, sections, show, write, append, check, status, claim, start, archive, enter, setup
+commands[17]:
+  (none)=active changes, spec, new, step, dep, sections, show, write, append, check, status, claim, done, start, archive, enter, setup
 flags[2]:
   --root <dir> (after command; default git root), --help, -v/-V/--version
 examples:
@@ -35,6 +35,7 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   check: { run: c.checkCommand, help: c.CHECK_SPEC.help },
   start: { run: c.startCommand, help: c.START_SPEC.help },
   claim: { run: c.claimCommand, help: c.CLAIM_SPEC.help },
+  done: { run: c.doneCommand, help: c.DONE_SPEC.help },
   archive: { run: c.archiveCommand, help: c.ARCHIVE_SPEC.help },
   enter: { run: c.enterCommand, help: c.ENTER_SPEC.help },
   setup: { run: c.setupCommand, help: c.SETUP_SPEC.help },

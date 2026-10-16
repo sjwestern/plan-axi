@@ -9,6 +9,7 @@ import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
 import { archiveChange } from "./archive.js";
 import { claim } from "./claim.js";
+import { done } from "./done.js";
 import { buildCommand, resolveAgent, runAgent } from "./agent.js";
 import { git } from "./git.js";
 import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
@@ -469,6 +470,31 @@ export function claimCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const out: AxiStructuredOutput = { claim: r.already ? `${r.step} already in flight` : `${r.step} started`, step: r.step, already: r.already, owns: r.owns || "none", docs: r.docs || "none" };
   Object.assign(out, r.sections);
   out["help"] = [`Commit only your Owns paths, then \`tasks-axi done ${r.step} --file ${tasksRel(slug)}\``];
+  return out;
+}
+
+// ---------------------------------------------------------------- done
+
+export const DONE_SPEC: CmdSpec = {
+  name: "done",
+  flags: { "--since": "string" },
+  min: 2,
+  max: 2,
+  usage: "change-axi done <slug> <step> [--since <rev>]",
+  help: `usage: change-axi done <slug> <step> [--since <rev>]
+Mark a started step done (tasks-axi done) and commit only tasks.md as "<slug>: done <step>".
+Warns (OUTSIDE_OWNS) about paths committed since the last tasks.md commit (or --since) that are not in the step's Owns.
+Commit your own work first. Other staged or dirty files are left alone.
+examples:
+  change-axi done split-auth 01
+`,
+};
+
+export function doneCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(DONE_SPEC, args);
+  const r = done(ctx, p.pos[0] as string, p.pos[1] as string, flagStr(p, "--since"));
+  const out: AxiStructuredOutput = { done: `${r.step} done`, commit: r.commit };
+  if (r.warnings.length > 0) out["warnings"] = r.warnings;
   return out;
 }
 
