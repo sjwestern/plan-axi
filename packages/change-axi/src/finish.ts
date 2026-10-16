@@ -23,6 +23,18 @@ export interface FinishReport {
   buildHint?: string;
 }
 
+/** Add guidance to fixable failures: restart the agent in the worktree and ask it to fix. */
+function withAgentHint(e: unknown, slug: string): never {
+  if (e instanceof AxiError && e.code === "VALIDATION_ERROR") {
+    throw new AxiError(e.message, e.code, [
+      ...e.suggestions,
+      `To fix with the agent: run \`change-axi enter ${slug}\`, then ask it to fix the error above and commit`,
+      `Then run \`change-axi finish ${slug}\` again`,
+    ]);
+  }
+  throw e;
+}
+
 export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishReport {
   const base = defaultBranch(ctx);
   const current = git(ctx, ["branch", "--show-current"]);
@@ -42,9 +54,11 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
   }
   const wt: Ctx = { root: row.path };
   const wtDirty = git(wt, ["status", "--porcelain", "--untracked-files=no"]);
-  if (wtDirty !== "") throw new AxiError(`worktree ${row.path} has uncommitted changes`, "VALIDATION_ERROR", wtDirty.split("\n").slice(0, 10).concat("Commit them first"));
+  if (wtDirty !== "") {
+    withAgentHint(new AxiError(`worktree ${row.path} has uncommitted changes`, "VALIDATION_ERROR", wtDirty.split("\n").slice(0, 10).concat("Commit them first")), slug);
+  }
   if (!isAncestorOf(ctx, base, slug)) {
-    throw new AxiError(`${base} is not an ancestor of ${slug}`, "VALIDATION_ERROR", [`In the worktree: git rebase ${base}`]);
+    withAgentHint(new AxiError(`${base} is not an ancestor of ${slug}`, "VALIDATION_ERROR", [`In the worktree: git rebase ${base}`]), slug);
   }
 
   const archivedPaths = git(ctx, ["ls-tree", "-r", "--name-only", slug, "--", "specs/changes/archived"]).split("\n");
@@ -53,7 +67,12 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
   let adrs: FinishReport["adrs"] = [];
   let untouched: string[] = [];
   if (!alreadyArchived) {
-    const r = archiveChange(wt, slug, { dryRun: o.dryRun, commit: true, skipDocsCheck: o.skipDocsCheck });
+    let r: ReturnType<typeof archiveChange>;
+    try {
+      r = archiveChange(wt, slug, { dryRun: o.dryRun, commit: true, skipDocsCheck: o.skipDocsCheck });
+    } catch (e) {
+      withAgentHint(e, slug);
+    }
     archived = o.dryRun ? "dry run (would archive)" : "done";
     adrs = r.adrs;
     untouched = r.untouched;
