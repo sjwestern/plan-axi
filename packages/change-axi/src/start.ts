@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { requireChange, type Ctx } from "./change.js";
@@ -37,18 +38,22 @@ export function tryTreehouse(ctx: Ctx, args: string[]): string {
   }
 }
 
-/** Rows of `treehouse status`: slot name, path and branch label. */
-export function statusRows(ctx: Ctx): { name: string; path: string; branch?: string }[] {
-  const out = tryTreehouse(ctx, ["status"]);
+/** Rows of `treehouse status` output: slot name, path (`~` expanded) and branch label. */
+export function parseStatusRows(out: string, home: string = homedir()): { name: string; path: string; branch?: string }[] {
   const rows: { name: string; path: string; branch?: string }[] = [];
   for (const line of out.split("\n")) {
     const m = /^(\d+)\s+(.*)$/.exec(line.trim());
     if (!m) continue;
     const branch = /\[([^\]]+)\]\s*$/.exec(m[2] as string)?.[1];
-    const path = /(\/\S*|[A-Za-z]:\\\S*)/.exec(m[2] as string)?.[1];
+    const raw = /(~?\/\S*|[A-Za-z]:\\\S*)/.exec(m[2] as string)?.[1];
+    const path = raw?.startsWith("~/") ? join(home, raw.slice(2)) : raw;
     if (path) rows.push({ name: m[1] as string, path, ...(branch ? { branch } : {}) });
   }
   return rows;
+}
+
+export function statusRows(ctx: Ctx): { name: string; path: string; branch?: string }[] {
+  return parseStatusRows(tryTreehouse(ctx, ["status"]));
 }
 
 export function leaseWorktree(ctx: Ctx, slug: string): Worktree {
