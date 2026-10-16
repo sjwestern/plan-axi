@@ -8,6 +8,7 @@ import { editSection, splitDoc } from "docs-axi/lib/sectionedit";
 import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
 import { archiveChange } from "./archive.js";
+import { claim } from "./claim.js";
 import { buildCommand, resolveAgent, runAgent } from "./agent.js";
 import { git } from "./git.js";
 import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
@@ -440,6 +441,35 @@ export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     steps: tasks.map((t) => ({ id: t.id, state: t.state, blocked_by: t.blockers.join(",") || "none", wave: waveOf.get(t.id) ?? "-" })),
     ready: ready.join(",") || "none",
   };
+}
+
+// ---------------------------------------------------------------- claim
+
+export const CLAIM_SPEC: CmdSpec = {
+  name: "claim",
+  flags: {},
+  min: 1,
+  max: 2,
+  usage: "change-axi claim <slug> [step]",
+  help: `usage: change-axi claim <slug> [step]
+Start a step (tasks-axi start) and print its Owns, Docs and Goal/Context/Work/Done when.
+No step: the lowest-id ready step. Repeat claim of an in-flight step reports already: true.
+Refuses done and blocked steps. <step> is 01, 01-name or 01-name.md.
+examples:
+  change-axi claim split-auth
+  change-axi claim split-auth 02
+`,
+};
+
+export function claimCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(CLAIM_SPEC, args);
+  const slug = p.pos[0] as string;
+  const stepArg = p.pos[1]?.replace(/\.md$/, "");
+  const r = claim(ctx, slug, stepArg);
+  const out: AxiStructuredOutput = { claim: r.already ? `${r.step} already in flight` : `${r.step} started`, step: r.step, already: r.already, owns: r.owns || "none", docs: r.docs || "none" };
+  Object.assign(out, r.sections);
+  out["help"] = [`Commit only your Owns paths, then \`tasks-axi done ${r.step} --file ${tasksRel(slug)}\``];
+  return out;
 }
 
 // ---------------------------------------------------------------- archive
