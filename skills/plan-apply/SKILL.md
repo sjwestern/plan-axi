@@ -15,14 +15,14 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 - Plan: `specs/changes/active/<slug>/` (`proposal.md`, `NN-*.md` step files, `tasks.md`). Repo level: `backlog.md`, one task per change, id = slug.
 - **`tasks.md` and `backlog.md` are changed only through `tasks-axi`**, always with `--file` after the command, run from the repo (or worktree) root. If `tasks-axi` is "command not found", fall back to `npx -y tasks-axi@0.2.6 <args>`.
 - Step task id = step file stem; its body is `Spec: <file>.md`.
-- Plan tool: `change-axi` (`enter`/`start` launch, `archive` finishes; bare `change-axi` on a change branch shows its status) (call the binary on PATH; if "command not found", stop and tell the user to install it with `npm run build && npm link`). `CHECK` below = `change-axi check <slug> --waves`. `change-axi status <slug>` shows steps, waves and what is ready. `change-axi show <slug> <step> [--section Work]` reads a step or one section of it.
+- Plan tool: `change-axi` (`enter`/`start` launch, `finish` merges and releases the worktree, `archive` only archives; bare `change-axi` on a change branch shows its status) (call the binary on PATH; if "command not found", stop and tell the user to install it with `npm run build && npm link`). `CHECK` below = `change-axi check <slug> --waves`. `change-axi status <slug>` shows steps, waves and what is ready. `change-axi show <slug> <step> [--section Work]` reads a step or one section of it.
 - Docs: `docs-axi` (binary on PATH; if "command not found", stop and tell the user to install it).
 
 ## Launch (on main)
 
 1. **Pick the change.** Use the slug given. Otherwise `tasks-axi list --state queued --kind change` (and `--state in_flight`) and ask.
 2. **Dry run.** `change-axi start <slug> --dry-run`. Preflight: on the default branch and not behind its remote, plan committed and clean, `change-axi check` passes, backlog task queued. Fix what it reports (usually "commit the plan on main first"). Also run `docs-axi check`.
-3. **Start.** Prefer `change-axi enter <slug> [step]`: it does the start below, then runs the configured agent in the worktree (`--print` only prints the path and command; no agent configured: it prints them). Or `change-axi start <slug>`. It marks the change in flight, commits only `backlog.md` as `start <slug>`, and leases a treehouse worktree on branch `<slug>` (reusing an existing one). An already started change is not started twice; the worktree is looked up instead. `--no-worktree` skips the lease.
+3. **Start.** Prefer `change-axi enter <slug> [step]` from main (the agent runs as a child process with the worktree as cwd; no `treehouse enter` needed): it does the start below, then runs the configured agent in the worktree (`--print` only prints the path and command; no agent configured: it prints them). Or `change-axi start <slug>`. It marks the change in flight, commits only `backlog.md` as `start <slug>`, and leases a treehouse worktree on branch `<slug>` (reusing an existing one). An already started change is not started twice; the worktree is looked up instead. `--no-worktree` skips the lease.
 4. **Hand-off.** Do not implement in the main checkout. From the output (`worktree`, `enter`, `ready` with each step's Owns, `waves`) tell the user:
    - the worktree path and id (run the `enter` command from the output) and the branch;
    - which steps are ready now and which are parallel-safe (same wave and non-overlapping `Owns:` can run together; recommend at most one agent per safe step);
@@ -53,7 +53,7 @@ Then run bare `change-axi` for orientation (progress, in-flight, ready steps). W
 
 For a docs step: edit the files named in `Owns:`, keep them small and single-topic, then `docs-axi update/index` as needed and `docs-axi check`. ADR status stays `proposed` until archive.
 
-When no steps remain: if tasks are still queued but blocked, they wait on another agent's in-flight task - report and stop. If everything is done, tell the user the change is ready for archive (skill `plan-archive`).
+When no steps remain: if tasks are still queued but blocked, they wait on another agent's in-flight task - report and stop. If everything is done, tell the user the change is ready to finish: from the main checkout run `change-axi finish <slug>` (archives if needed, merges, releases the worktree; `--dry-run` to preview). See skill `plan-archive`.
 
 ## Plan changes during apply
 

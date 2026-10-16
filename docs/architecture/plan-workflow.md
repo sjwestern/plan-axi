@@ -11,6 +11,7 @@ plan-propose  change-axi new/step add/write -> plan files, no commit
 (you)         review the diff, commit on main
 plan-apply    main: start/enter + treehouse worktree + agent | worktree: run steps
 plan-archive  accept ADRs, move to archived/, mark backlog done
+finish        (change-axi) from main: archive if needed, ff-merge, release worktree
 ```
 
 ## Layout
@@ -37,5 +38,7 @@ Pick a ready step, claim it (`change-axi claim`), implement inside `Owns:`, veri
 ## Launch and orientation
 
 `change-axi enter <slug> [step]` runs the `start` preflight and commit when the change is queued, finds or leases the worktree, then spawns the configured agent command there (cwd = worktree, no `treehouse enter`) with the prompt `apply <slug> [step]`. See ADR 6.
+
+`change-axi finish <slug> [--dry-run]` closes the change from the main checkout: it archives on the branch when not yet archived (same checks as `archive`), fast-forward merges the branch into the default branch, then runs `treehouse return` on the worktree. `archive` stays available for a review gate before merging.
 
 An agent in the worktree orients itself by running bare `change-axi`: on a branch named like an active change it shows progress, steps, in-flight and ready steps, and the next prompt. `change-axi setup` adds an AGENTS.md block that points agents at this; `start` and `enter` hint when it is missing but never edit the file.

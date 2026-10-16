@@ -24,7 +24,11 @@ Close a completed change. The archive is history only: current truth lives in `d
 1. **Dry run.** `change-axi archive <slug> --dry-run`. It checks: clean tree for `specs docs backlog.md`, all tasks done, plan check, every doc in Docs impact exists and changed since the plan commit (ADRs exempt), and lists the ADRs it would accept. Fix what it reports. Untouched docs: update them; only if the user explicitly agrees, pass `--skip-docs-check` and say why in the commit message.
 2. **Judge the ADRs.** For each ADR listed as `accept`, check the decision matches what was built (`docs-axi show <n> --section Decision`). If one no longer matches, fix it with `docs-axi write` first, or ask the user. If an ADR replaces an earlier one, run `docs-axi supersede <old> --by <new>` before step 3.
 3. **Archive.** `change-axi archive <slug> --commit`. It accepts the proposed ADRs (and reindexes), `git mv`s the folder to `archived/<date>-<slug>`, marks the backlog task done, and commits `archive <slug>`.
-4. **Report**: archived path, ADRs accepted, docs changed. Branch mode: tell the user to merge `<slug>` into main from the main checkout, then release the worktree (`treehouse return <path>`). Main mode: nothing left; the worktree can be released.
+4. **Report**: archived path, ADRs accepted, docs changed. Branch mode: tell the user to run `change-axi finish <slug>` from the main checkout. It skips archiving when already done, fast-forward merges `<slug>` into main and releases the worktree. Main mode: nothing left; the worktree can be released.
+
+## Finish in one step
+
+From the main checkout, `change-axi finish <slug>` archives on the branch if needed (same checks as `archive`), merges, and returns the worktree. Use `change-axi finish <slug> --dry-run` to review the ADRs it would accept. For a review gate, run steps 1-3 on the branch first, then `finish`.
 
 ## Rules
 
