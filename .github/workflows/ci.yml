@@ -11,6 +11,12 @@ permissions:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GIT_AUTHOR_NAME: ci
+      GIT_AUTHOR_EMAIL: ci@example.com
+      GIT_COMMITTER_NAME: ci
+      GIT_COMMITTER_EMAIL: ci@example.com
     strategy:
       matrix:
         node-version: [lts/*, node]
@@ -20,6 +26,12 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+      - run: npm install -g tasks-axi@0.2.6
+      - name: Install treehouse
+        run: |
+          curl -fsSL https://github.com/kunchenguid/treehouse/releases/download/v3.1.4/treehouse-v3.1.4-linux-amd64.tar.gz | tar -xz treehouse
+          sudo mv treehouse /usr/local/bin/treehouse
+          treehouse --version
       - run: npm ci
       - run: npm run build
       - run: npm test
