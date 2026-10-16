@@ -25,6 +25,10 @@ node packages/docs-axi/dist/bin/docs-axi.js <args>
 
 Rebuild and run in one step: `npm run dev -w packages/change-axi -- <args>`.
 
+## Skills
+
+`~/.agents/skills/*` are symlinks into `skills/` in this repo. Edit skills here (`skills/<name>/SKILL.md`), never via the `~/.agents` path, and commit them with the repo.
+
 <!-- plan-axi:start -->
 ## plan-axi
 

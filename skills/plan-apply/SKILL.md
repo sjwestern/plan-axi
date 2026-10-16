@@ -53,7 +53,7 @@ Then run bare `change-axi` for orientation (progress, in-flight, ready steps). W
 
 For a docs step: edit the files named in `Owns:`, keep them small and single-topic, then `docs-axi update/index` as needed and `docs-axi check`. ADR status stays `proposed` until archive.
 
-When no steps remain: if tasks are still queued but blocked, they wait on another agent's in-flight task - report and stop. If everything is done, tell the user the change is ready to finish. From the main checkout, run this (it archives if needed, merges, releases the worktree; add `--dry-run` to preview):
+When no steps remain: if tasks are still queued but blocked, they wait on another agent's in-flight task - report and stop. If everything is done, first run `change-axi finish <slug> --dry-run` from this worktree. If it reports a rebase is needed, run `git rebase <base>`, resolve conflicts, rerun the tests, and check again; fix any other error it reports and commit. Then tell the user the change is ready to finish. From the main checkout, run this (it archives if needed, merges, releases the worktree; add `--dry-run` to preview):
 
 ```sh
 change-axi finish <slug>
