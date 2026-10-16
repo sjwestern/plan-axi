@@ -13,10 +13,10 @@ Archive already detects branch vs main-after-merge (`mode` in archive.ts). Repor
 
 ## Work
 
-1. In archive.ts add `next: string[]` to the report for branch mode: `from the main checkout: git merge --ff-only <slug>` and `treehouse return <toplevel>`.
+1. In archive.ts add `next: string[]` to the report for branch mode, in order: `exit the treehouse shell (return does not close it)`, `from the main checkout: git merge --ff-only <slug>`, `treehouse return <toplevel>`.
 2. Skip when mode is main.
 3. Extend archive.test.ts for both modes.
 
 ## Done when
 
-`npm test -w packages/change-axi` passes; branch-mode archive test asserts both next lines, main-mode asserts none.
+`npm test -w packages/change-axi` passes; branch-mode archive test asserts the exit, merge and return lines in order, main-mode asserts none.

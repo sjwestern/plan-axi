@@ -2,7 +2,7 @@
 
 ## Why
 
-Two small slips from the add-agent-launch trial. After `archive --commit` on a branch the agent did not know the next commands (merge from the main checkout, release the worktree). `step add --after 01` fails while `dep` accepts prefixes, an inconsistent rule agents trip on.
+Two small slips from the add-agent-launch trial. After `archive --commit` on a branch the agent did not know the next commands (leave the treehouse shell, merge from the main checkout, release the worktree); one user also left the shell open after `treehouse return`. `step add --after 01` fails while `dep` accepts prefixes, an inconsistent rule agents trip on.
 
 ## Context
 
@@ -10,7 +10,7 @@ Docs read: `docs/domain/cli-quick-reference.md`, `docs/architecture/plan-workflo
 
 ## What changes
 
-- `archive` output (not dry run failures) includes `next` lines: `git merge --ff-only <slug>` from the main checkout and `treehouse return <worktree path>` when archiving on a branch; nothing extra when on main after merge.
+- `archive` output (not dry run failures) includes `next` lines when archiving on a branch: `exit` the treehouse shell (it stays open after `treehouse return`), then from the main checkout `git merge --ff-only <slug>` and `treehouse return <worktree path>`; nothing extra when on main after merge.
 - `step add --after` accepts id prefixes (`01`) resolved the same way as `dep`; ambiguous or unknown prefixes error.
 
 ## Out of scope
