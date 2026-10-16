@@ -32,9 +32,15 @@ export function applySetup(root: string, file?: string): { path: string; changed
   const path = setupTarget(root, file);
   const created = !existsSync(path);
   const raw = created ? "" : readFileSync(path, "utf8");
-  if (hasBlock(raw)) return { path, changed: false, created: false };
   const eol = created ? "\n" : detectEol(raw);
   const text = normalizeEol(raw);
+  if (hasBlock(raw)) {
+    const s = text.indexOf(START_MARK);
+    const e = text.indexOf(END_MARK, s) + END_MARK.length;
+    if (text.slice(s, e) === SETUP_BLOCK) return { path, changed: false, created: false };
+    writeText(path, applyEol(text.slice(0, s) + SETUP_BLOCK + text.slice(e), eol));
+    return { path, changed: true, created: false };
+  }
   const sep = text === "" ? "" : text.endsWith("\n") ? "\n" : "\n\n";
   writeText(path, applyEol(`${text}${sep}${SETUP_BLOCK}\n`, eol));
   return { path, changed: true, created };

@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { applySetup, hasSetupBlock, removeSetup, START_MARK } from "../src/setup.js";
+import { applySetup, END_MARK, hasSetupBlock, removeSetup, SETUP_BLOCK, START_MARK } from "../src/setup.js";
 
 let dir: string;
 const f = () => join(dir, "AGENTS.md");
@@ -45,6 +45,17 @@ describe("setup", () => {
     expect(s.replace(/\r\n/g, "")).not.toContain("\n");
     removeSetup(dir);
     expect(readFileSync(f(), "utf8")).toBe(orig);
+  });
+
+  it("refreshes a stale block in place, keeping surrounding text and CRLF", () => {
+    const stale = `${START_MARK}\nold\n${END_MARK}`;
+    writeFileSync(f(), `before\r\n${stale.replace(/\n/g, "\r\n")}\r\nafter\r\n`);
+    expect(applySetup(dir).changed).toBe(true);
+    const out = readFileSync(f(), "utf8");
+    expect(out).toBe(`before\n${SETUP_BLOCK}\nafter\n`.replace(/\n/g, "\r\n"));
+    expect(applySetup(dir).changed).toBe(false);
+    removeSetup(dir);
+    expect(readFileSync(f(), "utf8")).toBe("before\r\nafter\r\n");
   });
 
   it("honors an explicit file", () => {
