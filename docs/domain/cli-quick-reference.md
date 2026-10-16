@@ -39,6 +39,8 @@ change-axi claim split-auth [step]         # start a step, print Owns/Docs/Goal/
 change-axi done split-auth 01              # mark done, commit only tasks.md, warn outside Owns
 change-axi start split-auth                # on main: in flight + commit + worktree
 change-axi enter split-auth [step]         # start if needed, run the agent in the worktree (--print to only print)
+change-axi enter                           # no slug: current change, the only in-flight change, or pick (TTY) / list (exit 1)
+change-axi enter --list                    # active changes with worktree, branch state, in-flight steps
 change-axi setup [--remove]                # managed plan-axi block in AGENTS.md
 change-axi archive split-auth --dry-run    # then --commit; accepts the change's ADRs
 change-axi finish split-auth [--dry-run] [--delete-branch]   # on main: archive if needed, ff-merge the branch, release the worktree, optionally delete the branch

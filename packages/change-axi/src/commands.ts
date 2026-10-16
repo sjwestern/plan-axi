@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { flagBool, flagStr, parseArgs, requireSingleLine, type CmdSpec } from "docs-axi/lib/args";
@@ -673,9 +673,11 @@ export const ENTER_SPEC: CmdSpec = {
   flags: { "--print": "boolean", "--run": "boolean", "--list": "boolean" },
   min: 0,
   max: 2,
-  usage: "change-axi enter <slug> [step] [--print] [--run] | enter --list",
-  help: `usage: change-axi enter <slug> [step] [--print] [--run]
+  usage: "change-axi enter [slug] [step] [--print] [--run] | enter --list",
+  help: `usage: change-axi enter [slug] [step] [--print] [--run]
        change-axi enter --list
+Without a slug: uses the change on the current branch, else the only in-flight change; with several, a TTY gets a
+numbered prompt and otherwise the list is printed (exit 1).
 Start the change if needed, find its worktree, and run the configured agent there with the prompt "apply <slug> [step]".
 Agent command: [apply] agent = "pi {prompt}" in .plan-axi.toml (repo) or the user config, then env CHANGE_AXI_AGENT,
 then the first of pi, claude, codex, gemini, opencode found on PATH. Placeholders: {prompt} {slug} {step} {path}.
@@ -690,15 +692,72 @@ examples:
 `,
 };
 
-export function enterCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+export interface PickIO {
+  tty: boolean;
+  /** Show the prompt and return one line of input, or undefined at EOF. */
+  ask: (prompt: string) => string | undefined;
+}
+
+function readLineSync(prompt: string): string | undefined {
+  process.stderr.write(prompt);
+  const buf = Buffer.alloc(1);
+  let line = "";
+  for (;;) {
+    let n: number;
+    try {
+      n = readSync(0, buf, 0, 1, null);
+    } catch {
+      return undefined;
+    }
+    if (n === 0) return line === "" ? undefined : line;
+    const ch = buf.toString("utf8");
+    if (ch === "\n") return line.replace(/\r$/, "");
+    line += ch;
+  }
+}
+
+/**
+ * Slug for a slug-less `enter`: the change on the current branch, the only in-flight change,
+ * or a pick among several (TTY: numbered prompt; otherwise a list and exit code 1).
+ * Returns a slug, or an output to print instead.
+ */
+export function resolveEnterSlug(ctx: Ctx, io: PickIO): { slug: string } | { output: AxiStructuredOutput } {
+  const current = currentChangeSlug(ctx);
+  if (current) return { slug: current };
+  const rows = listEnterable(ctx);
+  const inFlight = new Set(listTasks(ctx.root, "backlog.md").filter((t) => t.state === "in_flight").map((t) => t.id));
+  const flying = rows.filter((r) => inFlight.has(r.slug));
+  if (flying.length === 1) return { slug: (flying[0] as { slug: string }).slug };
+  const choices = flying.length > 1 ? flying : rows;
+  if (choices.length === 0) {
+    throw new AxiError("no active changes", "NOT_FOUND", ["Run `change-axi` to see active changes", 'Run `change-axi new <slug> "<title>"` to start a plan']);
+  }
+  if (!io.tty) {
+    process.exitCode = 1;
+    return { output: { changes: choices, help: ["Several changes: pass one, `change-axi enter <slug>`", "Run `change-axi enter --list` for details"] } };
+  }
+  const menu = choices.map((r, i) => `  ${i + 1}) ${r.slug}  worktree=${r.worktree}  in_flight=${r.in_flight}`).join("\n");
+  const ans = io.ask(`Active changes:\n${menu}\nPick a change [1-${choices.length}]: `)?.trim();
+  const n = Number(ans);
+  if (!ans || !Number.isInteger(n) || n < 1 || n > choices.length) {
+    throw new AxiError(`no valid choice "${ans ?? ""}"`, "VALIDATION_ERROR", ["Run `change-axi enter <slug>` or `change-axi enter --list`"]);
+  }
+  return { slug: (choices[n - 1] as { slug: string }).slug };
+}
+
+export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boolean(process.stdin.isTTY && process.stdout.isTTY), ask: readLineSync }): AxiStructuredOutput {
   const p = parseArgs(ENTER_SPEC, args);
   if (flagBool(p, "--list")) {
     const rows = listEnterable(ctx);
     if (rows.length === 0) return { changes: "0 active changes", help: ['Run `change-axi new <slug> "<title>"` to start a plan'] };
     return { changes: rows, help: ["Run `change-axi enter <slug>` to start or resume one"] };
   }
-  const slug = p.pos[0];
-  if (!slug) throw new AxiError("enter needs a slug", "VALIDATION_ERROR", ["Run `change-axi enter --list` to see active changes", "usage: change-axi enter <slug> [step]"]);
+  let slug = p.pos[0];
+  if (!slug) {
+    const r = resolveEnterSlug(ctx, io);
+    if ("output" in r) return r.output;
+    slug = r.slug;
+  }
   let step = p.pos[1];
   requireChange(ctx, slug);
   if (step && !listTasks(ctx.root, tasksRel(slug)).some((t) => t.id === step)) {
