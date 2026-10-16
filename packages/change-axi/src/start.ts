@@ -51,7 +51,7 @@ function statusRows(ctx: Ctx): { name: string; path: string; branch?: string }[]
   return rows;
 }
 
-function leaseWorktree(ctx: Ctx, slug: string): Worktree {
+export function leaseWorktree(ctx: Ctx, slug: string): Worktree {
   const existing = statusRows(ctx).find((r) => r.branch === slug);
   if (existing) return { path: existing.path, name: existing.name, reused: true };
   const raw = tryTreehouse(ctx, ["get", "--lease", "--json", "-b", slug]);

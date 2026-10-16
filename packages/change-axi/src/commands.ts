@@ -8,8 +8,10 @@ import { editSection, splitDoc } from "docs-axi/lib/sectionedit";
 import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
 import { archiveChange } from "./archive.js";
-import { applySetup, removeSetup } from "./setup.js";
-import { startChange } from "./start.js";
+import { buildCommand, resolveAgent, runAgent } from "./agent.js";
+import { git } from "./git.js";
+import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
+import { leaseWorktree, startChange } from "./start.js";
 import { changeHome, currentChangeSlug } from "./home.js";
 import { checkChange, computeWaves } from "./check.js";
 import {
@@ -527,6 +529,7 @@ export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
         ...(r.ready.length > 1 ? ["Ready steps can run in parallel if their Owns do not overlap (see `change-axi check` OVERLAP warnings)"] : []),
       ]
     : [`Open the ${slug} worktree, then start the agent there with: apply ${slug} ${step}`];
+  if (!hasSetupBlock(ctx.root)) (out["help"] as string[]).push(SETUP_HINT);
   return out;
 }
 
@@ -558,4 +561,73 @@ export function setupCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   }
   const r = applySetup(ctx.root, file);
   return { setup: r.changed ? (r.created ? "file created with block" : "block added") : "block already present (nothing changed)", path: r.path };
+}
+
+// ---------------------------------------------------------------- enter
+
+const SETUP_HINT = "Run `change-axi setup` so agents in the worktree know to use plan-apply (adds a block to AGENTS.md)";
+
+export const ENTER_SPEC: CmdSpec = {
+  name: "enter",
+  flags: { "--print": "boolean", "--run": "boolean" },
+  min: 1,
+  max: 2,
+  usage: "change-axi enter <slug> [step] [--print] [--run]",
+  help: `usage: change-axi enter <slug> [step] [--print] [--run]
+Start the change if needed, find its worktree, and run the configured agent there with the prompt "apply <slug> [step]".
+Agent command: [apply] agent = "pi {prompt}" in .plan-axi.toml (repo) or the user config, then env CHANGE_AXI_AGENT,
+then the first of pi, claude, codex, gemini, opencode found on PATH. Placeholders: {prompt} {slug} {step} {path}.
+On branch <slug> the current directory is used. Without a TTY, or with --print, the command is printed, not run.
+  --print   print the path and command only
+  --run     run even when stdout is not a TTY
+examples:
+  change-axi enter add-hangfire-foundation
+  change-axi enter add-hangfire-foundation 02-jobs --print
+`,
+};
+
+export function enterCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(ENTER_SPEC, args);
+  const slug = p.pos[0] as string;
+  const step = p.pos[1];
+  requireChange(ctx, slug);
+  if (step && !listTasks(ctx.root, tasksRel(slug)).some((t) => t.id === step)) {
+    throw new AxiError(`no step "${step}" in ${slug}`, "NOT_FOUND", [`Run \`change-axi status ${slug}\` for step ids`]);
+  }
+  let path = ctx.root;
+  let enter: string | undefined;
+  const out: AxiStructuredOutput = {};
+  if (git(ctx, ["branch", "--show-current"], true) !== slug) {
+    const inFlight = listTasks(ctx.root, "backlog.md").find((t) => t.id === slug)?.state === "in_flight";
+    const w = inFlight ? leaseWorktree(ctx, slug) : startChange(ctx, slug, { dryRun: false, worktree: true }).worktree;
+    if (!w) throw new AxiError("no worktree", "TREEHOUSE_ERROR");
+    path = w.path;
+    enter = w.name ? `treehouse enter ${w.name}` : `cd ${w.path}`;
+  }
+  const prompt = step ? `apply ${slug} ${step}` : `apply ${slug}`;
+  out["worktree"] = path;
+  out["branch"] = slug;
+  if (enter) out["enter"] = enter;
+  out["prompt"] = prompt;
+  const help: string[] = [];
+  const agent = resolveAgent(path);
+  if (!agent) {
+    help.push('No agent found. Set one in .plan-axi.toml: [apply]  agent = "pi {prompt}"  (or export CHANGE_AXI_AGENT)');
+    help.push(`Then start your agent in the worktree with: ${prompt}`);
+  } else {
+    const cmd = buildCommand(agent.template, { prompt, slug, ...(step ? { step } : {}), path });
+    out["agent"] = `${agent.template} (${agent.source})`;
+    out["command"] = cmd;
+    const tty = Boolean(process.stdout.isTTY);
+    if (flagBool(p, "--print") || !(tty || flagBool(p, "--run"))) {
+      help.push(flagBool(p, "--print") ? "Printed only (--print)" : "Not a TTY: printed only. Use --run to run anyway");
+    } else {
+      const code = runAgent(cmd, path);
+      out["exit"] = code;
+      if (code !== 0) process.exitCode = code;
+    }
+  }
+  if (!hasSetupBlock(path)) help.push(SETUP_HINT);
+  if (help.length > 0) out["help"] = help;
+  return out;
 }

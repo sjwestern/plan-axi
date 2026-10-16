@@ -23,7 +23,7 @@ export interface DocsConfig {
 /** Top-level docs entries owned by other tools; never indexed or reported. Dot-entries are always skipped. */
 export const DEFAULT_IGNORE = ["node_modules/", "_build/", "_site/", "site/", "dist/", "build/"];
 
-type Value = string | boolean | string[];
+export type Value = string | boolean | string[];
 
 function stripComment(line: string): string {
   let q = false;
@@ -136,6 +136,22 @@ export function loadConfig(root: string): DocsConfig {
     }
   }
   return cfg;
+}
+
+/**
+ * Raw merged config as a flat `table.key` map: user then repo; arrays unioned, scalars repo over user.
+ * Docs behavior is unchanged (see loadConfig); other tools read their own tables from here.
+ */
+export function loadRawConfig(root: string): Record<string, Value> {
+  const out: Record<string, Value> = {};
+  for (const path of [userConfigPath(), join(root, ".plan-axi.toml")]) {
+    if (!existsSync(path)) continue;
+    for (const [k, v] of Object.entries(parseToml(readFileSync(path, "utf8"), path))) {
+      const prev = out[k];
+      out[k] = Array.isArray(prev) && Array.isArray(v) ? union(prev, v) : v;
+    }
+  }
+  return out;
 }
 
 function toRegex(pattern: string): RegExp {

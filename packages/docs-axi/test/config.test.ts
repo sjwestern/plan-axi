@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { matchesAny, parseToml } from "../src/config.js";
+import { loadRawConfig, matchesAny, parseToml } from "../src/config.js";
 import { tempRepo } from "./helpers.js";
 
 describe("toml subset", () => {
@@ -74,5 +74,25 @@ describe("config", () => {
     writeFileSync(join(repo.dir, "docs/node_modules/x/r.md"), "x\n");
     const r = await repo.run("check");
     expect(r.out).not.toContain("node_modules");
+  });
+});
+
+describe("raw config", () => {
+  it("merges user and repo: repo scalars win, arrays union", () => {
+    const repo = tempRepo();
+    const xdg = join(repo.dir, "xdg");
+    process.env["XDG_CONFIG_HOME"] = xdg;
+    try {
+      mkdirSync(join(xdg, "plan-axi"), { recursive: true });
+      writeFileSync(join(xdg, "plan-axi/config.toml"), '[apply]\nagent = "user {prompt}"\n[docs]\nignore = ["a/"]\n');
+      expect(loadRawConfig(repo.dir)["apply.agent"]).toBe("user {prompt}");
+      writeFileSync(join(repo.dir, ".plan-axi.toml"), '[apply]\nagent = "repo {prompt}"\n[docs]\nignore = ["b/"]\n');
+      const cfg = loadRawConfig(repo.dir);
+      expect(cfg["apply.agent"]).toBe("repo {prompt}");
+      expect(cfg["docs.ignore"]).toEqual(["a/", "b/"]);
+    } finally {
+      delete process.env["XDG_CONFIG_HOME"];
+      repo.cleanup();
+    }
   });
 });
