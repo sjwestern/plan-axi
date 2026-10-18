@@ -10,6 +10,12 @@ beforeEach(() => void (dir = mkdtempSync(join(tmpdir(), "change-axi-setup-"))));
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("setup", () => {
+  it("block points agents at docs and exploration", () => {
+    expect(SETUP_BLOCK).toContain("docs-axi search");
+    expect(SETUP_BLOCK).toContain("rg <terms> docs/");
+    expect(SETUP_BLOCK).toContain("For exploration and planning tasks, look at the docs first");
+  });
+
   it("creates a missing file and removes it again", () => {
     expect(applySetup(dir).created).toBe(true);
     expect(hasSetupBlock(dir)).toBe(true);
