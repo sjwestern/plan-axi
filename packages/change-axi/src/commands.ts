@@ -445,7 +445,19 @@ export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     progress: `${tasks.length - active.length}/${tasks.length} done`,
     steps: tasks.map((t) => ({ id: t.id, state: t.state, blocked_by: t.blockers.join(",") || "none", wave: waveOf.get(t.id) ?? "-" })),
     ready: ready.join(",") || "none",
+    help: statusHelp(ctx, slug, ready, active.length === 0),
   };
+}
+
+/** Next-action hints: in the change worktree give the prompt, elsewhere point at `enter`. */
+function statusHelp(ctx: Ctx, slug: string, ready: string[], allDone: boolean): string[] {
+  if (allDone) return [`All steps done; run \`change-axi archive ${slug} --dry-run\``];
+  if (!ready[0]) return ["No ready steps; waiting on in-flight steps"];
+  if (git(ctx, ["branch", "--show-current"], true) === slug) return [`Tell the agent: apply ${slug} ${ready[0]}`];
+  return [
+    `Run \`change-axi enter ${slug} ${ready[0]}\` to lease the worktree and launch your agent on that step`,
+    `Omit the step to resume an in-flight one; add --print to only show the command`,
+  ];
 }
 
 // ---------------------------------------------------------------- claim
@@ -559,7 +571,7 @@ Idempotent: an in-flight change is not started twice; the worktree is looked up 
   --dry-run       run the preflight, change nothing
   --no-worktree   skip the treehouse lease
 Output: worktree path, an enter command to copy, the ready steps with their Owns, and the parallel waves.
-Then in the worktree tell the agent: apply <slug> <step-id>.
+Next: run \`change-axi enter <slug> [step]\` to open the agent in the worktree.
 examples:
   change-axi start split-auth
 `,
@@ -584,12 +596,10 @@ export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   out["waves"] = [...r.waves].map(([w, ids]) => ({ wave: w, steps: ids.join(",") }));
   if (r.warnings.length > 0) out["warnings"] = r.warnings;
   const step = r.ready[0]?.id ?? "<step-id>";
-  out["help"] = r.worktree
-    ? [
-        `Run the \`enter\` command above, then start the agent there with: apply ${slug} ${step}`,
-        ...(r.ready.length > 1 ? ["Ready steps can run in parallel if their Owns do not overlap (see `change-axi check` OVERLAP warnings)"] : []),
-      ]
-    : [`Open the ${slug} worktree, then start the agent there with: apply ${slug} ${step}`];
+  out["help"] = [
+    `Run \`change-axi enter ${slug} ${step}\` to launch your agent in the worktree (omit the step to resume)`,
+    ...(r.ready.length > 1 ? ["Ready steps can run in parallel if their Owns do not overlap (see `change-axi check` OVERLAP warnings)"] : []),
+  ];
   if (!hasSetupBlock(ctx.root)) (out["help"] as string[]).push(SETUP_HINT);
   return out;
 }
