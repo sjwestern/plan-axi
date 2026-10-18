@@ -2,6 +2,7 @@
 
 ## In flight
 ## Queued
+- [ ] add-docs-pointer-to-setup-block - Point agents at the docs index in the setup block (kind: change) (since 2026-10-19)
 ## Done
 - [x] enter-diagnostics-and-picker - Enter diagnostics, change listing and slug-less enter (kind: change) (done 2026-10-16)
 - [x] commands-on-own-lines - Skills and setup block: commands on their own lines (kind: change) (done 2026-10-16)
