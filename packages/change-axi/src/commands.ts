@@ -9,6 +9,7 @@ import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
 import { archiveChange } from "./archive.js";
 import { claim } from "./claim.js";
+import { commitPlan } from "./commitplan.js";
 import { done } from "./done.js";
 import { buildCommand, resolveAgent, runAgent } from "./agent.js";
 import { finishChange } from "./finish.js";
@@ -518,7 +519,7 @@ export const DONE_SPEC: CmdSpec = {
   max: 2,
   usage: "change-axi done <slug> <step> [--since <rev>]",
   help: `usage: change-axi done <slug> <step> [--since <rev>]
-Mark a started step done (tasks-axi done) and commit only tasks.md as "<slug>: done <step>".
+Mark a started step done (tasks-axi done) and commit only tasks.md as "<type>(<scope>): done <step>".
 Warns (OUTSIDE_OWNS) about paths committed since the last tasks.md commit (or --since) that are not in the step's Owns.
 Commit your own work first. Other staged or dirty files are left alone.
 examples:
@@ -530,6 +531,37 @@ export function doneCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(DONE_SPEC, args);
   const r = done(ctx, p.pos[0] as string, p.pos[1] as string, flagStr(p, "--since"));
   const out: AxiStructuredOutput = { done: `${r.step} done`, commit: r.commit };
+  if (r.warnings.length > 0) out["warnings"] = r.warnings;
+  return out;
+}
+
+// ---------------------------------------------------------------- commit-plan
+
+export const COMMIT_PLAN_SPEC: CmdSpec = {
+  name: "commit-plan",
+  flags: { "--reason": "string", "--dry-run": "boolean" },
+  min: 0,
+  max: 1,
+  usage: "change-axi commit-plan [<slug>] [--reason <text>] [--dry-run]",
+  help: `usage: change-axi commit-plan [<slug>] [--reason <text>] [--dry-run]
+The human step after plan-propose: commit the generated plan (plan folder, backlog.md, docs dir) as
+"docs(plan): propose <slug>" with a Change trailer (see [commit] config). Other dirty files are not staged.
+Without a slug, picks the one active plan with uncommitted changes; several -> pass a slug.
+Fails if the plan check fails.
+  --reason <text>  use <text> as the subject, for plan amendments
+  --dry-run        print the message and paths, commit nothing
+examples:
+  change-axi commit-plan
+  change-axi commit-plan split-auth --reason "drop step 03"
+`,
+};
+
+export function commitPlanCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(COMMIT_PLAN_SPEC, args);
+  const r = commitPlan(ctx, p.pos[0], { dryRun: flagBool(p, "--dry-run"), ...(flagStr(p, "--reason") !== undefined ? { reason: flagStr(p, "--reason") as string } : {}) });
+  const out: AxiStructuredOutput = r.commit
+    ? { commit_plan: `${r.slug} committed`, commit: r.commit, files: r.files.join(", ") }
+    : { commit_plan: `${r.slug} (dry run, nothing committed)`, message: r.message, paths: r.paths.join(", "), files: r.files.join(", ") };
   if (r.warnings.length > 0) out["warnings"] = r.warnings;
   return out;
 }
@@ -548,7 +580,7 @@ Checks: clean tree (specs, docs, backlog.md), all tasks done, plan check passes,
 and changed since the plan commit (ADRs exempt). Then: accepts proposed ADRs listed in Docs impact (reindexes),
 git mv to specs/changes/archived/<date>-<slug>, marks the backlog task done.
   --dry-run          run the checks, report ADRs that would be accepted, change nothing
-  --commit           commit everything as "archive <slug>"
+  --commit           commit everything as "chore(plan): archive change" with a Change trailer
   --skip-docs-check  allow Docs impact docs that were not changed (say why in the commit message)
 Idempotent: an already archived change only ensures the backlog task is done.
 If an accepted ADR replaces an older one: docs-axi supersede <old> --by <new>.
@@ -589,7 +621,7 @@ export const START_SPEC: CmdSpec = {
   help: `usage: change-axi start <slug> [--dry-run] [--no-worktree]
 Launch a committed plan. Run on the default branch (the main checkout).
 Preflight: not behind the remote, plan committed and clean, plan check passes, backlog task queued.
-Then: marks the change in flight in backlog.md and commits only that file ("start <slug>"),
+Then: marks the change in flight in backlog.md and commits only that file ("chore(plan): start change", Change trailer),
 and leases a treehouse worktree on branch <slug> (reused if one already exists for it).
 Idempotent: an in-flight change is not started twice; the worktree is looked up instead.
   --dry-run       run the preflight, change nothing
