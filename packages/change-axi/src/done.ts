@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { headerLine, readLf, requireChange, splitList, tasksRel, type Ctx } from "./change.js";
-import { defaultBranch, git, isAncestorOf } from "./git.js";
+import { commit, defaultBranch, git, isAncestorOf } from "./git.js";
 import { listTasks, runTasks } from "./tasks.js";
 
 export interface DoneResult {
@@ -37,7 +37,12 @@ export function done(ctx: Ctx, slug: string, stepArg: string, since?: string): D
   const outside = changed.filter((p) => !p.startsWith(planDir) && !inOwns(p, owns));
   runTasks(ctx.root, ["done", hit.id, "--file", file]);
   git(ctx, ["add", "--", file]);
-  git(ctx, ["commit", "-q", "-m", `${slug}: done ${hit.id}`, "--", file]);
+  try {
+    commit(ctx, `done ${hit.id}`, slug, [file]);
+  } catch (e) {
+    git(ctx, ["restore", "--staged", "--worktree", "--", file], true);
+    throw e;
+  }
   const warnings = outside.length > 0 ? [`OUTSIDE_OWNS: ${outside.join(", ")} changed since ${base.slice(0, 7)} but not in Owns of ${hit.id}`] : [];
   return { step: hit.id, commit: git(ctx, ["rev-parse", "--short", "HEAD"]), warnings };
 }

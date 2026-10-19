@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { AxiError } from "axi-sdk-js";
 import type { Ctx } from "./change.js";
+import { commitHeader, commitStyle } from "./commitstyle.js";
 
 export function git(ctx: Ctx, args: string[], allowFail = false): string {
   try {
@@ -39,5 +40,24 @@ export function isAncestorOf(ctx: Ctx, a: string, b: string): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Commit with a conventional header `type(scope): subject` and a `Trailer: slug` line.
+ * `type` defaults to the configured tool type. Hook rejections throw `commit rejected` with stderr details.
+ */
+export function commit(ctx: Ctx, subject: string, slug: string, paths?: string[], type?: string): void {
+  const style = commitStyle(ctx.root);
+  const args = ["commit", "-q", "-m", commitHeader(type ?? style.type, style.scope, subject)];
+  if (style.trailer !== "") args.push("-m", `${style.trailer}: ${slug}`);
+  if (paths) args.push("--", ...paths);
+  try {
+    execFileSync("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (e) {
+    const err = e as { stderr?: string; stdout?: string; message?: string };
+    const text = `${err.stderr ?? ""}\n${err.stdout ?? ""}`.trim() || (err.message ?? "");
+    const lines = text.split("\n").map((l) => l.trimEnd()).filter((l) => l.trim() !== "");
+    throw new AxiError("commit rejected", "GIT_ERROR", lines.slice(0, 15));
   }
 }

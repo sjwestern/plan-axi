@@ -10,7 +10,7 @@ import { splitDoc } from "docs-axi/lib/sectionedit";
 import { findSectionOrUndefined, sectionText } from "docs-axi/lib/sections";
 import { archivedDir, changeDir, getDocsConfig, type Ctx } from "./change.js";
 import { checkChange } from "./check.js";
-import { defaultBranch, firstCommitOf, git, isAncestor } from "./git.js";
+import { commit, defaultBranch, firstCommitOf, git, isAncestor } from "./git.js";
 import { listTasks, runTasks } from "./tasks.js";
 
 export interface DocsImpact {
@@ -161,7 +161,12 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
   if (refs.length > 0) report.references = refs;
   if (o.commit) {
     git(ctx, ["add", "--", "specs", layout.dir, "backlog.md"]);
-    git(ctx, ["commit", "-q", "-m", `archive ${slug}`]);
+    try {
+      commit(ctx, "archive change", slug);
+    } catch (e) {
+      if (e instanceof AxiError) throw new AxiError(e.message, e.code, [...(e.suggestions ?? []), "Changes are staged; fix the hook problem and run git commit"]);
+      throw e;
+    }
     report.commit = git(ctx, ["rev-parse", "--short", "HEAD"]);
   }
   return report;

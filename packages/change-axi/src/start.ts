@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { getDocsConfig, requireChange, type Ctx } from "./change.js";
 import { checkChange } from "./check.js";
-import { defaultBranch, firstCommitOf, git } from "./git.js";
+import { commit, defaultBranch, firstCommitOf, git } from "./git.js";
 import { listTasks, runTasks } from "./tasks.js";
 
 export interface StartOptions {
@@ -226,7 +226,12 @@ export function startChange(ctx: Ctx, slug: string, o: StartOptions): StartRepor
   if (!already) {
     runTasks(ctx.root, ["start", slug, "--file", "backlog.md"]);
     git(ctx, ["add", "--", "backlog.md"]);
-    git(ctx, ["commit", "-q", "-m", `start ${slug}`, "--", "backlog.md"]);
+    try {
+      commit(ctx, "start change", slug, ["backlog.md"]);
+    } catch (e) {
+      git(ctx, ["restore", "--staged", "--worktree", "--", "backlog.md"], true);
+      throw e;
+    }
     report.commit = git(ctx, ["rev-parse", "--short", "HEAD"]);
   }
   if (o.worktree) report.worktree = leaseWorktree(ctx, slug);
