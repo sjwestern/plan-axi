@@ -32,3 +32,12 @@ export function isAncestor(ctx: Ctx, ref: string): boolean {
 export function firstCommitOf(ctx: Ctx, path: string): string | undefined {
   return git(ctx, ["log", "--diff-filter=A", "--format=%H", "--", path]).split("\n").filter(Boolean).pop();
 }
+
+export function isAncestorOf(ctx: Ctx, a: string, b: string): boolean {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", a, b], { cwd: ctx.root, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}

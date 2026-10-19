@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { headerLine, readLf, requireChange, splitList, tasksRel, type Ctx } from "./change.js";
-import { git } from "./git.js";
+import { defaultBranch, git, isAncestorOf } from "./git.js";
 import { listTasks, runTasks } from "./tasks.js";
 
 export interface DoneResult {
@@ -26,7 +26,12 @@ export function done(ctx: Ctx, slug: string, stepArg: string, since?: string): D
   if (hit.state === "done") throw new AxiError(`${hit.id} is already done`, "VALIDATION_ERROR");
   if (hit.state !== "in_flight") throw new AxiError(`${hit.id} is not started`, "VALIDATION_ERROR", [`Run \`change-axi claim ${slug} ${hit.id}\` first`]);
   const owns = splitList(headerLine(readLf(join(dir, `${hit.id}.md`)), "Owns"));
-  const base = since ?? git(ctx, ["log", "-1", "--format=%H", "--", file], true);
+  let base = since ?? git(ctx, ["log", "-1", "--format=%H", "--", file], true);
+  if (!since && base) {
+    // The plan commit may predate the branch point; skip history inherited from the default branch.
+    const fork = git(ctx, ["merge-base", "HEAD", defaultBranch(ctx)], true);
+    if (fork && fork !== base && fork !== git(ctx, ["rev-parse", "HEAD"], true) && isAncestorOf(ctx, base, fork)) base = fork;
+  }
   const changed = base ? git(ctx, ["diff", "--name-only", `${base}..HEAD`], true).split("\n").filter(Boolean) : [];
   const planDir = `specs/changes/active/${slug}/`;
   const outside = changed.filter((p) => !p.startsWith(planDir) && !inOwns(p, owns));
