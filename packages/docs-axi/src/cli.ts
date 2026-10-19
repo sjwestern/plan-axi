@@ -37,14 +37,15 @@ import {
   writeCommand,
 } from "./commands/sections.js";
 import { MIGRATE_SPEC, migrateCommand } from "./commands/migrate.js";
+import { CONFIG_HELP, configCommand } from "./commands/config.js";
 import { VERSION } from "./version.js";
 
 export const DESCRIPTION =
   "Manage the repo docs folder (domain, architecture, decisions) with a generated index. Prefer this over hand-editing docs/README.md or ADR numbers.";
 
 export const TOP_HELP = `usage: docs-axi [command] [args] [flags]
-commands[14]:
-  (none)=docs map, init, list, search, show, sections, write, append, new, adr, update, supersede, index, check, migrate
+commands[15]:
+  (none)=docs map, init, list, search, show, sections, write, append, new, adr, update, supersede, index, check, migrate, config
 flags[2]:
   --docs <dir> (after command; default <repo>/docs), --help, -v/-V/--version
 examples:
@@ -61,7 +62,7 @@ examples:
 type Handler = (ctx: Ctx, args: string[]) => AxiRenderable;
 
 const COMMANDS: Record<string, { run: Handler; help: string }> = {
-  init: { run: initCommand, help: INIT_SPEC.help },
+  init: { run: initCommand, help: `${INIT_SPEC.help}\nOptional: --sections <a,b,c> --adr <name|none> --guide name="text" applies the layout first.` },
   list: { run: listCommand, help: LIST_SPEC.help },
   search: { run: searchCommand, help: SEARCH_SPEC.help },
   show: { run: showCommand, help: SHOW_SPEC.help },
@@ -75,6 +76,7 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   sections: { run: sectionsCommand, help: SECTIONS_SPEC.help },
   write: { run: writeCommand, help: WRITE_SPEC.help },
   append: { run: appendCommand, help: APPEND_SPEC.help },
+  config: { run: configCommand, help: CONFIG_HELP },
 };
 
 function docsFlag(args: string[]): string | undefined {
@@ -103,7 +105,15 @@ export async function main(options: MainOptions = {}): Promise<void> {
   };
   const commands: Record<string, (args: string[], ctx: Ctx | undefined) => AxiRenderable> = {};
   for (const [name, c] of Object.entries(COMMANDS)) {
-    commands[name] = (args, ctx) => c.run(ctx as Ctx, args);
+    commands[name] = (args, ctx) => {
+      const current = ctx as Ctx;
+      if (name === "init" && args.some((arg) => arg === "--sections" || arg.startsWith("--sections=") || arg === "--adr" || arg.startsWith("--adr="))) {
+        const configResult = configCommand(current, args);
+        const refreshed = resolveCtx(args);
+        return { configuration: configResult, ...initCommand(refreshed, []) };
+      }
+      return c.run(current, args);
+    };
   }
   await runAxiCli<Ctx>({
     ...(options.argv ? { argv: options.argv } : {}),
