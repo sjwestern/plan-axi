@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { deriveTitleSummary } from "../src/derive.js";
@@ -59,6 +59,48 @@ describe("migrate", () => {
     expect(o.out).toContain("AGENTS.md");
     const again = await repo.run("migrate", "--apply");
     expect(again.out).toContain("0 doc(s)");
+  });
+
+  it("uses the configured layout for section suggestions and ADR numbering", async () => {
+    rmSync(join(repo.dir, "docs"), { recursive: true, force: true });
+    writeFileSync(join(repo.dir, ".plan-axi.toml"), `[docs]\nsections = ["guides", "reference", "rfcs"]\nadr = "rfcs"\n\n[docs.section.guides]\nguide = "User guides"\n\n[docs.section.reference]\nguide = "Technical reference"\n\n[docs.section.rfcs]\nguide = "Architecture decisions"\n`);
+    w("old/reference/guide.md", "# Guide\n\nHow to use the system.\n");
+    w("old/decisions/0001-new-choice.md", "# New choice\n\nWhy we picked this option.\n");
+    w("rfcs/0001-existing-choice.md", "---\ntitle: Existing choice\nsummary: The prior choice and its rationale.\nstatus: accepted\n---\n\nExisting decision.\n");
+
+    const dry = await repo.run("migrate");
+    expect(dry.out).toContain("reference/old/reference/guide.md");
+    expect(dry.out).toContain("rfcs/0002-new-choice.md");
+    expect(dry.out).toContain("guides - User guides");
+
+    const applied = await repo.run("migrate", "--apply");
+    expect(applied.code).toBe(0);
+    expect(existsSync(join(repo.dir, "docs/reference/old/reference/guide.md"))).toBe(true);
+    expect(r("rfcs/0002-new-choice.md")).toContain("status: accepted");
+  });
+
+  it("requires a section when no configured section matches", async () => {
+    rmSync(join(repo.dir, "docs"), { recursive: true, force: true });
+    writeFileSync(join(repo.dir, ".plan-axi.toml"), `[docs]\nsections = ["guides", "reference", "rfcs"]\nadr = "rfcs"\n\n[docs.section.guides]\nguide = "User guides"\n\n[docs.section.reference]\nguide = "Technical reference"\n\n[docs.section.rfcs]\nguide = "Architecture decisions"\n`);
+    w("misc/mystery.md", "# Mystery\n\nThis file has no section signal.\n");
+
+    const dry = await repo.run("migrate");
+    expect(dry.out).toContain("needs a section");
+    const applied = await repo.run("migrate", "--apply");
+    expect(applied.code).not.toBe(0);
+    expect(existsSync(join(repo.dir, "docs/misc/mystery.md"))).toBe(true);
+  });
+
+  it("rejects a plan section that is not configured", async () => {
+    w("billing.md", "# Billing\n\nMonthly invoices.\n");
+    const plan = join(repo.dir, "plan.json");
+    writeFileSync(plan, JSON.stringify([{ from: "billing.md", action: "move", section: "archive", to: "archive/billing.md", title: "Billing", summary: "Monthly invoice rules." }]));
+
+    const result = await repo.run("migrate", "--apply", "--plan", plan);
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain("bad section");
+    expect(result.out).toContain("archive");
+    expect(existsSync(join(repo.dir, "docs/billing.md"))).toBe(true);
   });
 
   it("a dry run never overwrites an existing plan file; --force regenerates", async () => {

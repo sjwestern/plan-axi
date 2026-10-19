@@ -13,7 +13,9 @@ import {
   MAX_SUMMARY,
   SLUG_RE,
   allFiles,
-  isSection,
+  isAdrSection,
+  isSectionIn,
+  layoutGuideLines,
   loadDocs,
   nextAdrNumber,
   requireDocsDir,
@@ -29,11 +31,12 @@ export const MIGRATE_SPEC: CmdSpec = {
   max: 0,
   usage: "docs-axi migrate [--plan <file.json>] [--apply] [--force] [--allow-weak-summaries]",
   help: `usage: docs-axi migrate [--plan <file.json>] [--apply]
-Move existing docs into domain/, architecture/, decisions/, add missing frontmatter
+Move existing docs into configured sections, add missing frontmatter
 (title, summary; ADR status), rewrite relative links between docs, regenerate the index.
 Candidates: .md files under docs/ that are not in a section yet (indexed as "other"), or only mapped via [docs.map],
 minus anything ignored by config.
 Default is a dry run: prints the proposed moves (section is a filename heuristic - review it).
+Configured section names are listed in the migration output.
   --plan <file>  dry run: write the proposal as JSON for review/editing.
                  If the file already exists it is NEVER overwritten: the dry run shows and
                  validates your edited plan instead. Pass --force to regenerate it.
@@ -78,16 +81,24 @@ function ignoreLine(ignores: Entry[]): string {
   return `[docs] ignore = [${pats.map((x) => JSON.stringify(x)).join(", ")}]`;
 }
 
-function suggestSection(path: string): { action: "move" | "keep" | "ignore"; section: string } {
+function suggestSection(path: string, layout: Ctx["config"]["layout"]): { action: "move" | "keep" | "ignore"; section: string } {
   const parts = path.split("/");
+  const dirs = parts.slice(0, -1);
   const stem = (parts[parts.length - 1] as string).replace(/\.md$/i, "");
-  if (parts.slice(0, -1).some((p) => IGNORE_NAMES.test(p)) || IGNORE_NAMES.test(stem)) {
+  if (dirs.some((p) => IGNORE_NAMES.test(p)) || IGNORE_NAMES.test(stem)) {
     return { action: "ignore", section: "" };
   }
-  if (parts.slice(0, -1).some((p) => KEEP_RE.test(p))) return { action: "keep", section: "other" };
-  if (parts.slice(0, -1).some((p) => ADR_DIR_RE.test(p))) return { action: "move", section: "decisions" };
-  if (ARCH_RE.test(parts.join("/"))) return { action: "move", section: "architecture" };
-  return { action: "move", section: "domain" };
+  if (dirs.some((p) => KEEP_RE.test(p))) return { action: "keep", section: "other" };
+  if (layout.adr !== undefined && dirs.some((p) => ADR_DIR_RE.test(p))) {
+    return { action: "move", section: layout.adr };
+  }
+  const named = layout.sections.find((section) => dirs.includes(section.name));
+  if (named) return { action: "move", section: named.name };
+  if (layout.sections.some((section) => section.name === "architecture") && ARCH_RE.test(parts.join("/"))) {
+    return { action: "move", section: "architecture" };
+  }
+  if (layout.sections.some((section) => section.name === "domain")) return { action: "move", section: "domain" };
+  return { action: "move", section: "" };
 }
 
 function normName(file: string): string {
@@ -100,8 +111,10 @@ export function buildProposal(ctx: Ctx): Entry[] {
     const s = sectionOf(ctx, f);
     return s.section === "other" || s.mapped;
   });
-  const taken = new Set(loadDocs(ctx).filter((d) => !d.mapped).map((d) => d.path.toLowerCase()));
-  let adr = nextAdrNumber(loadDocs(ctx));
+  const docs = loadDocs(ctx);
+  const taken = new Set(docs.filter((d) => !d.mapped).map((d) => d.path.toLowerCase()));
+  const takenAdrNumbers = new Set(docs.filter((d) => isAdrSection(ctx.config.layout, d.section) && d.adrNumber !== undefined).map((d) => d.adrNumber as number));
+  let adr = nextAdrNumber(docs);
   const out: Entry[] = [];
   for (const from of files) {
     const text = readText(join(ctx.docsDir, from));
@@ -111,7 +124,7 @@ export function buildProposal(ctx: Ctx): Entry[] {
     const title = typeof parsed.data["title"] === "string" ? (parsed.data["title"] as string) : ts.title;
     const hasSummary = typeof parsed.data["summary"] === "string" && parsed.data["summary"] !== "";
     const summary = hasSummary ? (parsed.data["summary"] as string) : ts.summary;
-    const sug = suggestSection(from);
+    const sug = suggestSection(from, ctx.config.layout);
     if (sug.action === "ignore") {
       out.push({ from, action: "ignore", section: "", to: "", title, summary });
       continue;
@@ -120,17 +133,27 @@ export function buildProposal(ctx: Ctx): Entry[] {
       out.push({ from, action: "keep", section: "other", to: from, title, summary, ...(ts.needsSummary && !hasSummary ? { needsSummary: true } : {}) });
       continue;
     }
-    const dirs = from.split("/").slice(0, -1).filter((d) => !ADR_DIR_RE.test(d)).map((d) => slugify(d) || d);
+    if (sug.section === "") {
+      out.push({ from, action: "move", section: "", to: "", title, summary, ...(ts.needsSummary && !hasSummary ? { needsSummary: true } : {}) });
+      continue;
+    }
+    const dirs = from.split("/").slice(0, -1)
+      .filter((d) => !(isAdrSection(ctx.config.layout, sug.section) && ADR_DIR_RE.test(d)))
+      .map((d) => slugify(d) || d);
     let name = normName(from.split("/").pop() as string);
     let to: string;
-    if (sug.section === "decisions") {
+    if (isAdrSection(ctx.config.layout, sug.section)) {
       const m = ADR_FILE_RE.exec(name);
       let n: string;
-      if (m && !taken.has(`decisions/${name}`)) n = name;
-      else {
+      if (m && !taken.has(`${sug.section}/${name}`) && !takenAdrNumbers.has(Number(m[1]))) {
+        n = name;
+        takenAdrNumbers.add(Number(m[1]));
+      } else {
+        while (takenAdrNumbers.has(adr) || taken.has(`${sug.section}/${String(adr).padStart(4, "0")}-${name.replace(/^\d+-/, "")}`.toLowerCase())) adr++;
         n = `${String(adr++).padStart(4, "0")}-${name.replace(/^\d+-/, "")}`;
+        takenAdrNumbers.add(adr - 1);
       }
-      to = `decisions/${n}`;
+      to = `${sug.section}/${n}`;
     } else {
       if (dirs.length === 0 && name === `${sug.section}.md`) name = "overview.md";
       to = [sug.section, ...dirs, name].join("/");
@@ -170,12 +193,12 @@ function validate(ctx: Ctx, entries: Entry[]): void {
       }
       continue;
     }
-    if (!isSection(e.section)) errs.push(`${e.from}: bad section "${e.section}"`);
+    if (!isSectionIn(ctx.config.layout, e.section)) errs.push(`${e.from}: bad section "${e.section}"`);
     if (!e.to.startsWith(`${e.section}/`) || !e.to.toLowerCase().endsWith(".md")) {
       errs.push(`${e.from}: to must be ${e.section}/....md`);
     }
     const file = e.to.split("/").pop() as string;
-    if (e.section === "decisions" ? !ADR_FILE_RE.test(file) : !SLUG_RE.test(file.replace(/\.md$/i, ""))) {
+    if (isAdrSection(ctx.config.layout, e.section) ? !ADR_FILE_RE.test(file) : !SLUG_RE.test(file.replace(/\.md$/i, ""))) {
       errs.push(`${e.from}: bad target file name ${file}`);
     }
     if (e.summary.trim() === "" || e.summary.length > MAX_SUMMARY || /\n/.test(e.summary)) {
@@ -329,6 +352,7 @@ export function migrateCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
       proposal: entries.map((e) => ({
         from: e.from,
         action: e.action,
+        section: e.section || "needs a section",
         to: e.to === "" ? "-" : e.to,
         title: e.title,
         summary: weak.get(e.from) ?? "ok",
@@ -344,6 +368,7 @@ export function migrateCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
         ? "Run `docs-axi migrate --plan migration.json` to save the proposal, edit it, then `--apply --plan migration.json`"
         : `Edit ${planFile} (section, to, title, summary, action), then run \`docs-axi migrate --apply --plan ${planFile}\``,
       "Run `docs-axi migrate --apply` to apply the proposal as is. Commit first.",
+      `Configured sections:\n${layoutGuideLines(ctx.config.layout)}`,
       ...(weak.size > 0
         ? [`${weak.size} weak summary(ies) (see summary column): read each doc and write a real one-line description before --apply, which refuses weak summaries`]
         : []),
@@ -385,7 +410,7 @@ export function migrateCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
       const add: Record<string, FmValue | undefined> = {};
       if (typeof parsed.data["title"] !== "string" || parsed.data["title"] === "") add["title"] = entry.title;
       if (typeof parsed.data["summary"] !== "string" || parsed.data["summary"] === "") add["summary"] = entry.summary;
-      if (entry.section === "decisions" && !parsed.data["status"]) add["status"] = "accepted";
+      if (isAdrSection(ctx.config.layout, entry.section) && !parsed.data["status"]) add["status"] = "accepted";
       if (Object.keys(add).length > 0) next = setFrontmatter(next, add);
     }
     if (next !== text) writeText(newAbs, next);
