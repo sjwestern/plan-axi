@@ -1,6 +1,6 @@
 # 05 - change-axi uses the resolved layout
 
-Owns: packages/change-axi/src/archive.ts, packages/change-axi/src/start.ts, packages/change-axi/src/spec.ts, packages/change-axi/test/archive.test.ts, packages/change-axi/test/start.test.ts
+Owns: packages/change-axi/src/archive.ts, packages/change-axi/src/start.ts, packages/change-axi/src/spec.ts, packages/change-axi/test/archive.test.ts, packages/change-axi/test/start.test.ts, packages/change-axi/src/cli.ts, packages/change-axi/src/change.ts
 Docs: none
 
 ## Goal
