@@ -1,6 +1,6 @@
 # 08 - Docs and ADR
 
-Owns: README.md, docs/README.md, docs/domain/cli-quick-reference.md, docs/architecture/package-structure.md, docs/decisions/0007-docs-layout-is-config.md
+Owns: README.md, docs/README.md, docs/domain/cli-quick-reference.md, docs/architecture/package-structure.md, docs/decisions/0009-docs-layout-is-config-adr-section-stays-a-fixed-type.md
 Docs: none
 
 ## Goal

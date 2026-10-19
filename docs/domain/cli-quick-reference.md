@@ -21,6 +21,8 @@ docs-axi adr "Use Postgres" --summary "Why jobs live in Postgres" \
   --context "..." --decision "..." --consequences "..."
 docs-axi update 7 --status accepted
 docs-axi check
+docs-axi config                            # effective layout: dir, sections, guides
+docs-axi config --sections guides,reference,adr --adr adr
 ```
 
 ## change-axi
@@ -34,6 +36,7 @@ change-axi step set split-auth 02 --owns src/auth/,tests/auth/
 change-axi dep split-auth 03 --on 01,02    # cycles are reverted
 change-axi check split-auth --waves
 change-axi status split-auth
+change-axi where split-auth                # path and state: active, archived or backlog
 change-axi                                 # on branch <slug>: that change's steps, ready list, next prompt
 change-axi claim split-auth [step]         # start a step, print Owns/Docs/Goal/Work/Done when
 change-axi done split-auth 01              # mark done, commit only tasks.md, warn outside Owns
@@ -46,6 +49,10 @@ change-axi archive split-auth --dry-run    # then --commit; accepts the change's
 change-axi finish split-auth [--dry-run] [--delete-branch]   # on main: archive if needed, ff-merge the branch, release the worktree, optionally delete the branch
 ```
 In a worktree the PATH binaries are the main checkout's build. Smoke-test your own code with `node packages/change-axi/dist/bin/change-axi.js <args>` (after `npm run build`) or `npm run dev -w packages/change-axi -- <args>` (rebuilds, then runs). docs-axi: use the `dist` form.
+
+## Referring to changes
+
+Refer to a change from another change as `change:<slug>`, never by path (archive moves it). `change-axi where <slug>` resolves it; `show`, `sections` and `status` also read archived changes. `change-axi check` errors on an unknown slug and warns on `specs/changes/` paths. Docs and ADRs do not refer to changes: `docs-axi check` warns (`DOC_LINKS_TO_CHANGE`).
 
 ## Agent config
 

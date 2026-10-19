@@ -17,7 +17,7 @@ Lightweight plan -> apply -> archive workflow for coding agents. Inspired by Ope
 ## Layout this workflow assumes
 
 ```
-docs/{domain,architecture,decisions}/    shared human + agent docs, indexed in docs/README.md
+<docs dir>/<sections>/                   shared human + agent docs (default docs/{domain,architecture,decisions}/), indexed in README.md there; see Config
 specs/changes/active/<slug>/             proposal.md, NN-*.md step files, tasks.md (tasks-axi only)
 specs/changes/archived/<date>-<slug>/
 backlog.md                               repo level: one tasks-axi task per change
@@ -35,6 +35,20 @@ ignore = ["todo/", "reports/", "**/*.draft.md"]   # paths relative to docs/; nev
 domain = ["domain.md", "domain-glossary.md", "features/"]
 architecture = ["standards/"]
 ```
+
+Docs layout (defaults: folder `docs`, sections `domain`, `architecture`, `decisions`, ADRs in `decisions`):
+
+```toml
+[docs]
+dir = "documentation"                         # docs folder (default "docs")
+sections = ["guides", "reference", "adr"]     # ordered section names
+adr = "adr"                                   # section holding ADRs, or false for none
+
+[docs.section.guides]
+guide = "how-to docs for users"               # one-line meaning; custom sections need one
+```
+
+Show or change it with `docs-axi config` (flags `--dir`, `--sections`, `--adr`, `--guide name="text"` write the repo `.plan-axi.toml`). Skills read the layout from `docs-axi config`. After changing `dir` or `sections` on a repo with docs, run `docs-axi migrate` (see the `plan-migrate-docs` skill) to move existing files.
 
 Always skipped: dot-entries, `node_modules/`, `_build/`, `_site/`, `site/`, `dist/`, `build/`. Files outside the layout are `UNMANAGED` warnings (exit 0). Mapped docs missing frontmatter or with odd names are warnings too.
 
