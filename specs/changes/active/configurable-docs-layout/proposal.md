@@ -62,7 +62,7 @@ Decision to record as an ADR: layout is config, ADR stays a fixed type with a co
 - `README.md` - update: Config section and layout line.
 - `docs/domain/cli-quick-reference.md` - update: `config`, `where`, `change:<slug>`.
 - `docs/architecture/package-structure.md` - update: layout resolution shared by both packages.
-- `docs/decisions/0007-docs-layout-is-config.md` - create: ADR (number assigned by `docs-axi adr`).
+- `docs/decisions/0009-docs-layout-is-config-adr-section-stays-a-fixed-type.md` - create: ADR (number assigned by `docs-axi adr`).
 - `docs/README.md` - update: regenerated index.
 
 ## Risks and open questions
