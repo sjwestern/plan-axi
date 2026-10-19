@@ -2,6 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { loadConfig, type DocsConfig } from "docs-axi/lib/config";
+import { listTasks } from "./tasks.js";
 import { readText, normalizeEol } from "docs-axi/lib/fsutil";
 
 export interface Ctx {
@@ -40,6 +41,50 @@ export function requireChange(ctx: Ctx, slug: string): string {
     ]);
   }
   return dir;
+}
+
+export type ChangeState = "active" | "archived" | "backlog";
+export interface ResolvedChange {
+  slug: string;
+  state: ChangeState;
+  /** Absolute dir (undefined for backlog-only). */
+  dir?: string;
+  /** Repo-relative dir with `/` (undefined for backlog-only). */
+  rel?: string;
+}
+
+/** Resolve a change slug: active first, then archived/<date>-<slug>, then backlog-only. */
+export function resolveChange(ctx: Ctx, slug: string): ResolvedChange | undefined {
+  if (existsSync(changeDir(ctx, slug))) return { slug, state: "active", dir: changeDir(ctx, slug), rel: `specs/changes/active/${slug}` };
+  if (existsSync(archivedDir(ctx))) {
+    const hit = readdirSync(archivedDir(ctx))
+      .filter((d) => /^\d{4}-\d{2}-\d{2}-/.test(d) && d.slice(11) === slug)
+      .sort()
+      .pop();
+    if (hit) return { slug, state: "archived", dir: join(archivedDir(ctx), hit), rel: `specs/changes/archived/${hit}` };
+  }
+  if (backlogSlugs(ctx).has(slug)) return { slug, state: "backlog" };
+  return undefined;
+}
+
+/** Task ids in backlog.md (one per change). Empty when the file is missing. */
+export function backlogSlugs(ctx: Ctx): Set<string> {
+  const path = join(ctx.root, "backlog.md");
+  if (!existsSync(path)) return new Set();
+  try {
+    return new Set(listTasks(ctx.root, "backlog.md").map((t) => t.id));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Read-only lookup: active or archived change dir. Backlog-only has no files. */
+export function requireReadable(ctx: Ctx, slug: string): ResolvedChange & { dir: string; rel: string } {
+  const r = resolveChange(ctx, slug);
+  if (r?.dir && r.rel) return r as ResolvedChange & { dir: string; rel: string };
+  if (r) throw new AxiError(`change "${slug}" is only in backlog.md (no plan files yet)`, "NOT_FOUND", [`Run \`change-axi where ${slug}\``]);
+  requireChange(ctx, slug);
+  throw new AxiError(`change "${slug}" not found`, "NOT_FOUND");
 }
 
 export function stepFiles(dir: string): string[] {

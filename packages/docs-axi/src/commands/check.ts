@@ -30,6 +30,7 @@ Config: [docs] ignore / [docs.map] in .plan-axi.toml (repo) or ~/.config/plan-ax
 Docs outside the layout are indexed under "Other" and not style-checked; style issues in mapped docs are warnings (exit 0).
 Checks: frontmatter (title, summary, tags), file names, ADR numbers/status/supersession,
 relative links resolve, index in sync.
+Warns (DOC_LINKS_TO_CHANGE) when a doc links to specs/changes/ or uses change:<slug>.
 `,
 };
 
@@ -77,6 +78,20 @@ function checkLinks(ctx: Ctx, d: Doc, problems: Problem[]): void {
   }
 }
 
+const CHANGE_PATH_RE = /specs\/changes\/(?:active|archived)\/[a-z0-9][^\s`)\]'"<>]*/;
+const CHANGE_REF_RE = /(?<![\w-])change:[a-z0-9][a-z0-9-]*/;
+
+/** Docs stand alone: warn on links, paths or `change:<slug>` that point at a change. */
+function checkChangeRefs(d: Doc, warnings: Problem[]): void {
+  const hit = CHANGE_PATH_RE.exec(d.parsed.body) ?? CHANGE_REF_RE.exec(d.parsed.body);
+  if (!hit) return;
+  warnings.push({
+    code: "DOC_LINKS_TO_CHANGE",
+    path: d.path,
+    detail: `refers to a change (${hit[0]}); docs and ADRs stand alone: put what the reader needs in the doc or a linked doc (provenance can be a plain sentence, not a link)`,
+  });
+}
+
 export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   parseArgs(CHECK_SPEC, args);
   requireDocsDir(ctx);
@@ -95,6 +110,7 @@ export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const byNumber = new Map<number, Doc[]>();
   for (const d of docs) {
     for (const e of d.parsed.errors) add("FRONTMATTER_PARSE", d.path, e);
+    checkChangeRefs(d, warnings);
     // Docs outside the layout are indexed in place: no style checks, but dead links are reported (warnings).
     if (d.section === "other") {
       const top = d.path.split("/")[0] as string;

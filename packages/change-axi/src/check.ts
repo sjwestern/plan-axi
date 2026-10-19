@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { splitDoc } from "docs-axi/lib/sectionedit";
 import { sectionText, findSectionOrUndefined } from "docs-axi/lib/sections";
-import { archivedDir, changeDir, headerLine, readLf, splitList, stepFiles, tasksRel, TOOL_DIRS, SLUG_RE, MAX_SLUG, type Ctx } from "./change.js";
+import { activeDir, archivedDir, backlogSlugs, changeDir, headerLine, readLf, splitList, stepFiles, tasksRel, TOOL_DIRS, SLUG_RE, MAX_SLUG, type Ctx } from "./change.js";
 import { PROPOSAL_SECTIONS, STEP_SECTIONS } from "./spec.js";
 import { listTasks, type Task } from "./tasks.js";
 
@@ -133,6 +133,26 @@ export function checkChange(ctx: Ctx, slug: string): CheckResult {
         }
       }
     }
+  }
+
+  // references to other changes: `change:<slug>` must resolve; paths should be slugs
+  const known = new Set<string>([...backlogSlugs(ctx), slug]);
+  for (const d of [activeDir(ctx), archivedDir(ctx)]) {
+    if (!existsSync(d)) continue;
+    for (const n of readdirSync(d)) known.add(d === archivedDir(ctx) && /^\d{4}-\d{2}-\d{2}-/.test(n) ? n.slice(11) : n);
+  }
+  const refFiles = [...(hasProposal ? ["proposal.md"] : []), ...steps];
+  for (const f of refFiles) {
+    const text = f === "proposal.md" ? proposalText : readLf(join(dir, f));
+    const bad = new Set<string>();
+    for (const m of text.matchAll(/(?<![\w-])change:([a-z0-9][a-z0-9-]*)/g)) {
+      const ref = m[1] as string;
+      if (!known.has(ref)) bad.add(ref);
+    }
+    for (const ref of bad) errors.push(`UNKNOWN_CHANGE_REF: ${f}: change:${ref} matches no active, archived or backlog slug`);
+    const paths = new Set<string>();
+    for (const m of text.matchAll(/specs\/changes\/(?:active|archived)\/([a-z0-9][^\s`)\]'"<>]*)/g)) paths.add(`specs/changes/${m[0].slice("specs/changes/".length)}`);
+    for (const pth of paths) warnings.push(`CHANGE_PATH_REF: ${f}: ${pth}; archive moves changes, refer to them by slug with change:<slug>`);
   }
 
   // Owns overlap for tasks that may run in parallel

@@ -7,7 +7,7 @@ export interface SectionSpec {
 
 export const PROPOSAL_SECTIONS: SectionSpec[] = [
   { name: "Why", guide: "The problem or goal, and who it matters to. 2-5 sentences." },
-  { name: "Context", guide: 'Docs read for this plan (paths from docs-axi) and ADRs that apply by number. "no relevant docs found" if the area is undocumented.' },
+  { name: "Context", guide: 'Docs read for this plan (paths from docs-axi) and ADRs that apply by number. Refer to other changes as change:<slug>, never by path. "no relevant docs found" if the area is undocumented.' },
   { name: "What changes", guide: "Observable behavior or structure after this change. Concrete bullets." },
   { name: "Out of scope", guide: "What this change deliberately does not do." },
   { name: "Approach", guide: "How it will be built, at a level a reviewer can judge. Key components and boundaries. Alternatives considered, one line each. Real decisions become ADRs." },

@@ -50,6 +50,8 @@ export interface ArchiveReport {
   target: string;
   adrs: { path: string; action: string }[];
   untouched: string[];
+  /** `file:line` references to the old active path (reported, never rewritten). */
+  references?: string[];
   commit?: string;
   already?: boolean;
   next?: string[];
@@ -130,7 +132,16 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
   if (existsSync(target)) throw new AxiError(`${targetRel} already exists`, "VALIDATION_ERROR");
   const report: ArchiveReport = { mode, target: targetRel, adrs, untouched };
   if (mode === "branch") report.next = [`from the main checkout: change-axi finish ${slug}`];
-  if (o.dryRun) return report;
+  const oldRel = `specs/changes/active/${slug}`;
+  const scan = (): string[] => {
+    const out = git(ctx, ["grep", "-n", "-I", "-F", "-e", oldRel, "--", ".", `:!${oldRel}`, `:!${targetRel}`], true);
+    return out === "" ? [] : out.split("\n").map((l) => l.split(":").slice(0, 2).join(":"));
+  };
+  if (o.dryRun) {
+    const refs = scan();
+    if (refs.length > 0) report.references = refs;
+    return report;
+  }
 
   // apply
   const accepted = adrs.filter((a) => a.action === "accept");
@@ -146,6 +157,8 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
   mkdirSync(dirname(target), { recursive: true });
   git(ctx, ["mv", `specs/changes/active/${slug}`, targetRel]);
   ensureBacklogDone(ctx, slug);
+  const refs = scan();
+  if (refs.length > 0) report.references = refs;
   if (o.commit) {
     git(ctx, ["add", "--", "specs", layout.dir, "backlog.md"]);
     git(ctx, ["commit", "-q", "-m", `archive ${slug}`]);

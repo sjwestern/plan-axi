@@ -5,14 +5,15 @@ import { loadConfig } from "docs-axi/lib/config";
 import type { AxiRenderable } from "docs-axi/lib/types";
 import * as c from "./commands.js";
 import type { Ctx } from "./change.js";
+import { WHERE_SPEC, whereCommand } from "./where.js";
 import { VERSION } from "./version.js";
 
 export const DESCRIPTION =
   "Manage change plans under specs/changes: scaffold proposal and steps, write sections, check the task graph. Prefer this over hand-creating plan files or editing tasks.md.";
 
 export const TOP_HELP = `usage: change-axi [command] [args] [flags]
-commands[18]:
-  (none)=active changes, spec, new, step, dep, sections, show, write, append, check, status, claim, done, start, archive, finish, enter, setup
+commands[19]:
+  (none)=active changes, spec, new, step, dep, sections, show, where, write, append, check, status, claim, done, start, archive, finish, enter, setup
 flags[2]:
   --root <dir> (after command; default git root), --help, -v/-V/--version
 examples:
@@ -41,6 +42,7 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   finish: { run: c.finishCommand, help: c.FINISH_SPEC.help },
   enter: { run: c.enterCommand, help: c.ENTER_SPEC.help },
   setup: { run: c.setupCommand, help: c.SETUP_SPEC.help },
+  where: { run: whereCommand, help: WHERE_SPEC.help },
   status: { run: c.statusCommand, help: c.STATUS_SPEC.help },
 };
 

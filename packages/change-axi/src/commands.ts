@@ -26,6 +26,7 @@ import {
   headerLine,
   readLf,
   requireChange,
+  requireReadable,
   resolveDoc,
   splitList,
   stepFiles,
@@ -332,6 +333,7 @@ export const SHOW_SPEC: CmdSpec = {
   usage: "change-axi show <slug> <proposal|step> [--section <ref> [--tree]]",
   help: `usage: change-axi show <slug> <proposal|step> [--section <ref> [--tree]]
 Print a change doc, or one section of it. Refs: see \`change-axi sections\`.
+Archived changes are read-only. Refer to a change from another as \`change:<slug>\`, not by path.
 `,
 };
 export const WRITE_SPEC: CmdSpec = {
@@ -349,10 +351,15 @@ examples:
 };
 export const APPEND_SPEC: CmdSpec = { ...WRITE_SPEC, name: "append", usage: WRITE_SPEC.usage.replace("write", "append"), help: WRITE_SPEC.help.replace(/write/g, "append").replace("Replace one section's content", "Add to the end of a section's content") };
 
-function docPath(ctx: Ctx, slug: string, which: string): { abs: string; label: string } {
-  const dir = requireChange(ctx, slug);
-  const file = resolveDoc(dir, which);
-  return { abs: join(dir, file), label: `specs/changes/active/${slug}/${file}` };
+function docPath(ctx: Ctx, slug: string, which: string, write = false): { abs: string; label: string } {
+  if (write) {
+    const dir = requireChange(ctx, slug);
+    const file = resolveDoc(dir, which);
+    return { abs: join(dir, file), label: `specs/changes/active/${slug}/${file}` };
+  }
+  const r = requireReadable(ctx, slug);
+  const file = resolveDoc(r.dir, which);
+  return { abs: join(r.dir, file), label: `${r.rel}/${file}${r.state === "archived" ? " (archived, read-only)" : ""}` };
 }
 
 export function sectionsCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
@@ -374,7 +381,7 @@ function edit(ctx: Ctx, args: string[], mode: "write" | "append"): AxiStructured
   const p = parseArgs(mode === "write" ? WRITE_SPEC : APPEND_SPEC, args);
   const sel = flagStr(p, "--section");
   if (sel === undefined || sel.trim() === "") throw new AxiError("--section is required", "VALIDATION_ERROR", [`Run \`change-axi sections ${p.pos[0]} ${p.pos[1]}\``]);
-  const d = docPath(ctx, p.pos[0] as string, p.pos[1] as string);
+  const d = docPath(ctx, p.pos[0] as string, p.pos[1] as string, true);
   const raw = readLf(d.abs);
   const text = readBodyInput(p) as string;
   const afterSel = flagStr(p, "--after");
@@ -400,7 +407,7 @@ export const CHECK_SPEC: CmdSpec = {
   usage: "change-axi check <slug> [--waves]",
   help: `usage: change-axi check <slug> [--waves]
 Validate a plan: task graph cycles, step file <-> task links, required non-empty sections, slug reuse,
-Owns in tool dirs, and Owns overlap between steps that can run in parallel. Exit 1 on errors.
+Owns in tool dirs, \`change:<slug>\` refs (unknown slug = error; specs/changes paths warn), and Owns overlap between steps that can run in parallel. Exit 1 on errors.
 tasks-axi accepts dependency cycles silently; this catches them.
   --waves   print parallel waves
 `,
@@ -435,13 +442,22 @@ Steps with state, dependencies, wave, and which are ready to start now.
 export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(STATUS_SPEC, args);
   const slug = p.pos[0] as string;
-  requireChange(ctx, slug);
-  const tasks = listTasks(ctx.root, tasksRel(slug));
+  const rc = requireReadable(ctx, slug);
+  const archived = rc.state === "archived";
+  const tasks = listTasks(ctx.root, `${rc.rel}/tasks.md`);
   const active = tasks.filter((t) => t.state !== "done");
   const { waves } = computeWaves(active);
   const waveOf = new Map<string, number>();
   for (const [w, ids] of waves) for (const id of ids) waveOf.set(id, w);
   const ready = active.filter((t) => t.state === "queued" && t.blockers.length === 0).map((t) => t.id);
+  if (archived) {
+    return {
+      change: `${slug} (archived, read-only)`,
+      path: rc.rel,
+      progress: `${tasks.length - active.length}/${tasks.length} done`,
+      steps: tasks.map((t) => ({ id: t.id, state: t.state, blocked_by: t.blockers.join(",") || "none", wave: "-" })),
+    };
+  }
   return {
     change: slug,
     progress: `${tasks.length - active.length}/${tasks.length} done`,
@@ -549,10 +565,14 @@ export function archiveCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const out: AxiStructuredOutput = { archive: dry ? `${slug} ready (dry run, nothing changed)` : `${slug} archived`, mode: r.mode, path: r.target };
   if (r.adrs.length > 0) out["adrs"] = r.adrs;
   if (r.untouched.length > 0) out["docs_not_updated"] = r.untouched.join(", ");
+  if (r.references) out["old_path_references"] = r.references.slice(0, 20).join(", ") + (r.references.length > 20 ? ` (+${r.references.length - 20} more)` : "");
   if (r.commit) out["commit"] = r.commit;
   if (r.next) out["next"] = r.next;
-  if (dry) out["help"] = [`Run \`change-axi archive ${slug} --commit\` to apply`];
-  else if (!r.commit) out["help"] = ["Commit: git add -- specs docs backlog.md && git commit -m \"archive " + slug + "\""];
+  const help: string[] = [];
+  if (dry) help.push(`Run \`change-axi archive ${slug} --commit\` to apply`);
+  else if (!r.commit) help.push("Commit: git add -- specs docs backlog.md && git commit -m \"archive " + slug + "\"");
+  if (r.references) help.push(`Nothing is rewritten. Replace references to the old path with \`change:${slug}\``);
+  if (help.length > 0) out["help"] = help;
   return out;
 }
 
