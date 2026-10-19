@@ -21,9 +21,9 @@ Close a completed change. The archive is history only: current truth lives in th
 
 ## Steps
 
-1. **Dry run.** `change-axi archive <slug> --dry-run`. It checks: clean tree for `specs docs backlog.md`, all tasks done, plan check, every doc in Docs impact exists and changed since the plan commit (ADRs exempt), and lists the ADRs it would accept. Fix what it reports. Untouched docs: update them; only if the user explicitly agrees, pass `--skip-docs-check` and say why in the commit message.
+1. **Dry run.** `change-axi archive <slug> --dry-run`. It checks: clean tree for `specs docs backlog.md`, all tasks done, plan check, every doc in Docs impact exists and changed since the plan commit (ADRs exempt), and lists the ADRs it would accept. Fix what it reports. Untouched docs: update them; only if the user explicitly agrees, pass `--skip-docs-check` and say why in the commit body.
 2. **Judge the ADRs.** For each ADR listed as `accept`, check the decision matches what was built (`docs-axi show <n> --section Decision`). If one no longer matches, fix it with `docs-axi write` first, or ask the user. If an ADR replaces an earlier one, run `docs-axi supersede <old> --by <new>` before step 3.
-3. **Archive.** `change-axi archive <slug> --commit`. It accepts the proposed ADRs (and reindexes), `git mv`s the folder to `archived/<date>-<slug>`, marks the backlog task done, and commits `archive <slug>`.
+3. **Archive.** `change-axi archive <slug> --commit`. It accepts the proposed ADRs (and reindexes), `git mv`s the folder to `archived/<date>-<slug>`, marks the backlog task done, and commits `chore(plan): archive change` with a `Change: <slug>` trailer.
 4. **Report**: archived path, ADRs accepted, docs changed. Branch mode: tell the user to run this from the main checkout:
 
    ```sh
@@ -38,7 +38,7 @@ From the main checkout, `change-axi finish <slug>` archives on the branch if nee
 
 ## Rules
 
-- Never archive with open tasks or untouched listed docs (unless the user explicitly overrides, and then say what was skipped in the commit message).
+- Never archive with open tasks or untouched listed docs (unless the user explicitly overrides, and then say what was skipped in the commit body).
 - Never edit the archived `tasks.md` by hand. Do not delete the branch or worktree yourself.
 - Idempotent: an already archived change only ensures the backlog task is done.
 - Copyable commands: put every command the user may paste in its own fenced code block, one command per line, after the sentence that introduces it. Never end a prose sentence with a command and never split one across lines; for long ones use a short form, a variable, or a script.

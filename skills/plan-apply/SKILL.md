@@ -22,7 +22,7 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 
 1. **Pick the change.** Use the slug given. Otherwise `tasks-axi list --state queued --kind change` (and `--state in_flight`) and ask.
 2. **Dry run.** `change-axi start <slug> --dry-run`. Preflight: on the default branch and not behind its remote, plan committed and clean, `change-axi check` passes, backlog task queued. Fix what it reports (usually "commit the plan on main first"). Also run `docs-axi check`.
-3. **Start.** Prefer `change-axi enter <slug> [step]` from main (the agent runs as a child process with the worktree as cwd; no `treehouse enter` needed): it does the start below, then runs the configured agent in the worktree (`--print` only prints the path and command; no agent configured: it prints them). `change-axi start <slug>` alone does the same start without launching an agent. It marks the change in flight, commits only `backlog.md` as `start <slug>`, and leases a treehouse worktree on branch `<slug>` (reusing an existing one). An already started change is not started twice; the worktree is looked up instead. `--no-worktree` skips the lease.
+3. **Start.** Prefer `change-axi enter <slug> [step]` from main (the agent runs as a child process with the worktree as cwd; no `treehouse enter` needed): it does the start below, then runs the configured agent in the worktree (`--print` only prints the path and command; no agent configured: it prints them). `change-axi start <slug>` alone does the same start without launching an agent. It marks the change in flight, commits only `backlog.md` (as `chore(plan): start change` with a `Change: <slug>` trailer), and leases a treehouse worktree on branch `<slug>` (reusing an existing one). An already started change is not started twice; the worktree is looked up instead. `--no-worktree` skips the lease.
 4. **Hand-off.** Do not implement in the main checkout. From the output (`worktree`, `enter`, `ready` with each step's Owns, `waves`) tell the user:
    - the worktree path and id (run the `enter` command from the output) and the branch;
    - which steps are ready now and which are parallel-safe (same wave and non-overlapping `Owns:` can run together; recommend at most one agent per safe step);
@@ -47,7 +47,7 @@ Then run bare `change-axi` for orientation (progress, in-flight, ready steps). W
 3. **Read.** The step: `change-axi show <slug> <id>` (read only the sections you need with `--section`), the docs named in its `Docs:` line (`docs-axi show <path>`), and the proposal sections it relates to.
 4. **Implement** exactly the step's Work, staying inside `Owns:`. If you must touch other paths, stop: either the plan is wrong (see "Plan changes") or another step owns it. If the step touches CLI code, smoke-test with the repo's in-worktree form (named in AGENTS.md), not the global binary, which is the main checkout's build.
 5. **Verify** the step's "Done when". Run the relevant tests/build. Do not mark done on a failing or unrun check.
-6. **Commit own paths only.** Never `git add -A`, `git commit -a`, or stash: another agent may have work in the tree. `git add -- <your paths> && git commit -m "<slug>: <step summary>" -- <your paths>`. If `index.lock` exists, wait and retry; delete it only when no git process is running.
+6. **Commit own paths only.** Never `git add -A`, `git commit -a`, or stash: another agent may have work in the tree. `git add -- <your paths> && git commit -m "<type>(<area>): <summary>" -m "Change: <slug>" -- <your paths>`. Use a conventional-commit type (`feat`, `fix`, `refactor`, `test`, `docs`); `<area>` is the package or feature touched (e.g. `docs-axi`), not the slug. The `Change` trailer links the commit to the change. If `index.lock` exists, wait and retry; delete it only when no git process is running.
 7. **Done.** `change-axi done <slug> <id>` (after your own work commit). It marks the step done and commits only tasks.md. Act on any `OUTSIDE_OWNS` warning (its diff may include another agent's `start` line; that is accurate).
 8. Back to 1.
 
@@ -63,7 +63,7 @@ See skill `plan-archive`.
 
 ## Plan changes during apply
 
-The main-branch plan is frozen; amend it on this branch. Edit sections with `change-axi write|append`, add steps with `change-axi step add`, change order with `change-axi dep`. Change the graph with `change-axi dep` (it reverts cycles) and edit plan text with `change-axi write`; re-run `CHECK`. Commit the plan change on its own, with a message saying why. Tell the other agent if it affects their task.
+The main-branch plan is frozen; amend it on this branch. Edit sections with `change-axi write|append`, add steps with `change-axi step add`, change order with `change-axi dep`. Change the graph with `change-axi dep` (it reverts cycles) and edit plan text with `change-axi write`; re-run `CHECK`. Commit the plan change on its own with `change-axi commit-plan <slug> --reason "<why>"` (message `docs(plan): <why>` plus the `Change` trailer); if it is not available, use `git commit -m "docs(plan): <why>" -m "Change: <slug>"`. Tell the other agent if it affects their task.
 
 ## Rules
 

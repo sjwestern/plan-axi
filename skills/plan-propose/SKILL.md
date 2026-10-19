@@ -26,7 +26,7 @@ Materialize the draft (from `plan-explore` or the user's description) as a revie
 6. **List the steps** in the proposal: `change-axi write <slug> proposal --section Steps`, one line per step.
 7. **Docs scaffolding.** Run `docs-axi config` and pick the section by its guide. For each new doc or ADR in Docs impact: `docs-axi new <section> "<title>" --summary "<one line>" [--body-file -]` or `docs-axi adr "<title>" --summary "<one line>" --context "..." --decision "..." --consequences "..."` (status proposed; the flags fill the template sections in one call). Fill other docs section by section with `docs-axi write <doc> --section ... --add`. Do not pass a whole body to `adr`: it replaces the template headings. Never choose ADR numbers by hand.
 8. **Validate.** `change-axi check <slug> --waves` and `docs-axi check`. Fix every error (missing/empty sections, cycles, orphan steps, slug reuse). Read the OVERLAP warnings: chain the steps with `change-axi dep` or narrow their `Owns`.
-9. **Report.** Show: the slug, the step list with the waves (what can run in parallel), docs impact, open questions. Tell the user to review the diff (`git diff` / `git status`), then commit on main. Apply refuses to start until the plan is committed.
+9. **Report.** Show: the slug, the step list with the waves (what can run in parallel), docs impact, open questions. Tell the user to review the diff (`git diff` / `git status`), then run `change-axi commit-plan` on main (the slug is auto-detected when only one plan is uncommitted; pass `<slug>` otherwise). It commits as `docs(plan): propose <slug>` with a `Change` trailer. Apply refuses to start until the plan is committed.
 
 ## Revising a plan (review feedback, scope change)
 
