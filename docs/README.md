@@ -28,4 +28,6 @@ Manage with `docs-axi` (search, new, update, check). Keep files small and single
 - [0004 Plans are committed on main, steps run in a worktree](decisions/0004-plans-are-committed-on-main-steps-run-in-a-worktree.md) - Why plan approval is the main-branch commit and implementation happens in a treehouse worktree (accepted)
 - [0005 Owns lists the files a step edits](decisions/0005-owns-lists-the-files-a-step-edits.md) - Why steps declare a write set and how it is used for parallel safety (accepted)
 - [0006 Agent launch uses a command template](decisions/0006-agent-launch-uses-a-command-template.md) - Why enter runs a configurable command template instead of per-agent adapters (accepted)
+- [0007 Agent profiles and step tiers extend the launch template](decisions/0007-agent-profiles-and-step-tiers-extend-the-launch-template.md) - Why agent launch gains harness/model/effort profiles and per-step tiers (proposed)
+- [0008 Run launches ready steps as herdr tabs](decisions/0008-run-launches-ready-steps-as-herdr-tabs.md) - Why run opens one herdr tab per step under the current workspace and stops per wave (proposed)
 <!-- docs-axi:index:end -->
