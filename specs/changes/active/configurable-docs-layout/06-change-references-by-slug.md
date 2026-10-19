@@ -22,4 +22,4 @@ Archive moves `specs/changes/active/<slug>` to `archived/<date>-<slug>`. Slugs a
 
 ## Done when
 
-`npm test` passes. Tests: `where` finds active, archived and backlog-only; `show` reads an archived change; unknown `change:x` errors; path in a change warns; archive reports (not edits) old-path references; docs-axi warns on an architecture doc and on an ADR that link a `specs/changes/` path or use `change:<slug>`, and does not flag this repo's `<slug>` placeholders.
+`npm test` passes. Tests: `where` finds active, archived and backlog-only; `show` reads an archived change; an unknown change ref errors; path in a change warns; archive reports (not edits) old-path references; docs-axi warns on an architecture doc and on an ADR that link a `specs/changes/` path or use `change:<slug>`, and does not flag this repo's `<slug>` placeholders.
