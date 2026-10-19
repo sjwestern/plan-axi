@@ -5,7 +5,7 @@ description: Finish a change. Verifies every task is done and docs are updated, 
 
 # Archive
 
-Close a completed change. The archive is history only: current truth lives in `docs/`.
+Close a completed change. The archive is history only: current truth lives in the docs (`docs-axi config` shows where).
 
 ## Conventions
 

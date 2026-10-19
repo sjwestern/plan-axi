@@ -12,7 +12,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 describe("setup", () => {
   it("block points agents at docs and exploration", () => {
     expect(SETUP_BLOCK).toContain("docs-axi search");
-    expect(SETUP_BLOCK).toContain("rg <terms> docs/");
+    expect(SETUP_BLOCK).toContain("docs-axi config");
     expect(SETUP_BLOCK).toContain("For exploration and planning tasks, look at the docs first");
   });
 

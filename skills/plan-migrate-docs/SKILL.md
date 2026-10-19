@@ -1,6 +1,6 @@
 ---
 name: plan-migrate-docs
-description: Migrate an existing repo docs folder into the standard layout (docs/domain, docs/architecture, docs/decisions) with frontmatter and a generated index, using docs-axi migrate. Use when docs-axi check reports many UNMANAGED or NO_FRONTMATTER items, or the user asks to adopt the docs layout. Separate from plan work - never bundle with a feature plan.
+description: Migrate an existing repo docs folder into the configured docs layout (see docs-axi config) with frontmatter and a generated index, using docs-axi migrate. Use when docs-axi check reports many UNMANAGED or NO_FRONTMATTER items, or the user asks to adopt the docs layout. Separate from plan work - never bundle with a feature plan.
 ---
 
 # Migrate docs
@@ -9,11 +9,12 @@ A one-off, human-approved cleanup. Run it on its own branch/commit, not inside a
 
 ## Steps
 
-1. **Preflight.** Git tree clean for `docs/` (commit or stash first). `docs-axi` on PATH (else stop and tell the user to install it). Run `docs-axi check` and note the baseline.
-2. **Config first.** Planning/delivery folders (`todo/`, `plans/`, `reports/`, `.agents`-style tool content) are not docs. Add them to `[docs] ignore` in the repo's `.plan-axi.toml` (the dry run suggests a line). Ask the user before writing it.
-3. **Propose.** `docs-axi migrate --plan migration.json` (dry run; writes only the JSON, and only if the file does not exist yet - an existing plan is never overwritten, `--force` regenerates it). Read the table.
-4. **Review and fix the proposal** (edit `migration.json`, not the docs):
-   - `section` is a filename heuristic. Read each file's opening and correct it (domain = what/why in user terms; architecture = how it is built; decisions = one decision per file; a file holding many decisions is a domain or architecture doc, not an ADR).
+1. **Layout.** Run `docs-axi config`. If the layout is not what the repo wants, ask the user and set it with `docs-axi config` (see `docs-axi config --help`) before migrating.
+2. **Preflight.** Git tree clean for the docs dir (commit or stash first). `docs-axi` on PATH (else stop and tell the user to install it). Run `docs-axi check` and note the baseline.
+3. **Config first.** Planning/delivery folders (`todo/`, `plans/`, `reports/`, `.agents`-style tool content) are not docs. Add them to `[docs] ignore` in the repo's `.plan-axi.toml` (the dry run suggests a line). Ask the user before writing it.
+4. **Propose.** `docs-axi migrate --plan migration.json` (dry run; writes only the JSON, and only if the file does not exist yet - an existing plan is never overwritten, `--force` regenerates it). Read the table.
+5. **Review and fix the proposal** (edit `migration.json`, not the docs):
+   - `section` is a filename heuristic. Read each file's opening and correct it (use each section's guide from `docs-axi config`; a file holding many decisions is a doc, not an ADR).
    - `summary` is only the doc's first sentence. **Read each flagged doc and write a real one-line description** (what it covers, when to read it, max 160 chars). Never reuse the title, a `Status:`/`Note:` lead-in, or one sentence across several docs. The dry run's `summary` column names every weak one and `--apply` refuses until they are fixed. Do not use `--allow-weak-summaries` unless the user says so.
    - Set `action: ignore` for anything that is not durable reference.
    - Split or merge docs only after the migration, as separate edits.
