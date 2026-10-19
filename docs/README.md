@@ -30,5 +30,5 @@ Manage with `docs-axi` (search, new, update, check). Keep files small and single
 - [0006 Agent launch uses a command template](decisions/0006-agent-launch-uses-a-command-template.md) - Why enter runs a configurable command template instead of per-agent adapters (accepted)
 - [0007 Agent profiles and step tiers extend the launch template](decisions/0007-agent-profiles-and-step-tiers-extend-the-launch-template.md) - Why agent launch gains harness/model/effort profiles and per-step tiers (proposed)
 - [0008 Run launches ready steps as herdr tabs](decisions/0008-run-launches-ready-steps-as-herdr-tabs.md) - Why run opens one herdr tab per step under the current workspace and stops per wave (proposed)
-- [0009 Docs layout is config; ADR section stays a fixed type](decisions/0009-docs-layout-is-config-adr-section-stays-a-fixed-type.md) - Why docs folder and sections are configurable while the ADR section keeps fixed numbering and status rules (proposed)
+- [0009 Docs layout is config; ADR section stays a fixed type](decisions/0009-docs-layout-is-config-adr-section-stays-a-fixed-type.md) - Why docs folder and sections are configurable while the ADR section keeps fixed numbering and status rules (accepted)
 <!-- docs-axi:index:end -->

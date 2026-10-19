@@ -1,7 +1,7 @@
 ---
 title: Docs layout is config; ADR section stays a fixed type
 summary: Why docs folder and sections are configurable while the ADR section keeps fixed numbering and status rules
-status: proposed
+status: accepted
 ---
 
 # Docs layout is config; ADR section stays a fixed type

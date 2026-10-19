@@ -1,11 +1,11 @@
 # Backlog
 
 ## In flight
-- [ ] configurable-docs-layout - Configurable docs layout: sections, ADR section, docs dir, change references (kind: change) (since 2026-10-19)
 ## Queued
 - [ ] add-agent-profiles - Agent profiles and step tiers (kind: change) (since 2026-10-19)
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
 ## Done
+- [x] configurable-docs-layout - Configurable docs layout: sections, ADR section, docs dir, change references (kind: change) (done 2026-10-19)
 - [x] add-docs-pointer-to-setup-block - Point agents at the docs index in the setup block (kind: change) (done 2026-10-19)
 - [x] enter-diagnostics-and-picker - Enter diagnostics, change listing and slug-less enter (kind: change) (done 2026-10-16)
 - [x] commands-on-own-lines - Skills and setup block: commands on their own lines (kind: change) (done 2026-10-16)
