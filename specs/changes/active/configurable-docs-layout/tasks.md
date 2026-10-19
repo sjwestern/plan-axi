@@ -1,8 +1,6 @@
 # Backlog
 
 ## In flight
-- [ ] 03-migrate-honors-the-layout - Migrate honors the layout blocked-by: 01-layout-config-and-validation (since 2026-10-19)
-  Spec: 03-migrate-honors-the-layout.md
 ## Queued
 - [ ] 04-docs-axi-config-command-and-init-flags - docs-axi config command and init flags blocked-by: 02-docs-axi-commands-use-the-layout (since 2026-10-19)
   Spec: 04-docs-axi-config-command-and-init-flags.md
@@ -15,6 +13,8 @@
 - [ ] 08-docs-and-adr - Docs and ADR blocked-by: 07-skills-and-setup-read-the-layout-from-th (since 2026-10-19)
   Spec: 08-docs-and-adr.md
 ## Done
+- [x] 03-migrate-honors-the-layout - Migrate honors the layout blocked-by: 01-layout-config-and-validation (done 2026-10-19)
+  Spec: 03-migrate-honors-the-layout.md
 - [x] 02-docs-axi-commands-use-the-layout - Docs-axi commands use the layout blocked-by: 01-layout-config-and-validation (done 2026-10-19)
   Spec: 02-docs-axi-commands-use-the-layout.md
 - [x] 01-layout-config-and-validation - Layout config and validation (done 2026-10-19)
