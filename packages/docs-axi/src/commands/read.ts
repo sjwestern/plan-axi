@@ -4,9 +4,9 @@ import type { AxiStructuredOutput } from "../types.js";
 import { flagBool, flagStr, parseArgs, parseLimit, type CmdSpec } from "../args.js";
 import {
   displayTitle,
-  isDocSection,
-  DOC_SECTIONS,
-  SECTION_GUIDE,
+  docSectionNames,
+  isDocSectionIn,
+  layoutGuideLines,
   loadDocs,
   requireDocsDir,
   resolveDocPath,
@@ -36,7 +36,7 @@ export function homeCommand(ctx: Ctx): AxiStructuredOutput {
   if (!existsSync(ctx.docsDir)) {
     return {
       docs: `no docs folder at ${docsRel(ctx)}`,
-      help: ["Run `docs-axi init` to scaffold docs/domain, docs/architecture, docs/decisions"],
+      help: ["Run `docs-axi init` to scaffold the configured docs layout"],
     };
   }
   const docs = loadDocs(ctx);
@@ -44,7 +44,7 @@ export function homeCommand(ctx: Ctx): AxiStructuredOutput {
     return {
       docs: "0 docs yet (folder exists)",
       help: [
-        'Run `docs-axi new <domain|architecture|decisions> "<title>" --summary "<one line>"` to add one',
+        `Run \`docs-axi new <section> "<title>" --summary "<one line>"\` to add one. Sections:\n${layoutGuideLines(ctx.config.layout)}`,
       ],
     };
   }
@@ -57,9 +57,9 @@ export function homeCommand(ctx: Ctx): AxiStructuredOutput {
   if (docs.length > shown.length) help.unshift(`Run \`docs-axi list\` for all ${docs.length} docs`);
   return {
     counts: Object.fromEntries(
-      DOC_SECTIONS.map((s) => [s, docs.filter((d) => d.section === s).length]),
+      docSectionNames(ctx.config.layout).map((s) => [s, docs.filter((d) => d.section === s).length]),
     ),
-    sections: SECTION_GUIDE,
+    sections: Object.fromEntries(ctx.config.layout.sections.map((s) => [s.name, s.guide])),
     docs: shown.map((d) => row(d, withStatus)),
     help,
   };
@@ -73,15 +73,15 @@ export const LIST_SPEC: CmdSpec = {
   usage: "docs-axi list [section] [--tag <t>] [--status <s>] [--limit <n>]",
   help: `usage: docs-axi list [section] [--tag <t>] [--status <s>] [--limit <n>]
 List docs with title and one-line summary, sorted by path.
-section: domain | architecture | decisions | other
+section: configured section name | other
 flags:
   --tag <t>      only docs with this tag
   --status <s>   only ADRs with this status (proposed|accepted|superseded|deprecated)
   --limit <n>    max rows (default 100)
 examples:
   docs-axi list
-  docs-axi list decisions --status accepted
-  docs-axi list domain --tag billing
+  docs-axi list <section> --status accepted
+  docs-axi list <section> --tag billing
 `,
 };
 
@@ -89,9 +89,9 @@ export function listCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(LIST_SPEC, args);
   requireDocsDir(ctx);
   const section = p.pos[0];
-  if (section !== undefined && !isDocSection(section)) {
+  if (section !== undefined && !isDocSectionIn(ctx.config.layout, section)) {
     throw new AxiError(`unknown section ${section}`, "VALIDATION_ERROR", [
-      `Sections: ${DOC_SECTIONS.join(", ")}`,
+      `Sections:\n${layoutGuideLines(ctx.config.layout)}\n  other - docs outside the configured sections`,
     ]);
   }
   const tag = flagStr(p, "--tag");
@@ -131,11 +131,11 @@ export const SEARCH_SPEC: CmdSpec = {
 Lexical search over title, tags, summary, headings and body. Ranked, deterministic.
 Docs matching more of the terms rank first.
 flags:
-  --section <s>  domain | architecture | decisions | other
+  --section <s>  configured section name | other
   --limit <n>    max rows (default 10)
 examples:
   docs-axi search billing invoice
-  docs-axi search cache --section decisions
+  docs-axi search cache --section <section>
 `,
 };
 
@@ -160,9 +160,9 @@ export function searchCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(SEARCH_SPEC, args);
   requireDocsDir(ctx);
   const section = flagStr(p, "--section");
-  if (section !== undefined && !isDocSection(section)) {
+  if (section !== undefined && !isDocSectionIn(ctx.config.layout, section)) {
     throw new AxiError(`unknown section ${section}`, "VALIDATION_ERROR", [
-      `Sections: ${DOC_SECTIONS.join(", ")}`,
+      `Sections:\n${layoutGuideLines(ctx.config.layout)}\n  other - docs outside the configured sections`,
     ]);
   }
   const limit = parseLimit(p, 10);

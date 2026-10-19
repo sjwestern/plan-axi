@@ -9,18 +9,19 @@ import {
   type CmdSpec,
   type Parsed,
 } from "../args.js";
-import { normalizeEol, readText, toPosix, writeText } from "../fsutil.js";
+import { readText, writeText } from "../fsutil.js";
 import { renderNewDoc, setFrontmatter, parseDoc, type FmValue } from "../frontmatter.js";
 import { writeIndex } from "../indexgen.js";
 import {
   ADR_STATUSES,
   MAX_SLUG,
   MAX_SUMMARY,
-  SECTIONS,
-  sectionGuideLines,
+  layoutGuideLines,
+  sectionNames,
+  isAdrSection,
   SLUG_RE,
   TAG_RE,
-  isSection,
+  isSectionIn,
   loadDocs,
   nextAdrNumber,
   requireDocsDir,
@@ -28,7 +29,6 @@ import {
   slugify,
   type Ctx,
   docsRel,
-  type Section,
 } from "../model.js";
 import { adrBody, docBody } from "../templates.js";
 import { readBodyInput } from "../body.js";
@@ -79,7 +79,7 @@ export const INIT_SPEC: CmdSpec = {
   max: 0,
   usage: "docs-axi init",
   help: `usage: docs-axi init
-Scaffold docs/domain, docs/architecture, docs/decisions and docs/README.md
+Scaffold the configured docs sections and docs/README.md
 (with the generated index). Idempotent: existing files are left alone.
 `,
 };
@@ -87,7 +87,7 @@ Scaffold docs/domain, docs/architecture, docs/decisions and docs/README.md
 export function initCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   parseArgs(INIT_SPEC, args);
   const created: string[] = [];
-  for (const s of SECTIONS) {
+  for (const s of sectionNames(ctx.config.layout)) {
     const dir = join(ctx.docsDir, s);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -105,8 +105,10 @@ export function initCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     init: `created ${created.length} item(s) in ${docsRel(ctx)}`,
     created,
     help: [
-      'Run `docs-axi new domain "<title>" --summary "<one line>"` to add a doc',
-      'Run `docs-axi adr "<title>" --summary "<one line>"` to record a decision',
+      `Run \`docs-axi new <section> "<title>" --summary "<one line>"\` to add a doc. Sections:\n${layoutGuideLines(ctx.config.layout)}`,
+      ...(ctx.config.layout.adr
+        ? ['Run `docs-axi adr "<title>" --summary "<one line>"` to record a decision']
+        : []),
     ],
   };
 }
@@ -129,29 +131,33 @@ export const NEW_SPEC: CmdSpec = {
   usage: 'docs-axi new <section> "<title>" --summary "<one line>" [--slug <s>] [--tags a,b] [--body <t> | --body-file <path|->]',
   help: `usage: docs-axi new <section> "<title>" --summary "<one line>" [flags]
 Create a doc from a template and regenerate the index.
-section (decisions get the next ADR number):
-${sectionGuideLines()}
+section: any configured section name (the ADR section gets the next ADR number)
 flags:
   --summary <text>    required, one line, max ${MAX_SUMMARY} chars: what it covers and when to read it
   --slug <s>          file slug (default: derived from title, max ${MAX_SLUG} chars, a-z0-9 and dashes)
   --tags a,b          lowercase tags
   --body <t>          body text instead of the template (no frontmatter)
   --body-file <path>  body from a file, or - for stdin
-  --status <s>        decisions only: proposed (default) | accepted | superseded | deprecated
+  --status <s>        ADR section only: proposed (default) | accepted | superseded | deprecated
 examples:
-  docs-axi new domain "Billing rules" --summary "Invoice, proration and refund rules" --tags billing
-  docs-axi new architecture "Job queue" --summary "How background jobs are scheduled and retried"
+  docs-axi new <section> "Billing rules" --summary "Invoice, proration and refund rules" --tags billing
 `,
 };
 
 export const ADR_SPEC: CmdSpec = {
   name: "adr",
-  flags: { ...NEW_FLAGS, "--status": "string", "--context": "string", "--decision": "string", "--consequences": "string" },
+  flags: {
+    ...NEW_FLAGS,
+    "--status": "string",
+    "--context": "string",
+    "--decision": "string",
+    "--consequences": "string",
+  },
   min: 1,
   max: 1,
   usage: 'docs-axi adr "<title>" --summary "<one line>" [--slug <s>] [--tags a,b] [--status <s>]',
   help: `usage: docs-axi adr "<title>" --summary "<one line>" [flags]
-Alias for \`docs-axi new decisions\`. Picks the next ADR number (NNNN-slug.md),
+Alias for creating a doc in the configured ADR section. Picks the next ADR number (NNNN-slug.md),
 status proposed. Same flags as \`new\`, plus:
   --context <t> --decision <t> --consequences <t>   fill those template sections in one call
 Without them the template headings are created empty; fill later with \`docs-axi write <n> --section Decision\`.
@@ -160,18 +166,29 @@ examples:
 `,
 };
 
-function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiStructuredOutput {
-  if (!isSection(section)) {
-    throw new AxiError(`unknown section ${section}`, "VALIDATION_ERROR", [
-      `Sections:\n${sectionGuideLines()}`,
+function requireAdrSection(ctx: Ctx, command: string): string {
+  const adr = ctx.config.layout.adr;
+  if (adr === undefined) {
+    throw new AxiError(`${command} requires an ADR section`, "VALIDATION_ERROR", [
+      'Set `docs.adr = "<section>"` in `.plan-axi.toml` to enable ADR commands',
     ]);
   }
+  return adr;
+}
+
+function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiStructuredOutput {
+  if (!isSectionIn(ctx.config.layout, section)) {
+    throw new AxiError(`unknown section ${section}`, "VALIDATION_ERROR", [
+      `Sections:\n${layoutGuideLines(ctx.config.layout)}`,
+    ]);
+  }
+  const isAdr = isAdrSection(ctx.config.layout, section);
   requireDocsDir(ctx);
   const title = requireSingleLine("title", titleRaw);
   const summaryRaw = flagStr(p, "--summary");
   if (summaryRaw === undefined) {
     throw new AxiError("--summary is required", "VALIDATION_ERROR", [
-      `docs-axi ${section === "decisions" ? "adr" : `new ${section}`} "${title}" --summary "<one line>"`,
+      `docs-axi ${isAdr ? "adr" : `new ${section}`} "${title}" --summary "<one line>"`,
     ]);
   }
   const summary = checkSummary(summaryRaw);
@@ -184,20 +201,20 @@ function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiS
   const tagsRaw = flagStr(p, "--tags");
   const tags = tagsRaw === undefined ? [] : parseTags(tagsRaw);
   const statusRaw = flagStr(p, "--status");
-  if (statusRaw !== undefined && section !== "decisions") {
-    throw new AxiError("--status applies to decisions only", "VALIDATION_ERROR");
+  if (statusRaw !== undefined && !isAdr) {
+    throw new AxiError("--status applies to the ADR section only", "VALIDATION_ERROR");
   }
-  const status = section === "decisions" ? checkStatus(statusRaw ?? "proposed") : undefined;
+  const status = isAdr ? checkStatus(statusRaw ?? "proposed") : undefined;
 
   const docs = loadDocs(ctx);
-  const num = section === "decisions" ? nextAdrNumber(docs) : undefined;
+  const num = isAdr ? nextAdrNumber(docs) : undefined;
   const file = num === undefined ? `${slug}.md` : `${String(num).padStart(4, "0")}-${slug}.md`;
   const path = `${section}/${file}`;
   const clash = docs.find((d) => d.path.toLowerCase() === path.toLowerCase());
   if (clash) {
     return { created: `${clash.path} already exists (no-op)`, help: [`Run \`docs-axi show ${clash.path}\``] };
   }
-  let body = section === "decisions" ? adrBody(title) : docBody(title);
+  let body = isAdr ? adrBody(title) : docBody(title);
   const given = readBodyInput(p, false);
   if (given !== undefined) {
     if (parseDoc(given).hasFrontmatter) {
@@ -207,7 +224,7 @@ function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiS
     }
     body = given;
   }
-  if (section === "decisions") {
+  if (isAdr) {
     const parts: [string, string | undefined][] = [
       ["Context", flagStr(p, "--context")],
       ["Decision", flagStr(p, "--decision")],
@@ -232,7 +249,7 @@ function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiS
     created: path,
     index: idx,
     help: [
-      section === "decisions"
+      isAdr
         ? `Fill sections with \`docs-axi write ${path} --section Context|Decision|Consequences\` (body on stdin)`
         : `Add sections with \`docs-axi write ${path} --section "<name>" --add\` (body on stdin)`,
       "Run `docs-axi check` before committing",
@@ -247,7 +264,7 @@ export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
 export function adrCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(ADR_SPEC, args);
-  return createDoc(ctx, "decisions", p.pos[0] as string, p);
+  return createDoc(ctx, requireAdrSection(ctx, "adr"), p.pos[0] as string, p);
 }
 
 // ---------------------------------------------------------------- update
@@ -270,7 +287,7 @@ flags:
   --title <t>      new title
   --summary <s>    new one-line summary (max ${MAX_SUMMARY} chars)
   --tags a,b       replace tags; pass --tags= to clear
-  --status <s>     decisions only: proposed | accepted | superseded | deprecated
+  --status <s>     ADR section only: proposed | accepted | superseded | deprecated
 examples:
   docs-axi update 7 --status accepted
   docs-axi update domain/billing --summary "Invoice, proration, refund and tax rules"
@@ -285,6 +302,7 @@ export function updateCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const summary = flagStr(p, "--summary");
   const tags = flagStr(p, "--tags");
   const status = flagStr(p, "--status");
+  const adrSection = status !== undefined ? requireAdrSection(ctx, "update --status") : undefined;
   if (title !== undefined) changes["title"] = requireSingleLine("--title", title);
   if (summary !== undefined) changes["summary"] = checkSummary(summary);
   if (tags !== undefined) {
@@ -297,8 +315,8 @@ export function updateCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const docs = loadDocs(ctx);
   const d = resolveDocPath(ctx, p.pos[0] as string, docs);
   if (status !== undefined) {
-    if (d.section !== "decisions") {
-      throw new AxiError("--status applies to decisions only", "VALIDATION_ERROR");
+    if (!isAdrSection(ctx.config.layout, d.section)) {
+      throw new AxiError(`--status applies to ${adrSection} only`, "VALIDATION_ERROR");
     }
     changes["status"] = checkStatus(status);
   }
@@ -336,6 +354,7 @@ example:
 export function supersedeCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(SUPERSEDE_SPEC, args);
   requireDocsDir(ctx);
+  requireAdrSection(ctx, "supersede");
   const byRaw = flagStr(p, "--by");
   if (byRaw === undefined) {
     throw new AxiError("--by is required", "VALIDATION_ERROR", [`usage: ${SUPERSEDE_SPEC.usage}`]);
@@ -346,7 +365,7 @@ export function supersedeCommand(ctx: Ctx, args: string[]): AxiStructuredOutput 
   for (const d of [oldDoc, newDoc]) {
     if (d.adrNumber === undefined) {
       throw new AxiError(`${d.path} is not an ADR`, "VALIDATION_ERROR", [
-        "Only files named decisions/NNNN-slug.md can supersede or be superseded",
+        `Only files named ${ctx.config.layout.adr}/NNNN-slug.md can supersede or be superseded`,
       ]);
     }
   }

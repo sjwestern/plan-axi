@@ -37,7 +37,7 @@ List a doc's headings (outside code fences) with a selector for each.
 Columns: ref (pass to --section), level, line, chars (own content), empty (no own text).
 Selectors: "Why", "Approach/Alternatives" (heading chain), "Notes#2" (2nd of identical matches).
 examples:
-  docs-axi sections domain/billing
+  docs-axi sections <section>/<doc>
 `,
 };
 
@@ -111,8 +111,8 @@ flags:
   --tree            replace subsections too (default: only text before the first subsection)
 Body may not contain headings at or above the section's level (no frontmatter either).
 examples:
-  docs-axi write plan/x --section Why --body "Slow builds hurt CI."
-  printf 'text' | docs-axi write domain/billing --section "Refunds/Edge cases" --add
+  docs-axi write <section>/<doc> --section Why --body "Slow builds hurt CI."
+  printf 'text' | docs-axi write <section>/<doc> --section "Refunds/Edge cases" --add
 `,
 };
 
@@ -126,7 +126,7 @@ export const APPEND_SPEC: CmdSpec = {
 Add text to the end of a section's own content (lists, logs). Same input and flags as \`write\`.
 Not idempotent: running twice appends twice.
 examples:
-  docs-axi append domain/billing --section "Open questions" --body "- Tax rounding?"
+  docs-axi append <section>/<doc> --section "Open questions" --body "- Tax rounding?"
 `,
 };
 

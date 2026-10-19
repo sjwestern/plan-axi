@@ -83,6 +83,73 @@ describe("new / adr / update / supersede", () => {
   });
 });
 
+describe("configured layout commands", () => {
+  it("uses configured sections and ADR rules across init, docs, index, home and check", async () => {
+    writeFileSync(
+      join(repo.dir, ".plan-axi.toml"),
+      '[docs]\nsections = ["guides", "reference", "rfcs"]\nadr = "rfcs"\n' +
+        '[docs.section.guides]\nguide = "how to use the product"\n' +
+        '[docs.section.reference]\nguide = "API and reference material"\n' +
+        '[docs.section.rfcs]\nguide = "technical decisions"\n',
+    );
+    const init = await repo.run("init");
+    expect(init.out).toContain("guides/");
+    expect(init.out).toContain("reference/");
+    expect(init.out).toContain("rfcs/");
+    expect(read("README.md")).toContain("- `guides/` - how to use the product");
+    expect(read("README.md")).toContain("## Guides");
+    expect(read("README.md")).toContain("## Reference");
+    expect(read("README.md")).toContain("## Rfcs");
+
+    const badSection = await repo.run("new", "unknown", "Bad", "--summary", "bad");
+    expect(badSection.code).toBe(2);
+    expect(badSection.out).toContain("guides - how to use the product");
+    expect(badSection.out).toContain("rfcs - technical decisions");
+
+    await repo.run("new", "guides", "Getting started", "--summary", "Product guide");
+    await repo.run("new", "reference", "API", "--summary", "API reference");
+    await repo.run("adr", "First decision", "--summary", "first");
+    await repo.run("adr", "Second decision", "--summary", "second");
+    expect(read("rfcs/0002-second-decision.md")).toContain("status: proposed");
+    expect((await repo.run("list", "guides")).out).toContain("guides/getting-started.md");
+    expect((await repo.run("search", "product", "--section", "guides")).out).toContain("guides/getting-started.md");
+    await repo.run("update", "1", "--status", "accepted");
+    await repo.run("supersede", "1", "--by", "2");
+    expect(read("rfcs/0001-first-decision.md")).toContain("status: superseded");
+
+    mkdirSync(join(repo.dir, "docs/misc"), { recursive: true });
+    writeFileSync(join(repo.dir, "docs/misc/legacy.md"), "# Legacy\n");
+    await repo.run("index");
+    const home = await repo.run();
+    expect(home.out).toContain("sections");
+    expect(home.out).toContain("guides: how to use the product");
+    expect(home.out).not.toContain("domain:");
+    const check = await repo.run("check");
+    expect(check.code).toBe(0);
+    expect(check.out).toContain("UNMANAGED");
+  });
+
+  it("requires a configured ADR section for ADR commands", async () => {
+    writeFileSync(
+      join(repo.dir, ".plan-axi.toml"),
+      '[docs]\nsections = ["guides", "reference"]\nadr = false\n' +
+        '[docs.section.guides]\nguide = "how to use the product"\n' +
+        '[docs.section.reference]\nguide = "API and reference material"\n',
+    );
+    await repo.run("init");
+    await repo.run("new", "guides", "Guide", "--summary", "s");
+    for (const args of [
+      ["adr", "No ADR", "--summary", "s"],
+      ["update", "guides/guide", "--status", "accepted"],
+      ["supersede", "1", "--by", "2"],
+    ]) {
+      const result = await repo.run(...args);
+      expect(result.code).toBe(2);
+      expect(result.out).toContain("enable ADR commands");
+    }
+  });
+});
+
 describe("list / search / show", () => {
   beforeEach(async () => {
     await repo.run("init");
