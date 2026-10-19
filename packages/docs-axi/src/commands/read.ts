@@ -6,6 +6,7 @@ import {
   displayTitle,
   isDocSection,
   DOC_SECTIONS,
+  SECTION_GUIDE,
   loadDocs,
   requireDocsDir,
   resolveDocPath,
@@ -58,6 +59,7 @@ export function homeCommand(ctx: Ctx): AxiStructuredOutput {
     counts: Object.fromEntries(
       DOC_SECTIONS.map((s) => [s, docs.filter((d) => d.section === s).length]),
     ),
+    sections: SECTION_GUIDE,
     docs: shown.map((d) => row(d, withStatus)),
     help,
   };

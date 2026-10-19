@@ -8,6 +8,16 @@ import { matchesAny, type DocsConfig } from "./config.js";
 
 export const SECTIONS = ["domain", "architecture", "decisions"] as const;
 export type Section = (typeof SECTIONS)[number];
+
+/** One-line meaning of each section: the single source for README intro, home, `new --help` and errors. */
+export const SECTION_GUIDE: Record<Section, string> = {
+  domain: "what the system is for: concepts, rules, behavior in user terms",
+  architecture: "how it is built now: components, boundaries, conventions",
+  decisions: "ADRs: why one choice was made, one decision per file, immutable once accepted",
+};
+
+/** `- domain: ...` lines for help text. */
+export const sectionGuideLines = (prefix = "  "): string => SECTIONS.map((s) => `${prefix}${s} - ${SECTION_GUIDE[s]}`).join("\n");
 /** `other` = docs outside the standard layout, indexed in place. */
 export const OTHER = "other" as const;
 export type DocSection = Section | typeof OTHER;

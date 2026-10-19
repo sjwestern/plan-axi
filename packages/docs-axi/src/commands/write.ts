@@ -17,6 +17,7 @@ import {
   MAX_SLUG,
   MAX_SUMMARY,
   SECTIONS,
+  sectionGuideLines,
   SLUG_RE,
   TAG_RE,
   isSection,
@@ -128,7 +129,8 @@ export const NEW_SPEC: CmdSpec = {
   usage: 'docs-axi new <section> "<title>" --summary "<one line>" [--slug <s>] [--tags a,b] [--body <t> | --body-file <path|->]',
   help: `usage: docs-axi new <section> "<title>" --summary "<one line>" [flags]
 Create a doc from a template and regenerate the index.
-section: domain | architecture | decisions (decisions get the next ADR number)
+section (decisions get the next ADR number):
+${sectionGuideLines()}
 flags:
   --summary <text>    required, one line, max ${MAX_SUMMARY} chars: what it covers and when to read it
   --slug <s>          file slug (default: derived from title, max ${MAX_SLUG} chars, a-z0-9 and dashes)
@@ -161,7 +163,7 @@ examples:
 function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiStructuredOutput {
   if (!isSection(section)) {
     throw new AxiError(`unknown section ${section}`, "VALIDATION_ERROR", [
-      `Sections: ${SECTIONS.join(", ")}`,
+      `Sections:\n${sectionGuideLines()}`,
     ]);
   }
   requireDocsDir(ctx);
