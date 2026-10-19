@@ -14,10 +14,38 @@ import { AxiError } from "axi-sdk-js";
  *   [docs.map]                                          # index legacy files in place
  *   domain = ["domain.md", "features/"]
  */
+export interface SectionDef {
+  name: string;
+  guide: string;
+  kind: "doc" | "adr";
+}
+
+/** Resolved docs layout: docs folder, ordered sections, and which section (if any) holds ADRs. */
+export interface Layout {
+  dir: string;
+  sections: SectionDef[];
+  adr?: string;
+}
+
 export interface DocsConfig {
   ignore: string[];
   map: Record<string, string[]>;
   sources: string[];
+  layout: Layout;
+}
+
+/** Built-in sections and one-line meanings; also the default layout. */
+export const DEFAULT_GUIDES: Record<string, string> = {
+  domain: "what the system is for: concepts, rules, behavior in user terms",
+  architecture: "how it is built now: components, boundaries, conventions",
+  decisions: "ADRs: why one choice was made, one decision per file, immutable once accepted",
+};
+export const DEFAULT_SECTIONS = ["domain", "architecture", "decisions"];
+export const DEFAULT_ADR = "decisions";
+const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function bad(path: string, msg: string): never {
+  throw new AxiError(`${path}: ${msg}`, "VALIDATION_ERROR");
 }
 
 /** Top-level docs entries owned by other tools; never indexed or reported. Dot-entries are always skipped. */
@@ -115,8 +143,60 @@ function union(a: string[], b: string[]): string[] {
   return [...a, ...b.filter((x) => !a.includes(x))];
 }
 
+/** Build and validate the layout from the merged keys; `origin` maps a key to the file that set it. */
+function resolveLayout(kv: Record<string, Value>, origin: Record<string, string>): Layout {
+  const at = (k: string): string => origin[k] ?? "config";
+  let dir = "docs";
+  if ("docs.dir" in kv) {
+    const v = kv["docs.dir"];
+    if (typeof v !== "string" || v.trim() === "") bad(at("docs.dir"), "docs.dir must be a non-empty string");
+    dir = (v as string).trim();
+  }
+  let names = DEFAULT_SECTIONS;
+  if ("docs.sections" in kv) {
+    const v = kv["docs.sections"];
+    if (!Array.isArray(v) || v.length === 0) bad(at("docs.sections"), "docs.sections must be a non-empty array of names");
+    names = v as string[];
+  }
+  const seen = new Set<string>();
+  for (const n of names) {
+    if (!NAME_RE.test(n)) bad(at("docs.sections"), `docs.sections: "${n}" is not a lowercase slug`);
+    if (n === "other") bad(at("docs.sections"), 'docs.sections: "other" is reserved');
+    if (seen.has(n)) bad(at("docs.sections"), `docs.sections: duplicate section "${n}"`);
+    seen.add(n);
+  }
+  const guidePrefix = "docs.section.";
+  for (const k of Object.keys(kv)) {
+    if (!k.startsWith(guidePrefix)) continue;
+    const m = /^docs\.section\.(.+)\.guide$/.exec(k);
+    if (!m) bad(at(k), `unknown key ${k} (expected docs.section.<name>.guide)`);
+    if (typeof kv[k] !== "string") bad(at(k), `${k} must be a string`);
+    if (!seen.has(m![1] as string)) bad(at(k), `${k}: "${m![1]}" is not in docs.sections`);
+  }
+  let adr: string | undefined;
+  if ("docs.adr" in kv) {
+    const v = kv["docs.adr"];
+    if (v === false) adr = undefined;
+    else if (typeof v === "string") {
+      if (!seen.has(v)) bad(at("docs.adr"), `docs.adr: "${v}" is not in docs.sections`);
+      adr = v;
+    } else bad(at("docs.adr"), "docs.adr must be a section name or false");
+  } else if (seen.has(DEFAULT_ADR)) adr = DEFAULT_ADR;
+  const sections: SectionDef[] = names.map((name) => {
+    const g = kv[`${guidePrefix}${name}.guide`];
+    const guide = typeof g === "string" && g.trim() !== "" ? g.trim() : DEFAULT_GUIDES[name];
+    if (guide === undefined) {
+      bad(at("docs.sections"), `section "${name}" needs a guide: set docs.section.${name}.guide`);
+    }
+    return { name, guide: guide as string, kind: name === adr ? "adr" : "doc" };
+  });
+  return adr === undefined ? { dir, sections } : { dir, sections, adr };
+}
+
 export function loadConfig(root: string): DocsConfig {
-  const cfg: DocsConfig = { ignore: [...DEFAULT_IGNORE], map: {}, sources: [] };
+  const cfg: DocsConfig = { ignore: [...DEFAULT_IGNORE], map: {}, sources: [], layout: resolveLayout({}, {}) };
+  const layoutKv: Record<string, Value> = {};
+  const origin: Record<string, string> = {};
   for (const [label, path] of [
     ["user", userConfigPath()],
     ["repo", join(root, ".plan-axi.toml")],
@@ -132,9 +212,13 @@ export function loadConfig(root: string): DocsConfig {
         if (!Array.isArray(v)) throw new AxiError(`${path}: ${k} must be an array`, "VALIDATION_ERROR");
         const section = k.slice("docs.map.".length);
         cfg.map[section] = union(cfg.map[section] ?? [], v);
+      } else if (k === "docs.dir" || k === "docs.sections" || k === "docs.adr" || k.startsWith("docs.section.")) {
+        layoutKv[k] = v; // repo overrides user
+        origin[k] = path;
       }
     }
   }
+  cfg.layout = resolveLayout(layoutKv, origin);
   return cfg;
 }
 

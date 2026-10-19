@@ -97,8 +97,9 @@ export async function main(options: MainOptions = {}): Promise<void> {
   const resolveCtx = (args: string[]): Ctx => {
     const root = findRepoRoot(cwd);
     const flag = docsFlag(args);
-    const docsDir = flag === undefined ? resolve(root, "docs") : isAbsolute(flag) ? flag : resolve(cwd, flag);
-    return { root, docsDir, config: loadConfig(root) };
+    const config = loadConfig(root);
+    const docsDir = flag === undefined ? resolve(root, config.layout.dir) : isAbsolute(flag) ? flag : resolve(cwd, flag);
+    return { root, docsDir, config };
   };
   const commands: Record<string, (args: string[], ctx: Ctx | undefined) => AxiRenderable> = {};
   for (const [name, c] of Object.entries(COMMANDS)) {

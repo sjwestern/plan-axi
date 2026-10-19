@@ -4,24 +4,33 @@ import { AxiError } from "axi-sdk-js";
 import { cmp, readText, toPosix } from "./fsutil.js";
 import { parseDoc, type ParsedDoc } from "./frontmatter.js";
 import { deriveTitleSummary } from "./derive.js";
-import { matchesAny, type DocsConfig } from "./config.js";
+import { DEFAULT_GUIDES, matchesAny, type DocsConfig, type Layout } from "./config.js";
 
+/** Built-in section names (the default layout). Prefer the layout-aware functions below. */
 export const SECTIONS = ["domain", "architecture", "decisions"] as const;
 export type Section = (typeof SECTIONS)[number];
 
-/** One-line meaning of each section: the single source for README intro, home, `new --help` and errors. */
-export const SECTION_GUIDE: Record<Section, string> = {
-  domain: "what the system is for: concepts, rules, behavior in user terms",
-  architecture: "how it is built now: components, boundaries, conventions",
-  decisions: "ADRs: why one choice was made, one decision per file, immutable once accepted",
-};
-
-/** `- domain: ...` lines for help text. */
-export const sectionGuideLines = (prefix = "  "): string => SECTIONS.map((s) => `${prefix}${s} - ${SECTION_GUIDE[s]}`).join("\n");
-/** `other` = docs outside the standard layout, indexed in place. */
+/** `other` = docs outside the configured sections, indexed in place. */
 export const OTHER = "other" as const;
-export type DocSection = Section | typeof OTHER;
+export type DocSection = string;
 export const DOC_SECTIONS = [...SECTIONS, OTHER] as const;
+
+/** Built-in guides; the layout holds the effective ones. */
+export const SECTION_GUIDE = DEFAULT_GUIDES as Record<Section, string>;
+
+/** Configured section names, in order. */
+export const sectionNames = (l: Layout): string[] => l.sections.map((s) => s.name);
+/** Configured sections plus `other`. */
+export const docSectionNames = (l: Layout): string[] => [...sectionNames(l), OTHER];
+export const isSectionIn = (l: Layout, s: string): boolean => l.sections.some((x) => x.name === s);
+export const isDocSectionIn = (l: Layout, s: string): boolean => s === OTHER || isSectionIn(l, s);
+export const isAdrSection = (l: Layout, s: string): boolean => l.adr !== undefined && l.adr === s;
+/** `  name - guide` lines for help text. */
+export const layoutGuideLines = (l: Layout, prefix = "  "): string =>
+  l.sections.map((s) => `${prefix}${s.name} - ${s.guide}`).join("\n");
+/** `  name - guide` lines for the built-in layout. */
+export const sectionGuideLines = (prefix = "  "): string =>
+  SECTIONS.map((s) => `${prefix}${s} - ${SECTION_GUIDE[s]}`).join("\n");
 
 export const ADR_STATUSES = [
   "proposed",
@@ -60,6 +69,7 @@ export interface Doc {
   mapped: boolean;
 }
 
+/** Built-in-layout checks kept for callers not yet layout-aware. */
 export function isDocSection(s: string): s is DocSection {
   return (DOC_SECTIONS as readonly string[]).includes(s);
 }
@@ -101,9 +111,9 @@ function walk(ctx: Ctx, rel: string, out: string[]): void {
  */
 export function sectionOf(ctx: Ctx, path: string): { section: DocSection; mapped: boolean } {
   const first = path.split("/")[0] as string;
-  if (path.includes("/") && isSection(first)) return { section: first, mapped: false };
+  if (path.includes("/") && isSectionIn(ctx.config.layout, first)) return { section: first, mapped: false };
   for (const [section, pats] of Object.entries(ctx.config.map)) {
-    if (isDocSection(section) && matchesAny(pats, path)) {
+    if (isDocSectionIn(ctx.config.layout, section) && matchesAny(pats, path)) {
       return { section, mapped: section !== OTHER };
     }
   }
@@ -116,7 +126,7 @@ export function loadDoc(ctx: Ctx, path: string): Doc {
   const file = path.slice(path.lastIndexOf("/") + 1);
   const slug = file.replace(/\.md$/i, "");
   const tagsRaw = parsed.data["tags"];
-  const adr = section === "decisions" && !mapped ? ADR_FILE_RE.exec(file) : null;
+  const adr = isAdrSection(ctx.config.layout, section) && !mapped ? ADR_FILE_RE.exec(file) : null;
   let title = str(parsed.data["title"]);
   let summary = str(parsed.data["summary"]);
   if (section === OTHER && (title === undefined || summary === undefined)) {
