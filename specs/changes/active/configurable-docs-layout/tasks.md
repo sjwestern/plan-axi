@@ -1,8 +1,6 @@
 # Backlog
 
 ## In flight
-- [ ] 05-change-axi-uses-the-resolved-layout - change-axi uses the resolved layout blocked-by: 02-docs-axi-commands-use-the-layout (since 2026-10-19)
-  Spec: 05-change-axi-uses-the-resolved-layout.md
 ## Queued
 - [ ] 06-change-references-by-slug - Change references by slug blocked-by: 05-change-axi-uses-the-resolved-layout (since 2026-10-19)
   Spec: 06-change-references-by-slug.md
@@ -11,6 +9,8 @@
 - [ ] 08-docs-and-adr - Docs and ADR blocked-by: 07-skills-and-setup-read-the-layout-from-th (since 2026-10-19)
   Spec: 08-docs-and-adr.md
 ## Done
+- [x] 05-change-axi-uses-the-resolved-layout - change-axi uses the resolved layout blocked-by: 02-docs-axi-commands-use-the-layout (done 2026-10-19)
+  Spec: 05-change-axi-uses-the-resolved-layout.md
 - [x] 04-docs-axi-config-command-and-init-flags - docs-axi config command and init flags blocked-by: 02-docs-axi-commands-use-the-layout (done 2026-10-19)
   Spec: 04-docs-axi-config-command-and-init-flags.md
 - [x] 03-migrate-honors-the-layout - Migrate honors the layout blocked-by: 01-layout-config-and-validation (done 2026-10-19)
