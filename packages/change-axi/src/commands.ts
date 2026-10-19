@@ -27,6 +27,7 @@ import {
   readLf,
   requireChange,
   requireReadable,
+  resolveChange,
   resolveDoc,
   splitList,
   stepFiles,
@@ -113,12 +114,13 @@ export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const title = requireSingleLine("title", p.pos[1] as string);
   checkSlug(slug);
   const dir = changeDir(ctx, slug);
-  if (existsSync(dir)) return { created: `specs/changes/active/${slug} already exists (no-op)`, help: [`Run \`change-axi status ${slug}\``] };
-  if (existsSync(archivedDir(ctx)) && readdirSync(archivedDir(ctx)).some((d) => /^\d{4}-\d{2}-\d{2}-/.test(d) && d.slice(11) === slug)) {
-    throw new AxiError(`slug "${slug}" is already archived`, "VALIDATION_ERROR", ["Pick a new slug"]);
-  }
-  if (existsSync(join(ctx.root, "backlog.md")) && listTasks(ctx.root, "backlog.md").some((t) => t.id === slug)) {
-    throw new AxiError(`backlog.md already has a task "${slug}"`, "VALIDATION_ERROR", ["tasks-axi add ignores existing ids; pick a new slug"]);
+  const taken = resolveChange(ctx, slug);
+  if (taken) {
+    const where = { active: "an active change", archived: "an archived change", backlog: "already in backlog.md" }[taken.state];
+    throw new AxiError(`slug "${slug}" is taken (${where})`, "VALIDATION_ERROR", [
+      "Slugs are never reused. Pick a more specific name, e.g. add a scope or qualifier (`" + slug + "-<scope>`)",
+      `Inspect the existing one with \`change-axi where ${slug}\``,
+    ]);
   }
   mkdirSync(dir, { recursive: true });
   writeText(join(dir, "proposal.md"), proposalSkeleton(title));

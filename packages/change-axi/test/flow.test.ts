@@ -24,7 +24,9 @@ describe("change-axi", () => {
     expect(n.code).toBe(0);
     expect(existsSync(join(repo.dir, `${P}/proposal.md`))).toBe(true);
     expect(read("backlog.md")).toContain("demo-change");
-    expect((await repo.run("new", "demo-change", "Demo change")).out).toContain("no-op");
+    const dup = await repo.run("new", "demo-change", "Demo change");
+    expect(dup.code).not.toBe(0);
+    expect(dup.out).toContain("is taken");
     expect((await repo.run("new", "Bad Slug", "x")).code).not.toBe(0);
 
     const s1 = await repo.run("step", "add", "demo-change", "Build schema", "--owns", "src/db/");
