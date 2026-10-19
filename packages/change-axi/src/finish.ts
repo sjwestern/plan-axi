@@ -106,10 +106,22 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
 
   git(ctx, ["merge", "--ff-only", slug]);
   const merged = git(ctx, ["rev-parse", "--short", "HEAD"]);
-  tryTreehouse(ctx, ["return", row.path]);
-  let branchDeleted: string | undefined;
   const warnings: string[] = [];
-  if (o.deleteBranch) {
+  let returned = row.path;
+  let stuck = false;
+  try {
+    tryTreehouse(ctx, ["return", row.path]);
+  } catch (e) {
+    if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
+    stuck = true;
+    returned = `not returned: ${row.path}`;
+    const procs = /live processes after termination: ([^|]*)/.exec(e.message)?.[1]?.trim();
+    warnings.push(
+      `merged, but worktree not returned: processes still run in ${row.path}${procs ? ` (${procs})` : ""}. Likely an editor (VS Code) reopening them; close its window for that folder, then rerun \`change-axi finish ${slug}${o.deleteBranch ? " --delete-branch" : ""}\` (safe to repeat)`,
+    );
+  }
+  let branchDeleted: string | undefined;
+  if (o.deleteBranch && !stuck) {
     try {
       git(ctx, ["branch", "-d", slug]);
       branchDeleted = slug;
@@ -120,7 +132,7 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
   const agents = join(ctx.root, "AGENTS.md");
   const hint = existsSync(agents) ? /`(npm (?:install && npm )?run build)`|^(npm run build)\s*$/m.exec(readFileSync(agents, "utf8")) : null;
   const cmd = hint ? (hint[1] ?? hint[2]) : undefined;
-  return { archived, adrs, untouched, merged, returned: row.path, ...(branchDeleted ? { branchDeleted } : {}), ...(warnings.length > 0 ? { warnings } : {}), ...(cmd ? { buildHint: `Rebuild if the change touched code: ${cmd}` } : {}) };
+  return { archived, adrs, untouched, merged, returned, ...(branchDeleted ? { branchDeleted } : {}), ...(warnings.length > 0 ? { warnings } : {}), ...(cmd ? { buildHint: `Rebuild if the change touched code: ${cmd}` } : {}) };
 }
 
 function isAncestorOf(ctx: Ctx, ancestor: string, ref: string): boolean {
