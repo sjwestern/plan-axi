@@ -52,7 +52,44 @@ export function parseStatusRows(out: string, home: string = homedir()): { name: 
   return rows;
 }
 
-export function statusRows(ctx: Ctx): { name: string; path: string; branch?: string }[] {
+export interface StatusRow {
+  name: string;
+  path: string;
+  branch?: string;
+  leaseHolder?: string;
+  status?: string;
+}
+
+/** Map `treehouse status --json` output to rows; undefined when it is not the expected JSON array. */
+export function parseStatusJson(out: string): StatusRow[] | undefined {
+  let data: unknown;
+  try {
+    data = JSON.parse(out);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(data)) return undefined;
+  const rows: StatusRow[] = [];
+  for (const d of data as Record<string, unknown>[]) {
+    if (!d || typeof d.name !== "string" || typeof d.path !== "string") return undefined;
+    rows.push({
+      name: d.name,
+      path: d.path,
+      ...(typeof d.branch === "string" && d.branch ? { branch: d.branch } : {}),
+      ...(typeof d.lease_holder === "string" && d.lease_holder ? { leaseHolder: d.lease_holder } : {}),
+      ...(typeof d.status === "string" ? { status: d.status } : {}),
+    });
+  }
+  return rows;
+}
+
+export function statusRows(ctx: Ctx): StatusRow[] {
+  try {
+    const rows = parseStatusJson(tryTreehouse(ctx, ["status", "--json"]));
+    if (rows) return rows;
+  } catch (e) {
+    if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
+  }
   return parseStatusRows(tryTreehouse(ctx, ["status"]));
 }
 
@@ -109,8 +146,15 @@ export function leaseWorktree(ctx: Ctx, slug: string): Worktree {
     else reuseBranch = true; // has work: check it out in the leased worktree
   }
   let raw: string;
+  const getArgs = reuseBranch ? ["get", "--lease", "--json"] : ["get", "--lease", "--json", "-b", slug];
   try {
-    raw = tryTreehouse(ctx, reuseBranch ? ["get", "--lease", "--json"] : ["get", "--lease", "--json", "-b", slug]);
+    try {
+      raw = tryTreehouse(ctx, [...getArgs, "--lease-holder", slug]);
+    } catch (e) {
+      // Old treehouse without --lease-holder: retry without it.
+      if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR" || !/unknown flag|lease-holder/i.test(e.message)) throw e;
+      raw = tryTreehouse(ctx, getArgs);
+    }
   } catch (e) {
     if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
     const d = diagnose(ctx, slug, e.message);

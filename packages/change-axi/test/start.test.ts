@@ -101,6 +101,8 @@ describe("start", () => {
       const path = /worktree: (\S+)/.exec(r.out)?.[1] as string;
       expect(existsSync(path)).toBe(true);
       expect(again.out).toContain(path);
+      const st = JSON.parse(execFileSync("treehouse", ["status", "--json"], { cwd: dir, encoding: "utf8" })) as { path: string; lease_holder?: string }[];
+      expect(st.find((x) => x.path === path)?.lease_holder).toBe(P);
       execFileSync("treehouse", ["return", path], { cwd: dir, stdio: "ignore" });
     } finally {
       delete process.env["TREEHOUSE_ROOT"];
