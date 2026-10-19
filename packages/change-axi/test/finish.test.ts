@@ -45,7 +45,7 @@ beforeEach(async () => {
   git("commit", "-q", "-m", "plan");
   git("worktree", "add", "-q", "-b", S, wt);
   // fake treehouse
-  writeFileSync(join(bin, "treehouse"), `#!/bin/sh\nif [ "$1" = status ]; then echo "1  ${wt} [${S}]"; elif [ "$1" = return ]; then echo "$2" >> "${bin}/returned.log"; if [ -f "${bin}/detach" ]; then git -C "$2" checkout -q --detach; fi; fi\n`);
+  writeFileSync(join(bin, "treehouse"), `#!/bin/sh\nif [ "$1" = status ]; then echo "1  ${wt} [${S}]"; elif [ "$1" = return ]; then echo "$2" >> "${bin}/returned.log"; if [ -f "${bin}/detach" ]; then git -C "${wt}" checkout -q --detach; fi; fi\n`);
   chmodSync(join(bin, "treehouse"), 0o755);
   oldPath = process.env["PATH"];
   process.env["PATH"] = `${bin}:${oldPath}`;
@@ -73,7 +73,7 @@ describe("finish", () => {
     expect(git("log", "-1", "--format=%s")).toBe(`archive ${S}`);
     expect(git("rev-parse", "HEAD")).toBe(wgit("rev-parse", "HEAD"));
     expect(existsSync(join(dir, `specs/changes/active/${S}`))).toBe(false);
-    expect(returnLog().trim()).toBe(wt);
+    expect(returnLog().trim()).toBe("1");
   });
 
   it("skips archiving when already archived", async () => {
@@ -166,5 +166,62 @@ describe("finish", () => {
     expect(r.code).toBe(0);
     expect(r.out).toContain("could not delete");
     expect(git("branch", "--list", S)).not.toBe("");
+  });
+
+  describe("resumable after a stuck return", () => {
+    // Fake treehouse with JSON status: the first return resets the slot (detached, holder kept) and fails.
+    const stuckFake = (holder: string): void => {
+      const script = `#!/bin/sh
+st() {
+  if [ -f "${bin}/reset" ]; then b=""; else b="${S}"; fi
+  echo '[{"name":"1","path":"${wt}","status":"leased","branch":"'"$b"'","lease_holder":"${holder}"}]'
+}
+if [ "$1" = status ] && [ "$2" = --json ]; then st
+elif [ "$1" = return ]; then
+  echo "$2" >> "${bin}/returned.log"
+  if [ ! -f "${bin}/once" ]; then touch "${bin}/once" "${bin}/reset"; git -C "${wt}" checkout -q --detach; echo "live processes after termination: code (1)" >&2; exit 1; fi
+  rm -f "${bin}/reset"; git -C "${wt}" checkout -q --detach
+fi
+`;
+      writeFileSync(join(bin, "treehouse"), script);
+    };
+
+    it("second finish returns the slot and deletes the branch without merging again", async () => {
+      completeStep();
+      stuckFake(S);
+      const first = await run("finish", S, "--delete-branch");
+      expect(first.code).toBe(0);
+      expect(first.out).toContain("rerun");
+      expect(first.out).toContain("slot 1");
+      expect(git("branch", "--list", S)).not.toBe("");
+      const head = git("rev-parse", "HEAD");
+      const second = await run("finish", S, "--delete-branch");
+      expect(second.code).toBe(0);
+      expect(second.out).toContain(`already in main`);
+      expect(returnLog().trim().split("\n")).toEqual(["1", "1"]);
+      expect(git("branch", "--list", S)).toBe("");
+      expect(git("rev-parse", "HEAD")).toBe(head);
+      expect(git("log", "-1", "--format=%s")).toBe(`archive ${S}`);
+    });
+
+    it("holder-less slot: succeeds with a manual hint", async () => {
+      completeStep();
+      stuckFake("");
+      await run("finish", S);
+      const head = git("rev-parse", "HEAD");
+      const r = await run("finish", S);
+      expect(r.code).toBe(0);
+      expect(r.out).toContain("treehouse return <name>");
+      expect(git("rev-parse", "HEAD")).toBe(head);
+    });
+
+    it("unmerged branch with no worktree keeps NOT_FOUND", async () => {
+      completeStep();
+      stuckFake("other");
+      writeFileSync(join(bin, "reset"), "");
+      const r = await run("finish", S);
+      expect(r.code).not.toBe(0);
+      expect(r.out).toContain("no treehouse worktree");
+    });
   });
 });

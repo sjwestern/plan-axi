@@ -70,55 +70,67 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
   if (!git(ctx, ["rev-parse", "--verify", "--quiet", `refs/heads/${slug}`], true)) {
     throw new AxiError(`branch "${slug}" does not exist`, "NOT_FOUND", [`Run \`change-axi start ${slug}\` first, or archive "${slug}" by hand`]);
   }
-  const row = statusRows(ctx).find((r) => r.branch === slug);
-  if (!row) {
+  const rows = statusRows(ctx);
+  // A stuck return leaves the slot detached with no branch label; the lease holder still names the change.
+  const row = rows.find((r) => r.branch === slug) ?? rows.find((r) => r.leaseHolder === slug);
+  const mergedAlready = isAncestorOf(ctx, slug, base) && hasArchived(ctx, base, slug);
+  if (!row && !mergedAlready) {
     throw new AxiError(`no treehouse worktree on branch "${slug}"`, "NOT_FOUND", [
       `Archive on the ${slug} branch manually (\`change-axi archive ${slug} --commit\`), then merge it by hand`,
     ]);
   }
-  const wt: Ctx = { root: row.path };
-  const wtDirty = git(wt, ["status", "--porcelain", "--untracked-files=no"]);
-  if (wtDirty !== "") {
-    withAgentHint(new AxiError(`worktree ${row.path} has uncommitted changes`, "VALIDATION_ERROR", wtDirty.split("\n").slice(0, 10).concat("Commit them first")), slug);
-  }
-  if (!isAncestorOf(ctx, base, slug)) {
-    withAgentHint(new AxiError(`${base} is not an ancestor of ${slug}`, "VALIDATION_ERROR", [`In the worktree: git rebase ${base}`]), slug);
-  }
-
-  const archivedPaths = git(ctx, ["ls-tree", "-r", "--name-only", slug, "--", "specs/changes/archived"]).split("\n");
-  const alreadyArchived = archivedPaths.some((f) => new RegExp(`^specs/changes/archived/\\d{4}-\\d{2}-\\d{2}-${slug}/`).test(f));
+  const warnings: string[] = [];
   let archived = "skipped (already archived)";
   let adrs: FinishReport["adrs"] = [];
   let untouched: string[] = [];
-  if (!alreadyArchived) {
-    let r: ReturnType<typeof archiveChange>;
-    try {
-      r = archiveChange(wt, slug, { dryRun: o.dryRun, commit: true, skipDocsCheck: o.skipDocsCheck });
-    } catch (e) {
-      withAgentHint(e, slug);
+  let merged: string;
+
+  if (mergedAlready) {
+    merged = `already in ${base}`;
+    if (o.dryRun) return { archived, adrs, untouched, merged, returned: row ? `planned: ${row.path}` : "none found", ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
+  } else {
+    const wt: Ctx = { root: (row as { path: string }).path };
+    const wtDirty = git(wt, ["status", "--porcelain", "--untracked-files=no"]);
+    if (wtDirty !== "") {
+      withAgentHint(new AxiError(`worktree ${wt.root} has uncommitted changes`, "VALIDATION_ERROR", wtDirty.split("\n").slice(0, 10).concat("Commit them first")), slug);
     }
-    archived = o.dryRun ? "dry run (would archive)" : "done";
-    adrs = r.adrs;
-    untouched = r.untouched;
+    if (!isAncestorOf(ctx, base, slug)) {
+      withAgentHint(new AxiError(`${base} is not an ancestor of ${slug}`, "VALIDATION_ERROR", [`In the worktree: git rebase ${base}`]), slug);
+    }
+    if (!hasArchived(ctx, slug, slug)) {
+      let r: ReturnType<typeof archiveChange>;
+      try {
+        r = archiveChange(wt, slug, { dryRun: o.dryRun, commit: true, skipDocsCheck: o.skipDocsCheck });
+      } catch (e) {
+        withAgentHint(e, slug);
+      }
+      archived = o.dryRun ? "dry run (would archive)" : "done";
+      adrs = r.adrs;
+      untouched = r.untouched;
+    }
+    if (o.dryRun) return { archived, adrs, untouched, merged: `planned: ff ${slug} into ${base}`, returned: `planned: ${wt.root}`, ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
+    git(ctx, ["merge", "--ff-only", slug]);
+    merged = git(ctx, ["rev-parse", "--short", "HEAD"]);
   }
 
-  if (o.dryRun) return { archived, adrs, untouched, merged: `planned: ff ${slug} into ${base}`, returned: `planned: ${row.path}`, ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
-
-  git(ctx, ["merge", "--ff-only", slug]);
-  const merged = git(ctx, ["rev-parse", "--short", "HEAD"]);
-  const warnings: string[] = [];
-  let returned = row.path;
+  const rerun = `change-axi finish ${slug}${o.deleteBranch ? " --delete-branch" : ""}`;
+  let returned = "none found";
   let stuck = false;
-  try {
-    tryTreehouse(ctx, ["return", row.path]);
-  } catch (e) {
-    if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
-    stuck = true;
-    returned = `not returned: ${row.path}`;
-    const procs = /live processes after termination: ([^|]*)/.exec(e.message)?.[1]?.trim();
-    warnings.push(
-      `merged, but worktree not returned: processes still run in ${row.path}${procs ? ` (${procs})` : ""}. Likely an editor (VS Code) reopening them; close its window for that folder, then rerun \`change-axi finish ${slug}${o.deleteBranch ? " --delete-branch" : ""}\` (safe to repeat)`,
-    );
+  if (row) {
+    returned = row.path;
+    try {
+      tryTreehouse(ctx, ["return", row.name]);
+    } catch (e) {
+      if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
+      stuck = true;
+      returned = `not returned: ${row.path}`;
+      const procs = /live processes after termination: ([^|]*)/.exec(e.message)?.[1]?.trim();
+      warnings.push(
+        `merged, but worktree not returned: processes still run in ${row.path}${procs ? ` (${procs})` : ""}. Likely an editor (VS Code) reopening them; close its window for that folder, then rerun \`${rerun}\` to finish the job (slot ${row.name}; safe to repeat)`,
+      );
+    }
+  } else {
+    warnings.push(`${slug} is merged and archived but no worktree is leased to it (leased before lease holders existed). Run \`treehouse status\`, then \`treehouse return <name>\` for its slot`);
   }
   let branchDeleted: string | undefined;
   if (o.deleteBranch && !stuck) {
@@ -133,6 +145,11 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
   const hint = existsSync(agents) ? /`(npm (?:install && npm )?run build)`|^(npm run build)\s*$/m.exec(readFileSync(agents, "utf8")) : null;
   const cmd = hint ? (hint[1] ?? hint[2]) : undefined;
   return { archived, adrs, untouched, merged, returned, ...(branchDeleted ? { branchDeleted } : {}), ...(warnings.length > 0 ? { warnings } : {}), ...(cmd ? { buildHint: `Rebuild if the change touched code: ${cmd}` } : {}) };
+}
+
+function hasArchived(ctx: Ctx, ref: string, slug: string): boolean {
+  const paths = git(ctx, ["ls-tree", "-r", "--name-only", ref, "--", "specs/changes/archived"], true).split("\n");
+  return paths.some((f) => new RegExp(`^specs/changes/archived/\\d{4}-\\d{2}-\\d{2}-${slug}/`).test(f));
 }
 
 function isAncestorOf(ctx: Ctx, ancestor: string, ref: string): boolean {
