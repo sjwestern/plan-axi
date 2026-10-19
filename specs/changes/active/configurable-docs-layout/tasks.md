@@ -2,9 +2,9 @@
 
 ## In flight
 ## Queued
-- [ ] 08-docs-and-adr - Docs and ADR blocked-by: 07-skills-and-setup-read-the-layout-from-th (since 2026-10-19)
-  Spec: 08-docs-and-adr.md
 ## Done
+- [x] 08-docs-and-adr - Docs and ADR blocked-by: 07-skills-and-setup-read-the-layout-from-th (done 2026-10-19)
+  Spec: 08-docs-and-adr.md
 - [x] 07-skills-and-setup-read-the-layout-from-th - Skills and setup read the layout from the CLI blocked-by: 04-docs-axi-config-command-and-init-flags blocked-by: 06-change-references-by-slug (done 2026-10-19)
   Spec: 07-skills-and-setup-read-the-layout-from-th.md
 - [x] 06-change-references-by-slug - Change references by slug blocked-by: 05-change-axi-uses-the-resolved-layout (done 2026-10-19)
