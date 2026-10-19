@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -58,6 +58,24 @@ describe("start", () => {
     expect(git("show", "--name-only", "--format=", "HEAD")).toBe("backlog.md");
     expect(git("status", "--porcelain")).toContain("unrelated.txt");
     expect((await run("start", P, "--no-worktree")).out).toContain("already in flight");
+  });
+
+  it("uses the configured docs directory for dirty checks and proposal guidance", async () => {
+    writeFileSync(
+      join(dir, ".plan-axi.toml"),
+      '[docs]\ndir = "documentation"\nsections = ["guides", "rfcs"]\nadr = "rfcs"\n\n[docs.section.guides]\nguide = "guides"\n\n[docs.section.rfcs]\nguide = "decisions"\n',
+    );
+    git("add", "-A");
+    git("commit", "-q", "-m", "plan");
+    mkdirSync(join(dir, "documentation/guides"), { recursive: true });
+    writeFileSync(join(dir, "documentation/guides/dirty.md"), "uncommitted\n");
+
+    const dirty = await run("start", P, "--no-worktree");
+    expect(dirty.code).not.toBe(0);
+    expect(dirty.out).toContain("documentation/");
+
+    const spec = await run("spec", "proposal");
+    expect(spec.out).toContain("documentation/guides/x.md");
   });
 
   it("refuses on a non-default branch", async () => {

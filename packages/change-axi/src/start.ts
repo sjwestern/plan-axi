@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
-import { requireChange, type Ctx } from "./change.js";
+import { getDocsConfig, requireChange, type Ctx } from "./change.js";
 import { checkChange } from "./check.js";
 import { defaultBranch, firstCommitOf, git } from "./git.js";
 import { listTasks, runTasks } from "./tasks.js";
@@ -149,7 +149,8 @@ export function startChange(ctx: Ctx, slug: string, o: StartOptions): StartRepor
   if (upstream !== "" && Number(git(ctx, ["rev-list", "--count", `HEAD..${upstream}`], true) || "0") > 0) {
     throw new AxiError(`${base} is behind ${upstream}`, "VALIDATION_ERROR", ["Pull first so the plan you start is current"]);
   }
-  const dirty = git(ctx, ["status", "--porcelain", "--", `specs/changes/active/${slug}`, "backlog.md", "docs"]);
+  const docsDir = getDocsConfig(ctx).layout.dir;
+  const dirty = git(ctx, ["status", "--porcelain", "--", `specs/changes/active/${slug}`, "backlog.md", docsDir]);
   if (dirty !== "") {
     throw new AxiError("plan not committed/clean", "VALIDATION_ERROR", dirty.split("\n").slice(0, 10).concat("Commit the plan on main first"));
   }

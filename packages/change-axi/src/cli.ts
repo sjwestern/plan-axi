@@ -1,6 +1,7 @@
 import { isAbsolute, resolve } from "node:path";
 import { runAxiCli } from "axi-sdk-js";
 import { findRepoRoot } from "docs-axi/lib/fsutil";
+import { loadConfig } from "docs-axi/lib/config";
 import type { AxiRenderable } from "docs-axi/lib/types";
 import * as c from "./commands.js";
 import type { Ctx } from "./change.js";
@@ -62,7 +63,8 @@ export async function main(options: MainOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const resolveCtx = (args: string[]): Ctx => {
     const flag = rootFlag(args);
-    return { root: flag === undefined ? findRepoRoot(cwd) : isAbsolute(flag) ? flag : resolve(cwd, flag) };
+    const root = flag === undefined ? findRepoRoot(cwd) : isAbsolute(flag) ? flag : resolve(cwd, flag);
+    return { root, docsConfig: loadConfig(root) };
   };
   const commands: Record<string, (args: string[], ctx: Ctx | undefined) => AxiRenderable> = {};
   for (const [name, cmd] of Object.entries(COMMANDS)) commands[name] = (args, ctx) => cmd.run(ctx as Ctx, stripRoot(args));

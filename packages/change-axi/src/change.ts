@@ -1,10 +1,16 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
+import { loadConfig, type DocsConfig } from "docs-axi/lib/config";
 import { readText, normalizeEol } from "docs-axi/lib/fsutil";
 
 export interface Ctx {
   root: string;
+  docsConfig?: DocsConfig;
+}
+
+export function getDocsConfig(ctx: Ctx): DocsConfig {
+  return ctx.docsConfig ?? loadConfig(ctx.root);
 }
 
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;

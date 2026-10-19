@@ -52,6 +52,43 @@ describe("archive", () => {
     expect(r.out).toContain("not done");
   });
 
+  it("uses the configured docs directory and ADR section when archiving", async () => {
+    writeFileSync(
+      join(dir, ".plan-axi.toml"),
+      '[docs]\ndir = "documentation"\nsections = ["guides", "rfcs"]\nadr = "rfcs"\n\n[docs.section.guides]\nguide = "guides"\n\n[docs.section.rfcs]\nguide = "decisions"\n',
+    );
+    rmSync(join(dir, "docs"), { recursive: true, force: true });
+    await docs("init");
+    await docs("new", "guides", "Thing", "--summary", "A thing");
+    await docs("adr", "Pick", "--summary", "pick", "--context", "c", "--decision", "d", "--consequences", "e");
+    await run(
+      "write",
+      "demo-change",
+      "proposal",
+      "--section",
+      "Docs impact",
+      "--body",
+      "- `documentation/guides/thing.md` - new: thing\n- `documentation/rfcs/0001-pick.md` - new ADR",
+    );
+    git("add", "-A");
+    git("commit", "-q", "-m", "configured docs layout");
+
+    tasks("start", "01-do-it", "--file", "specs/changes/active/demo-change/tasks.md");
+    tasks("done", "01-do-it", "--file", "specs/changes/active/demo-change/tasks.md");
+    git("add", "-A");
+    git("commit", "-q", "-m", "done");
+
+    const r = await run("archive", "demo-change", "--commit");
+    expect(r.code).toBe(0);
+    expect(readFileSync(join(dir, "documentation/rfcs/0001-pick.md"), "utf8")).toContain("status: accepted");
+    expect(readFileSync(join(dir, "documentation/README.md"), "utf8")).toContain("0001-pick");
+    const committed = git("show", "--name-only", "--format=", "HEAD");
+    expect(committed).toContain("documentation/README.md");
+    expect(committed).toContain("documentation/rfcs/0001-pick.md");
+    expect(committed).not.toContain("docs/");
+    expect(git("status", "--porcelain")).toBe("");
+  });
+
   it("refuses when a listed doc was not updated, passes after, accepts ADRs, moves, commits", async () => {
     tasks("start", "01-do-it", "--file", "specs/changes/active/demo-change/tasks.md");
     tasks("done", "01-do-it", "--file", "specs/changes/active/demo-change/tasks.md");

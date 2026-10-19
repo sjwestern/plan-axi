@@ -1,3 +1,5 @@
+import type { Layout } from "docs-axi/lib/config";
+
 export interface SectionSpec {
   name: string;
   guide: string;
@@ -14,6 +16,15 @@ export const PROPOSAL_SECTIONS: SectionSpec[] = [
   { name: "Docs impact", guide: "Every doc created or changed, one line each: `docs/domain/x.md` - update: what. Or `None - <reason>`." },
   { name: "Risks and open questions", guide: "Bullets, or `None`." },
 ];
+
+export function proposalSections(layout: Layout): SectionSpec[] {
+  const section = layout.sections[0]?.name ?? "<section>";
+  return PROPOSAL_SECTIONS.map((item) =>
+    item.name === "Docs impact"
+      ? { ...item, guide: `Every doc created or changed, one line each: \`${layout.dir}/${section}/x.md\` - update: what. Or \`None - <reason>\`.` }
+      : item,
+  );
+}
 
 export const STEP_SECTIONS: SectionSpec[] = [
   { name: "Goal", guide: "One or two sentences: the outcome of this step on its own." },

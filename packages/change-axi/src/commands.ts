@@ -31,9 +31,10 @@ import {
   stepFiles,
   tasksRel,
   SLUG_RE,
+  getDocsConfig,
   type Ctx,
 } from "./change.js";
-import { PROPOSAL_SECTIONS, STEP_HEADER_LINES, STEP_SECTIONS, proposalSkeleton, stepSkeleton } from "./spec.js";
+import { STEP_HEADER_LINES, STEP_SECTIONS, proposalSections, proposalSkeleton, stepSkeleton } from "./spec.js";
 import { listTasks, runTasks } from "./tasks.js";
 
 const guideRows = (list: { name: string; guide: string }[]): Record<string, string>[] => list.map((s) => ({ section: s.name, guide: s.guide }));
@@ -72,10 +73,11 @@ examples:
 `,
 };
 
-export function specCommand(_ctx: Ctx, args: string[]): AxiStructuredOutput {
+export function specCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(SPEC_SPEC, args);
   const which = p.pos[0];
-  if (which === "proposal") return { proposal: guideRows(PROPOSAL_SECTIONS), help: ['Fill with `change-axi write <slug> proposal --section "<name>" --body "..."`'] };
+  const sections = proposalSections(getDocsConfig(ctx).layout);
+  if (which === "proposal") return { proposal: guideRows(sections), help: ['Fill with `change-axi write <slug> proposal --section "<name>" --body "..."`'] };
   if (which === "step") {
     return {
       header: guideRows(STEP_HEADER_LINES),
@@ -84,7 +86,7 @@ export function specCommand(_ctx: Ctx, args: string[]): AxiStructuredOutput {
     };
   }
   if (which !== undefined) throw new AxiError(`unknown kind ${which}`, "VALIDATION_ERROR", ["Kinds: proposal, step"]);
-  return { proposal: guideRows(PROPOSAL_SECTIONS), step: guideRows(STEP_SECTIONS), header: guideRows(STEP_HEADER_LINES) };
+  return { proposal: guideRows(sections), step: guideRows(STEP_SECTIONS), header: guideRows(STEP_HEADER_LINES) };
 }
 
 // ---------------------------------------------------------------- new
@@ -130,7 +132,7 @@ export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     created: `specs/changes/active/${slug}/proposal.md`,
     backlog: `${slug} queued`,
     tasks_toml: tomlNote,
-    sections: guideRows(PROPOSAL_SECTIONS),
+    sections: guideRows(proposalSections(getDocsConfig(ctx).layout)),
     help: [
       `Fill each with \`change-axi write ${slug} proposal --section "<name>"\` (body on stdin)`,
       `Add steps with \`change-axi step add ${slug} "<title>" --owns <paths>\``,

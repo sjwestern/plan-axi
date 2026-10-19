@@ -1,14 +1,14 @@
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { AxiError } from "axi-sdk-js";
-import { loadConfig } from "docs-axi/lib/config";
+import type { Layout } from "docs-axi/lib/config";
 import { readText, writeText } from "docs-axi/lib/fsutil";
 import { parseDoc, setFrontmatter } from "docs-axi/lib/frontmatter";
 import { writeIndex } from "docs-axi/lib/indexgen";
 import { loadDocs } from "docs-axi/lib/model";
 import { splitDoc } from "docs-axi/lib/sectionedit";
 import { findSectionOrUndefined, sectionText } from "docs-axi/lib/sections";
-import { archivedDir, changeDir, type Ctx } from "./change.js";
+import { archivedDir, changeDir, getDocsConfig, type Ctx } from "./change.js";
 import { checkChange } from "./check.js";
 import { defaultBranch, firstCommitOf, git, isAncestor } from "./git.js";
 import { listTasks, runTasks } from "./tasks.js";
@@ -20,7 +20,7 @@ export interface DocsImpact {
 }
 
 /** Markdown paths named in the proposal's "Docs impact" section. */
-export function parseDocsImpact(proposal: string): { none: boolean; docs: DocsImpact[] } {
+export function parseDocsImpact(proposal: string, layout: Layout): { none: boolean; docs: DocsImpact[] } {
   const d = splitDoc(proposal);
   const s = findSectionOrUndefined(d.secs.filter((x) => x.level === 2), "Docs impact");
   const text = s ? sectionText(d.lines, s, true) : "";
@@ -30,7 +30,10 @@ export function parseDocsImpact(proposal: string): { none: boolean; docs: DocsIm
     const removal = /\b(delete|remove|drop)\b/i.test(line);
     for (const m of line.matchAll(/`([^`\s]+\.md)`/g)) {
       const path = (m[1] as string).replace(/^\.\//, "").replace(/\\/g, "/");
-      if (!docs.some((x) => x.path === path)) docs.push({ path, adr: /^docs\/decisions\/\d{4}-.+\.md$/.test(path), removal });
+      const adrPath = layout.adr
+        ? new RegExp(`^${escapeRegex(layout.dir)}/${escapeRegex(layout.adr)}/\\d{4}-.+\\.md$`).test(path)
+        : false;
+      if (!docs.some((x) => x.path === path)) docs.push({ path, adr: adrPath, removal });
     }
   }
   return { none, docs };
@@ -53,6 +56,8 @@ export interface ArchiveReport {
 }
 
 export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): ArchiveReport {
+  const config = getDocsConfig(ctx);
+  const layout = config.layout;
   const active = changeDir(ctx, slug);
   const arch = archivedDir(ctx);
   const done = existsSync(arch) ? readdirSync(arch).find((d) => /^\d{4}-\d{2}-\d{2}-/.test(d) && d.slice(11) === slug) : undefined;
@@ -76,8 +81,8 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
     throw new AxiError(`on branch "${current}"`, "VALIDATION_ERROR", [`Run archive on branch ${slug} (preferred) or on ${base} after merging ${slug}`]);
   }
 
-  const dirty = git(ctx, ["status", "--porcelain", "--", "specs", "docs", "backlog.md"]);
-  if (dirty !== "") throw new AxiError("uncommitted changes in specs/, docs/ or backlog.md", "VALIDATION_ERROR", dirty.split("\n").slice(0, 10).concat("Commit them first"));
+  const dirty = git(ctx, ["status", "--porcelain", "--", "specs", layout.dir, "backlog.md"]);
+  if (dirty !== "") throw new AxiError(`uncommitted changes in specs/, ${layout.dir}/ or backlog.md`, "VALIDATION_ERROR", dirty.split("\n").slice(0, 10).concat("Commit them first"));
 
   const tasks = listTasks(ctx.root, `specs/changes/active/${slug}/tasks.md`);
   const open = tasks.filter((t) => t.state !== "done");
@@ -92,9 +97,9 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
 
   // docs impact
   const proposalPath = join(active, "proposal.md");
-  const impact = parseDocsImpact(readText(proposalPath));
+  const impact = parseDocsImpact(readText(proposalPath), layout);
   if (!impact.none && impact.docs.length === 0) {
-    throw new AxiError('proposal "Docs impact" names no .md paths and is not "None - <reason>"', "VALIDATION_ERROR", ["List docs as `docs/x.md` in backticks, or write `None - <reason>`"]);
+    throw new AxiError('proposal "Docs impact" names no .md paths and is not "None - <reason>"', "VALIDATION_ERROR", [`List docs as \`${layout.dir}/x.md\` in backticks, or write \`None - <reason>\``]);
   }
   const planCommit = firstCommitOf(ctx, `specs/changes/active/${slug}/proposal.md`);
   if (!planCommit) throw new AxiError("proposal.md is not committed", "VALIDATION_ERROR", ["Commit the plan first"]);
@@ -135,18 +140,22 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
       writeText(abs, setFrontmatter(readText(abs), { status: "accepted" }));
       a.action = "accepted";
     }
-    const dctx = { root: ctx.root, docsDir: resolve(ctx.root, "docs"), config: loadConfig(ctx.root) };
+    const dctx = { root: ctx.root, docsDir: resolve(ctx.root, layout.dir), config };
     writeIndex(dctx, loadDocs(dctx));
   }
   mkdirSync(dirname(target), { recursive: true });
   git(ctx, ["mv", `specs/changes/active/${slug}`, targetRel]);
   ensureBacklogDone(ctx, slug);
   if (o.commit) {
-    git(ctx, ["add", "--", "specs", "docs", "backlog.md"]);
+    git(ctx, ["add", "--", "specs", layout.dir, "backlog.md"]);
     git(ctx, ["commit", "-q", "-m", `archive ${slug}`]);
     report.commit = git(ctx, ["rev-parse", "--short", "HEAD"]);
   }
   return report;
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function ensureBacklogDone(ctx: Ctx, slug: string): void {
