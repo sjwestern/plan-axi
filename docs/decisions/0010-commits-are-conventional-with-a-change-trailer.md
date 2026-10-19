@@ -1,7 +1,7 @@
 ---
 title: Commits are conventional with a Change trailer
 summary: Tool and agent commits use conventional commit format; the change slug moves to a Change trailer
-status: proposed
+status: accepted
 ---
 
 # Commits are conventional with a Change trailer

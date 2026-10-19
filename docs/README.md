@@ -31,5 +31,5 @@ Manage with `docs-axi` (search, new, update, check). Keep files small and single
 - [0007 Agent profiles and step tiers extend the launch template](decisions/0007-agent-profiles-and-step-tiers-extend-the-launch-template.md) - Why agent launch gains harness/model/effort profiles and per-step tiers (proposed)
 - [0008 Run launches ready steps as herdr tabs](decisions/0008-run-launches-ready-steps-as-herdr-tabs.md) - Why run opens one herdr tab per step under the current workspace and stops per wave (proposed)
 - [0009 Docs layout is config; ADR section stays a fixed type](decisions/0009-docs-layout-is-config-adr-section-stays-a-fixed-type.md) - Why docs folder and sections are configurable while the ADR section keeps fixed numbering and status rules (accepted)
-- [0010 Commits are conventional with a Change trailer](decisions/0010-commits-are-conventional-with-a-change-trailer.md) - Tool and agent commits use conventional commit format; the change slug moves to a Change trailer (proposed)
+- [0010 Commits are conventional with a Change trailer](decisions/0010-commits-are-conventional-with-a-change-trailer.md) - Tool and agent commits use conventional commit format; the change slug moves to a Change trailer (accepted)
 <!-- docs-axi:index:end -->
