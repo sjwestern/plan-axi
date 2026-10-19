@@ -38,8 +38,8 @@ Tests with a fake treehouse whose return fails once and leaves the slot detached
 
 ## Docs impact
 
-- docs/architecture/plan-workflow.md - update: finish is resumable, lease holder identifies the slot.
-- docs/domain/cli-quick-reference.md - update: finish rerun behavior.
+- `docs/architecture/plan-workflow.md` - update: finish is resumable, lease holder identifies the slot.
+- `docs/domain/cli-quick-reference.md` - update: finish rerun behavior.
 
 ## Risks and open questions
 
