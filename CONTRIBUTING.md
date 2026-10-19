@@ -8,6 +8,8 @@ npm test          # vitest, both packages
 
 Fresh treehouse worktrees have no `node_modules` or `dist`; run the two lines above first.
 
+Commits must be conventional (`type(scope): subject`, e.g. `feat(change-axi): ...`) and carry a `Change: <slug>` trailer when part of a change. A husky `commit-msg` hook runs commitlint; `npm install` installs it (run it in each fresh worktree). `npm run changelog` regenerates `CHANGELOG.md` with git-cliff; `chore` and `(plan)` commits are left out.
+
 ## Smoke-testing in a worktree
 
 The `change-axi`/`docs-axi` on PATH (via `npm link`) is the main checkout's build, so new commands are invisible there. Use the worktree's own build:

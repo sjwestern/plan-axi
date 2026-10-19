@@ -8,7 +8,7 @@ summary: How explore, propose, apply and archive work, and which tool owns what
 ```
 plan-explore  read-only, reads docs, drafts in conversation
 plan-propose  change-axi new/step add/write -> plan files, no commit
-(you)         review the diff, commit on main
+(you)         review the diff, `change-axi commit-plan` on main
 plan-apply    main: start/enter + treehouse worktree + agent | worktree: run steps
 plan-archive  accept ADRs, move to archived/, mark backlog done
 finish        (change-axi) from main: archive if needed, ff-merge, release worktree
@@ -34,6 +34,20 @@ backlog.md                               one tasks-axi task per change
 ## Step execution
 
 Pick a ready step, claim it (`change-axi claim`), implement inside `Owns:`, verify Done when, commit own paths only, then `change-axi done` (commits only tasks.md, warns on writes outside Owns). See ADR 4 and ADR 5.
+
+## Commit format
+
+All commits are conventional (`type(scope): subject`) and carry a `Change: <slug>` trailer, so history is machine-readable and satisfies commitlint. See ADR 10.
+
+| Commit | Written by | Message |
+| --- | --- | --- |
+| start | `change-axi start` | `chore(plan): start change` |
+| done | `change-axi done` | `chore(plan): done <step-id>` |
+| archive | `change-axi archive --commit` | `chore(plan): archive change` |
+| plan | `change-axi commit-plan` (human) | `docs(plan): propose <slug>`, or `docs(plan): <reason>` with `--reason` |
+| step work | agent | `<type>(<area>): <summary>`, `feat`/`fix`/`refactor`/`test`/`docs`, area = package or feature |
+
+Type, plan type, scope and trailer key are configurable under `[commit]`. If a commit hook rejects a tool commit, the command fails with `commit rejected` and the hook output. `start` and `done` restore their file so a rerun works; `archive` leaves its changes staged for you to fix and commit.
 
 ## Launch and orientation
 

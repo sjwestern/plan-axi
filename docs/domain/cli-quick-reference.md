@@ -40,6 +40,7 @@ change-axi where split-auth                # path and state: active, archived or
 change-axi                                 # on branch <slug>: that change's steps, ready list, next prompt
 change-axi claim split-auth [step]         # start a step, print Owns/Docs/Goal/Work/Done when
 change-axi done split-auth 01              # mark done, commit only tasks.md, warn outside Owns
+change-axi commit-plan [split-auth]        # human: commit the plan as docs(plan): propose <slug> (--reason "<why>" for amendments, --dry-run)
 change-axi start split-auth                # on main: in flight + commit + worktree
 change-axi enter split-auth [step]         # start if needed, run the agent in the worktree (--print to only print)
 change-axi enter                           # no slug: current change, the only in-flight change, or pick (TTY) / list (exit 1)
@@ -53,6 +54,20 @@ In a worktree the PATH binaries are the main checkout's build. Smoke-test your o
 ## Referring to changes
 
 Refer to a change from another change as `change:<slug>`, never by path (archive moves it). `change-axi where <slug>` resolves it; `show`, `sections` and `status` also read archived changes. `change-axi check` errors on an unknown slug and warns on `specs/changes/` paths. Docs and ADRs do not refer to changes: `docs-axi check` warns (`DOC_LINKS_TO_CHANGE`).
+
+## Commit format
+
+Tool commits are `chore(plan): start change`, `chore(plan): done <step-id>` and `chore(plan): archive change`; `commit-plan` writes `docs(plan): propose <slug>`. Each has a `Change: <slug>` trailer. Defaults shown; override under `[commit]` (repo over user config):
+
+```toml
+[commit]
+type = "chore"        # start, done, archive
+plan_type = "docs"    # commit-plan
+scope = "plan"        # "" drops the scope
+trailer = "Change"    # "" drops the trailer
+```
+
+A rejecting commit hook fails the command with `commit rejected` and the hook output.
 
 ## Agent config
 
