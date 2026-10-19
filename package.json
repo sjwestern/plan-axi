@@ -12,10 +12,14 @@
     "skills:install": "node scripts/install-skills.mjs",
     "skills:uninstall": "node scripts/install-skills.mjs --uninstall",
     "changeset": "changeset",
-    "version": "changeset version"
+    "version": "changeset version",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
     "@types/node": "^22.0.0",
+    "husky": "^9.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.11"
   }
