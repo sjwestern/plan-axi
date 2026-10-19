@@ -1,0 +1,38 @@
+# git-cliff config: changelog from conventional commits.
+[changelog]
+header = """
+# Changelog
+
+"""
+body = """
+{% if version %}\
+## {{ version | trim_start_matches(pat="v") }} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## Unreleased
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}\
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }}
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = false
+filter_commits = true
+topo_order = false
+sort_commits = "oldest"
+commit_parsers = [
+  { message = "^[a-z]+\\(plan\\)", skip = true },
+  { message = "^chore", skip = true },
+  { message = "^feat[a-z]*(\\([^)]*\\))?!?:", group = "Features" },
+  { message = "^fix[a-z]*(\\([^)]*\\))?!?:", group = "Bug fixes" },
+  { message = "^doc[a-z]*(\\([^)]*\\))?!?:", group = "Documentation" },
+  { message = "^refactor[a-z]*(\\([^)]*\\))?!?:", group = "Refactor" },
+  { message = "^test[a-z]*(\\([^)]*\\))?!?:", group = "Tests" },
+]
