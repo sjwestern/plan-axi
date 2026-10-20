@@ -4,6 +4,7 @@
 ## Queued
 - [ ] add-agent-profiles - Agent profiles and step tiers (kind: change) (since 2026-10-19)
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
+- [ ] improve-docs-axi-adr-discovery - Improve docs-axi ADR discovery and search (kind: change) (since 2026-10-20)
 ## Done
 - [x] conventional-commits - Use conventional commits with a Change trailer and lint them (kind: change) (done 2026-10-19)
 - [x] fix-finish-rerun-after-stuck-return - Make finish resumable after a stuck treehouse return (kind: change) (done 2026-10-19)
