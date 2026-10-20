@@ -16,6 +16,13 @@ describe("setup", () => {
     expect(SETUP_BLOCK).toContain("For exploration and planning tasks, look at the docs first");
   });
 
+  it("directs state questions to the CLIs and forbids reading state files", () => {
+    expect(SETUP_BLOCK).toContain("run `change-axi` and `tasks-axi list` first");
+    expect(SETUP_BLOCK).toContain("Never read `tasks.md` or `backlog.md` directly");
+    expect(SETUP_BLOCK).toContain("use `change-axi status <slug>` from the worktree");
+    expect(SETUP_BLOCK).toContain("Read `proposal.md` and step files only for content (scope, Owns), not state");
+  });
+
   it("creates a missing file and removes it again", () => {
     expect(applySetup(dir).created).toBe(true);
     expect(hasSetupBlock(dir)).toBe(true);
