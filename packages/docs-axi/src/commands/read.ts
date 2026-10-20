@@ -22,14 +22,84 @@ import { showSection } from "./sections.js";
 const HOME_ROWS = 40;
 const SHOW_CHARS = 1500;
 
-function row(d: Doc, withStatus: boolean): Record<string, string> {
+function adrMark(d: Doc): string {
+  return d.adrNumber === undefined ? "-" : `ADR-${String(d.adrNumber).padStart(4, "0")}`;
+}
+
+/** Default row formatter: path,title,summary plus optional status and ADR marker columns. */
+function row(d: Doc, withStatus: boolean, withAdr = false, matched?: string): Record<string, string> {
   const r: Record<string, string> = {
     path: d.path,
     title: displayTitle(d),
     summary: d.summary ?? "(no summary)",
   };
+  if (matched !== undefined) r["matched"] = matched;
+  if (withAdr) r["kind"] = adrMark(d);
   if (withStatus) r["status"] = d.status ?? "-";
   return r;
+}
+
+export interface ListFilter {
+  section?: string | undefined;
+  tag?: string | undefined;
+  status?: string | undefined;
+}
+
+/** Shared list core: filtered docs, sorted by path. */
+export function listDocs(ctx: Ctx, f: ListFilter): { all: Doc[]; hits: Doc[] } {
+  const all = loadDocs(ctx);
+  const hits = all.filter(
+    (d) =>
+      (f.section === undefined || d.section === f.section) &&
+      (f.tag === undefined || d.tags.includes(f.tag)) &&
+      (f.status === undefined || d.status === f.status),
+  );
+  return { all, hits };
+}
+
+export interface Scored {
+  d: Doc;
+  matched: number;
+  total: number;
+  score: number;
+}
+
+/** Shared search core: ranked docs. `all` keeps only docs matching every term. */
+export function searchDocs(
+  ctx: Ctx,
+  ts: string[],
+  opts: { section?: string | undefined; all?: boolean },
+): Scored[] {
+  const scored: Scored[] = [];
+  for (const d of loadDocs(ctx)) {
+    if (opts.section !== undefined && d.section !== opts.section) continue;
+    const title = displayTitle(d).toLowerCase();
+    const tags = d.tags.join(" ").toLowerCase();
+    const summary = (d.summary ?? "").toLowerCase();
+    const heads = headings(d.parsed.body);
+    const body = d.parsed.body.toLowerCase();
+    const path = d.path.toLowerCase();
+    let matched = 0;
+    let score = 0;
+    for (const t of ts) {
+      let s = 0;
+      if (title.includes(t)) s += 5;
+      if (tags.includes(t)) s += 4;
+      if (summary.includes(t)) s += 3;
+      if (heads.includes(t)) s += 2;
+      if (path.includes(t)) s += 2;
+      if (body.includes(t)) s += 1;
+      if (s > 0) matched++;
+      score += s;
+    }
+    if (matched > 0 && (!opts.all || matched === ts.length)) {
+      scored.push({ d, matched, total: ts.length, score });
+    }
+  }
+  scored.sort(
+    (a, b) => b.matched - a.matched || b.score - a.score || (a.d.path < b.d.path ? -1 : 1),
+  );
+  return scored;
 }
 
 export function homeCommand(ctx: Ctx): AxiStructuredOutput {
@@ -97,13 +167,7 @@ export function listCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const tag = flagStr(p, "--tag");
   const status = flagStr(p, "--status");
   const limit = parseLimit(p, 100);
-  const all = loadDocs(ctx);
-  const hits = all.filter(
-    (d) =>
-      (section === undefined || d.section === section) &&
-      (tag === undefined || d.tags.includes(tag)) &&
-      (status === undefined || d.status === status),
-  );
+  const { all, hits } = listDocs(ctx, { section, tag, status });
   if (hits.length === 0) {
     return {
       docs: `0 docs match${section ? ` in ${section}` : ""}${tag ? ` tag=${tag}` : ""}${status ? ` status=${status}` : ""} (${all.length} docs total)`,
@@ -111,9 +175,10 @@ export function listCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   }
   const shown = hits.slice(0, limit);
   const withStatus = shown.some((d) => d.status !== undefined);
+  const withAdr = shown.some((d) => d.adrNumber !== undefined);
   const out: AxiStructuredOutput = {
     count: `${shown.length} of ${hits.length}`,
-    docs: shown.map((d) => row(d, withStatus)),
+    docs: shown.map((d) => row(d, withStatus, withAdr)),
   };
   if (hits.length > shown.length) {
     out["help"] = [`Run \`docs-axi list${section ? ` ${section}` : ""} --limit ${hits.length}\` for all`];
@@ -123,18 +188,21 @@ export function listCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
 export const SEARCH_SPEC: CmdSpec = {
   name: "search",
-  flags: { "--section": "string", "--limit": "string" },
+  flags: { "--section": "string", "--limit": "string", "--all": "boolean" },
   min: 1,
   max: 20,
-  usage: "docs-axi search <terms...> [--section <s>] [--limit <n>]",
-  help: `usage: docs-axi search <terms...> [--section <s>] [--limit <n>]
+  usage: "docs-axi search <terms...> [--section <s>] [--all] [--limit <n>]",
+  help: `usage: docs-axi search <terms...> [--section <s>] [--all] [--limit <n>]
 Lexical search over title, tags, summary, headings and body. Ranked, deterministic.
 Docs matching more of the terms rank first.
 flags:
   --section <s>  configured section name | other
+  --all          only docs matching every term
   --limit <n>    max rows (default 10)
+matched column is N/M: terms found out of terms searched.
 examples:
   docs-axi search billing invoice
+  docs-axi search billing invoice --all
   docs-axi search cache --section <section>
 `,
 };
@@ -170,34 +238,7 @@ export function searchCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (ts.length === 0) {
     throw new AxiError("search needs at least one alphanumeric term", "VALIDATION_ERROR");
   }
-  const scored: { d: Doc; matched: number; score: number }[] = [];
-  for (const d of loadDocs(ctx)) {
-    if (section !== undefined && d.section !== section) continue;
-    const title = displayTitle(d).toLowerCase();
-    const tags = d.tags.join(" ").toLowerCase();
-    const summary = (d.summary ?? "").toLowerCase();
-    const heads = headings(d.parsed.body);
-    const body = d.parsed.body.toLowerCase();
-    const path = d.path.toLowerCase();
-    let matched = 0;
-    let score = 0;
-    for (const t of ts) {
-      let s = 0;
-      if (title.includes(t)) s += 5;
-      if (tags.includes(t)) s += 4;
-      if (summary.includes(t)) s += 3;
-      if (heads.includes(t)) s += 2;
-      if (path.includes(t)) s += 2;
-      if (body.includes(t)) s += 1;
-      if (s > 0) matched++;
-      score += s;
-    }
-    if (matched > 0) scored.push({ d, matched, score });
-  }
-  scored.sort(
-    (a, b) =>
-      b.matched - a.matched || b.score - a.score || (a.d.path < b.d.path ? -1 : 1),
-  );
+  const scored = searchDocs(ctx, ts, { section, all: flagBool(p, "--all") });
   if (scored.length === 0) {
     return {
       docs: `0 matches for: ${ts.join(" ")}`,
@@ -209,9 +250,10 @@ export function searchCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   }
   const shown = scored.slice(0, limit);
   const withStatus = shown.some((s) => s.d.status !== undefined);
+  const withAdr = shown.some((s) => s.d.adrNumber !== undefined);
   const out: AxiStructuredOutput = {
     count: `${shown.length} of ${scored.length} matches`,
-    docs: shown.map((s) => row(s.d, withStatus)),
+    docs: shown.map((s) => row(s.d, withStatus, withAdr, `${s.matched}/${s.total}`)),
   };
   out["help"] = ["Run `docs-axi show <path>` to read one"];
   return out;
