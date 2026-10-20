@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -24,14 +25,14 @@ afterEach(() => repo.cleanup());
 
 describe("adr fix-refs", () => {
   it("rewrites bare and stale refs in docs, active and archived; leaves code alone", async () => {
-    write("docs/domain/a.md", doc("See ADR 3, ADR 0005, ADR-3 and ADR-0003.\nStale: ADR-0005-old-name; moved: ADR-0042-alpha.\n```\nADR 3\n```\nInline `ADR 3`."));
+    write("docs/domain/a.md", doc("See ADR 3, ADR 0005, ADR-3 and ADR-0003.\nMoved: ADR-0042-alpha.\n```\nADR 3\n```\nInline `ADR 3`."));
     write("specs/changes/active/x/proposal.md", "Uses ADR 5.\n");
     write("specs/changes/archived/2024-01-01-o/proposal.md", "Uses ADR-0003.\n");
     const r = await repo.run("adr", "fix-refs");
     expect(r.code).toBe(0);
     const a = read("docs/domain/a.md");
     expect(a).toContain("See ADR-0003-alpha, ADR-0005-beta, ADR-0003-alpha and ADR-0003-alpha.");
-    expect(a).toContain("Stale: ADR-0005-beta; moved: ADR-0003-alpha.");
+    expect(a).toContain("Moved: ADR-0003-alpha.");
     expect(a).toContain("```\nADR 3\n```");
     expect(a).toContain("Inline `ADR 3`.");
     expect(read("specs/changes/active/x/proposal.md")).toBe("Uses ADR-0005-beta.\n");
@@ -66,5 +67,41 @@ describe("adr fix-refs", () => {
     const again = await repo.run("adr", "fix-refs");
     expect(again.out).toContain("no-op");
     expect(again.code).toBe(0);
+  });
+
+  it("lists each rewrite as file:line before -> after", async () => {
+    write("docs/domain/a.md", doc("x\nSee ADR 3."));
+    const r = await repo.run("adr", "fix-refs", "--dry-run");
+    expect(r.out).toContain("docs/domain/a.md:6  ADR 3 -> ADR-0003-alpha");
+  });
+
+  it("lists a full ref with a known number but unknown slug instead of rewriting", async () => {
+    write("docs/domain/a.md", doc("See ADR-0005-old-name."));
+    const r = await repo.run("adr", "fix-refs");
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("ADR-0005-beta");
+    expect(read("docs/domain/a.md")).toContain("ADR-0005-old-name");
+  });
+
+  it("leaves bare refs on lines that describe ref forms for review", async () => {
+    write("docs/domain/a.md", doc("Bare refs like ADR 5 are errors.\nReal ADR 3."));
+    const r = await repo.run("adr", "fix-refs");
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("review");
+    const a = read("docs/domain/a.md");
+    expect(a).toContain("Bare refs like ADR 5 are errors.");
+    expect(a).toContain("Real ADR-0003-alpha.");
+  });
+
+  it("refuses files with uncommitted changes unless --force", async () => {
+    execFileSync("git", ["init", "-q"], { cwd: repo.dir });
+    write("docs/domain/a.md", doc("See ADR 3."));
+    const r = await repo.run("adr", "fix-refs");
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("uncommitted");
+    expect(read("docs/domain/a.md")).toContain("See ADR 3.");
+    const f = await repo.run("adr", "fix-refs", "--force");
+    expect(f.code).toBe(0);
+    expect(read("docs/domain/a.md")).toContain("ADR-0003-alpha");
   });
 });
