@@ -3,13 +3,14 @@ import type { AxiStructuredOutput } from "../types.js";
 import { flagBool, flagStr, parseArgs, parseLimit, type CmdSpec } from "../args.js";
 import { ADR_STATUSES, displayTitle, requireDocsDir, type Ctx, type Doc } from "../model.js";
 import { findSectionOrUndefined, parseSections, sectionText, splitLines } from "../sections.js";
+import { adrFixRefsCommand } from "./adrfixrefs.js";
 import { adrRenumberCommand } from "./adrrenumber.js";
 import { listDocs, searchDocs, terms } from "./read.js";
 import { ADR_SPEC, adrAddCommand, requireAdrSection } from "./write.js";
 
 const DECISION_CHARS = 400;
 
-export const ADR_HELP = `usage: docs-axi adr [list|search|add|renumber] [args] [flags]
+export const ADR_HELP = `usage: docs-axi adr [list|search|add|renumber|fix-refs] [args] [flags]
 Read and record ADRs in the configured ADR section.
 subcommands:
   (none)                          ADR counts by status and hints
@@ -17,6 +18,7 @@ subcommands:
   search <terms...> [--all] [--full] [--limit <n>] ranked search over ADRs only
   add "<title>" --summary "<one line>" [flags]     create the next numbered ADR
   renumber <ref|path> [--to <n>]                   move an ADR to a new number and fix every ADR-NNNN-slug ref
+  fix-refs [--dry-run]                             rewrite bare/stale ADR refs to ADR-NNNN-slug (one-time migration)
 examples:
   docs-axi adr list --status accepted
   docs-axi adr search cache --all
@@ -145,6 +147,7 @@ export function adrCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const sub = args[0];
   const rest = args.slice(1);
   if (sub === "add") return adrAddCommand(ctx, rest);
+  if (sub === "fix-refs") return adrFixRefsCommand(ctx, rest);
   if (sub === "renumber") {
     return adrRenumberCommand(ctx, rest);
   }
@@ -157,8 +160,8 @@ export function adrCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (sub === "list") return list(ctx, section, rest);
   if (sub === "search") return search(ctx, section, rest);
   throw new AxiError(`unknown adr subcommand "${sub}"`, "VALIDATION_ERROR", [
-    sub.startsWith("--") ? "Subcommands: list, search, add, renumber" : `To create an ADR run: docs-axi adr add "${sub}" --summary "<one line>"`,
-    "Subcommands: list, search, add, renumber",
+    sub.startsWith("--") ? "Subcommands: list, search, add, renumber, fix-refs" : `To create an ADR run: docs-axi adr add "${sub}" --summary "<one line>"`,
+    "Subcommands: list, search, add, renumber, fix-refs",
   ]);
 }
 

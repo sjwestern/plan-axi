@@ -75,7 +75,7 @@ export function defaultBranchAdrs(ctx: Ctx): BranchAdr[] {
 
 const pad = (n: number): string => String(n).padStart(4, "0");
 
-function mdFiles(dir: string, out: string[]): void {
+export function mdFiles(dir: string, out: string[]): void {
   if (!existsSync(dir)) return;
   for (const e of readdirSync(dir)) {
     const p = join(dir, e);
