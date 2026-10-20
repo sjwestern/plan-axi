@@ -3,6 +3,7 @@ import { AxiError } from "axi-sdk-js";
 import type { AxiStructuredOutput } from "../types.js";
 import { flagBool, flagStr, parseArgs, parseLimit, type CmdSpec } from "../args.js";
 import {
+  ADR_STATUSES,
   displayTitle,
   docSectionNames,
   isDocSectionIn,
@@ -19,7 +20,6 @@ import { join } from "node:path";
 import { parseDoc } from "../frontmatter.js";
 import { showSection } from "./sections.js";
 
-const HOME_ROWS = 40;
 const SHOW_CHARS = 1500;
 
 function adrMark(d: Doc): string {
@@ -118,21 +118,27 @@ export function homeCommand(ctx: Ctx): AxiStructuredOutput {
       ],
     };
   }
-  const withStatus = docs.some((d) => d.status !== undefined);
-  const shown = docs.slice(0, HOME_ROWS);
-  const help = [
-    "Run `docs-axi search <terms>` to find docs by topic",
-    "Run `docs-axi show <path>` to read one",
-  ];
-  if (docs.length > shown.length) help.unshift(`Run \`docs-axi list\` for all ${docs.length} docs`);
-  return {
+  const out: AxiStructuredOutput = {
+    docs: `${docs.length} docs in ${docsRel(ctx)}`,
     counts: Object.fromEntries(
       docSectionNames(ctx.config.layout).map((s) => [s, docs.filter((d) => d.section === s).length]),
     ),
-    sections: Object.fromEntries(ctx.config.layout.sections.map((s) => [s.name, s.guide])),
-    docs: shown.map((d) => row(d, withStatus)),
-    help,
   };
+  const adrs = docs.filter((d) => d.adrNumber !== undefined);
+  if (ctx.config.layout.adr !== undefined) {
+    const by = ADR_STATUSES.map((st) => [st, adrs.filter((d) => d.status === st).length] as const)
+      .filter(([, n]) => n > 0)
+      .map(([st, n]) => `${n} ${st}`);
+    out["adrs"] = by.length > 0 ? `${adrs.length} (${by.join(", ")})` : `${adrs.length}`;
+  }
+  out["sections"] = Object.fromEntries(ctx.config.layout.sections.map((s) => [s.name, s.guide]));
+  out["help"] = [
+    "Run `docs-axi search <terms>` to find docs by topic (--all requires every term)",
+    "Run `docs-axi list [section]` to browse a section",
+    "Run `docs-axi adr list` to see ADRs",
+    "Run `docs-axi show <path>` to read one",
+  ];
+  return out;
 }
 
 export const LIST_SPEC: CmdSpec = {
