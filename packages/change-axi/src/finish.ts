@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
+import { guardAdrs } from "./adrguard.js";
 import { archiveChange } from "./archive.js";
 import type { Ctx } from "./change.js";
 import { defaultBranch, git } from "./git.js";
@@ -46,6 +47,7 @@ function checkOnBranch(ctx: Ctx, slug: string, base: string, o: FinishOptions): 
     const behind = git(ctx, ["rev-list", "--count", `${slug}..${base}`], true);
     throw new AxiError(`${slug} is behind ${base}${behind ? ` by ${behind} commits` : ""}: rebase needed`, "VALIDATION_ERROR", [`Run \`git rebase ${base}\`, resolve conflicts, run the tests, then check again`]);
   }
+  guardAdrs(ctx, `change-axi finish ${slug} --dry-run`);
   const archivedPaths = git(ctx, ["ls-tree", "-r", "--name-only", slug, "--", "specs/changes/archived"]).split("\n");
   const already = archivedPaths.some((f) => new RegExp(`^specs/changes/archived/\\d{4}-\\d{2}-\\d{2}-${slug}/`).test(f));
   let adrs: FinishReport["adrs"] = [];
@@ -98,6 +100,11 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
       withAgentHint(new AxiError(`${base} is not an ancestor of ${slug}`, "VALIDATION_ERROR", [`In the worktree: git rebase ${base}`]), slug);
     }
     if (!hasArchived(ctx, slug, slug)) {
+      try {
+        guardAdrs(wt, `change-axi finish ${slug}${o.dryRun ? " --dry-run" : ""}`);
+      } catch (e) {
+        withAgentHint(e, slug);
+      }
       let r: ReturnType<typeof archiveChange>;
       try {
         r = archiveChange(wt, slug, { dryRun: o.dryRun, commit: true, skipDocsCheck: o.skipDocsCheck });

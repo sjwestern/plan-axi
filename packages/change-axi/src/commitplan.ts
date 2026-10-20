@@ -2,6 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { activeDir, getDocsConfig, requireChange, type Ctx } from "./change.js";
+import { guardAdrs } from "./adrguard.js";
 import { checkChange } from "./check.js";
 import { commitHeader, commitStyle } from "./commitstyle.js";
 import { commit, git } from "./git.js";
@@ -38,6 +39,8 @@ export function commitPlan(ctx: Ctx, slugArg: string | undefined, o: CommitPlanO
   requireChange(ctx, slug);
   const chk = checkChange(ctx, slug);
   if (chk.errors.length > 0) throw new AxiError("plan check failed", "VALIDATION_ERROR", chk.errors.concat(`Run \`change-axi check ${slug}\``));
+
+  guardAdrs(ctx, `change-axi commit-plan ${slug}`);
 
   const docsDir = getDocsConfig(ctx).layout.dir;
   const paths = [`specs/changes/active/${slug}`, "backlog.md", ".tasks.toml", docsDir].filter((p) => existsSync(join(ctx.root, p)));
