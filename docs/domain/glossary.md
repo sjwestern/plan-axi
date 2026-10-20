@@ -12,4 +12,4 @@ summary: "Terms used across plan-axi: change, step, Owns, wave, backlog, ADR"
 - **Wave**: steps with no unfinished blockers between them; they may run in parallel if Owns do not overlap.
 - **Backlog**: `backlog.md`, one task per change (queued, in flight, done).
 - **Docs impact**: proposal section listing every doc a change creates or edits.
-- **ADR**: numbered decision record in `docs/decisions/`, status proposed until archive.
+- **ADR**: numbered decision record in `docs/decisions/`, status proposed until archive. Cited as an **ADR reference** in the full form `ADR-NNNN-slug` (number and slug must both match a file); bare `ADR 7` is an error.

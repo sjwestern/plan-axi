@@ -13,6 +13,7 @@ export const SETUP_BLOCK = `${START_MARK}
 - Use \`change-axi\` and \`tasks-axi\` for plan files. Never hand-edit \`tasks.md\` or \`backlog.md\`.
 - To find docs, start at the index: run \`docs-axi\` (lists the docs index; \`docs-axi config\` shows the docs layout and where each kind of doc goes), then \`docs-axi search <terms>\` for a topic and \`docs-axi show <path> --section <name>\` to read only what you need. If \`docs-axi\` is unavailable, use \`rg <terms>\` in the docs dir (it covers the index and doc bodies) and read only the matching files. Don't \`rg\` just the index when \`docs-axi\` works, since it lists only titles and summaries.
 - For exploration and planning tasks, look at the docs first (see above) so the idea fits existing docs and ADRs.
+- Cite ADRs in full as \`ADR-NNNN-slug\` (bare \`ADR 7\` is an error). An existing repo runs \`docs-axi adr fix-refs\` once to rewrite bare refs; on a number clash run the printed \`docs-axi adr renumber\` command.
 ${END_MARK}`;
 
 const TARGETS = ["AGENTS.md", "CLAUDE.md"];

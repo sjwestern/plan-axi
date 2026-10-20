@@ -51,7 +51,7 @@ Then run bare `change-axi` for orientation (progress, in-flight, ready steps). W
 7. **Done.** `change-axi done <slug> <id>` (after your own work commit). It marks the step done and commits only tasks.md. Act on any `OUTSIDE_OWNS` warning (its diff may include another agent's `start` line; that is accurate).
 8. Back to 1.
 
-For a docs step: edit the files named in `Owns:`, keep them small and single-topic, then `docs-axi update/index` as needed and `docs-axi check`. ADR status stays `proposed` until archive.
+For a docs step: edit the files named in `Owns:`, keep them small and single-topic, then `docs-axi update/index` as needed and `docs-axi check`; if it reports ADR ref errors run `docs-axi adr fix-refs`, and for a number clash `docs-axi adr renumber <ref>`. ADR status stays `proposed` until archive.
 
 When no steps remain: if tasks are still queued but blocked, they wait on another agent's in-flight task - report and stop. If everything is done, first run `change-axi finish <slug> --dry-run` from this worktree. If it reports a rebase is needed, run `git rebase <base>`, resolve conflicts, rerun the tests, and check again; fix any other error it reports and commit. Then tell the user the change is ready to finish. From the main checkout, run this (it archives if needed, merges, releases the worktree; add `--dry-run` to preview):
 

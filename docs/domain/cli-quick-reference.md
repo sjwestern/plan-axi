@@ -17,6 +17,8 @@ docs-axi adr                               # ADR counts by status
 docs-axi adr list --status accepted        # all|proposed|accepted|superseded|deprecated
 docs-axi adr list --full                   # adds decision text, superseded-by
 docs-axi adr search cache --all
+docs-axi adr renumber ADR-0007-use-postgres   # next free number; rewrites refs (--to <n>)
+docs-axi adr fix-refs                      # rewrite bare ADR refs to ADR-NNNN-slug
 docs-axi sections domain/billing           # headings and refs
 docs-axi show domain/billing --section Refunds
 printf 'text' | docs-axi write domain/billing --section Refunds
@@ -59,6 +61,12 @@ In a worktree the PATH binaries are the main checkout's build. Smoke-test your o
 ## Referring to changes
 
 Refer to a change from another change as `change:<slug>`, never by path (archive moves it). `change-axi where <slug>` resolves it; `show`, `sections` and `status` also read archived changes. `change-axi check` errors on an unknown slug and warns on `specs/changes/` paths. Docs and ADRs do not refer to changes: `docs-axi check` warns (`DOC_LINKS_TO_CHANGE`).
+
+## ADR references
+
+Cite ADRs as `ADR-NNNN-slug` (number and slug of an existing file). `docs-axi check` and `change-axi check` error on bare refs (`ADR 7`) and unknown or mismatched refs (`ADR_REF_BARE`, `ADR_REF_UNKNOWN`). `change-axi commit-plan` and `finish` also fail on duplicate ADR numbers, or a number already used by another file on the default branch (`ADR_DUPLICATE_NUMBER`, `ADR_NUMBER_TAKEN`), and print the fix: `docs-axi adr renumber <ref>` for clashes, `docs-axi adr fix-refs` for refs; then retry.
+
+Upgrade note: existing repos run `docs-axi adr fix-refs` once, because bare refs are now errors.
 
 ## Commit format
 

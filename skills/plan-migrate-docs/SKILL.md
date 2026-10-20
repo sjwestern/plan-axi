@@ -21,7 +21,7 @@ A one-off, human-approved cleanup. Run it on its own branch/commit, not inside a
    Re-run `docs-axi migrate --plan migration.json` to validate your edits (it shows the edited plan, does not modify it). Show the user the final table and wait for approval.
 5. **Apply.** `docs-axi migrate --apply --plan migration.json`. It `git mv`s, adds missing frontmatter (keeps existing values), rewrites relative links between docs, regenerates the index.
 6. **Fix outside references.** The result lists `references_outside_docs` (AGENTS.md, CI, code, skills). Edit each to the new path. These are not rewritten automatically.
-7. **Verify.** `docs-axi check` (no errors; read warnings - broken links in docs outside the layout are reported there; fixing them is a separate edit, ask the user), `git status`, spot-check 2-3 moved docs and their links. Delete `migration.json`. Leave the commit to the user. If asked to commit: `git mv` leaves renames staged and other edits (outside references, `.plan-axi.toml`) unstaged, so stage explicitly by name and group as: moves + config, outside-reference fixes, any doc-body fixes (dead links etc.).
+7. **Verify.** Run `docs-axi adr fix-refs` to rewrite bare ADR refs to `ADR-NNNN-slug`, then `docs-axi check` (no errors; read warnings - broken links in docs outside the layout are reported there; fixing them is a separate edit, ask the user), `git status`, spot-check 2-3 moved docs and their links. Delete `migration.json`. Leave the commit to the user. If asked to commit: `git mv` leaves renames staged and other edits (outside references, `.plan-axi.toml`) unstaged, so stage explicitly by name and group as: moves + config, outside-reference fixes, any doc-body fixes (dead links etc.).
 
 ## Rules
 

@@ -14,6 +14,8 @@ describe("setup", () => {
     expect(SETUP_BLOCK).toContain("docs-axi search");
     expect(SETUP_BLOCK).toContain("docs-axi config");
     expect(SETUP_BLOCK).toContain("For exploration and planning tasks, look at the docs first");
+    expect(SETUP_BLOCK).toContain("ADR-NNNN-slug");
+    expect(SETUP_BLOCK).toContain("docs-axi adr fix-refs");
   });
 
   it("directs state questions to the CLIs and forbids reading state files", () => {
