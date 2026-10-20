@@ -6,7 +6,7 @@ Today the controller runs `change-axi enter` once per step, each in its own term
 
 ## Context
 
-Docs read: ADR 0004 (plans committed on main, steps in a worktree), ADR 0005 (`Owns` and parallel safety), ADR 0006 (launch template), `docs/domain/cli-quick-reference.md`, `docs/architecture/plan-workflow.md`. Depends on change `add-agent-profiles` (profiles, tiers, `buildProfileCommand`, `resolveAgent`), which must be applied first. Reference: firstmate `bin/backends/herdr.sh` places one tab per task in the launcher's exact workspace (`HERDR_WORKSPACE_ID`, `tab create --workspace --cwd --label --no-focus`) and launches agents with `pane run`; herdr 0.9.5 docs/CLI reference and the herdr skill (`pane run`, `agent get|wait <pane-id>`).
+Docs read: ADR-0004-plans-are-committed-on-main-steps-run-in-a-worktree (plans committed on main, steps in a worktree), ADR-0005-owns-lists-the-files-a-step-edits (`Owns` and parallel safety), ADR-0006-agent-launch-uses-a-command-template (launch template), `docs/domain/cli-quick-reference.md`, `docs/architecture/plan-workflow.md`. Depends on change `add-agent-profiles` (profiles, tiers, `buildProfileCommand`, `resolveAgent`), which must be applied first. Reference: firstmate `bin/backends/herdr.sh` places one tab per task in the launcher's exact workspace (`HERDR_WORKSPACE_ID`, `tab create --workspace --cwd --label --no-focus`) and launches agents with `pane run`; herdr 0.9.5 docs/CLI reference and the herdr skill (`pane run`, `agent get|wait <pane-id>`).
 
 ## What changes
 
@@ -31,7 +31,7 @@ Decision: new ADR for the herdr-first launch backend.
 
 - `01-herdr-backend-and-launch-spike.md` - backend interface, herdr and print backends, fake-herdr tests, spike result
 - `02-run-command.md` - `change-axi run` wave launch, idempotence, dry-run, status table
-- `03-docs-adr-and-plan-apply-skill.md` - docs, ADR 8, plan-apply skill
+- `03-docs-adr-and-plan-apply-skill.md` - docs, ADR-0008-run-launches-ready-steps-as-herdr-tabs, plan-apply skill
 
 ## Acceptance
 

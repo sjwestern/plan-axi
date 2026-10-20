@@ -9,7 +9,7 @@ Docs: architecture/plan-workflow.md
 
 ## Context
 
-`SETUP_BLOCK` in `setup.ts` is compared byte-for-byte by `applySetup`, so an old block is refreshed in place. ADR 3: agents read docs by section through the CLI. Keep the existing three bullets unchanged.
+`SETUP_BLOCK` in `setup.ts` is compared byte-for-byte by `applySetup`, so an old block is refreshed in place. ADR-0003-agents-read-and-write-docs-by-section-through-the-cli: agents read docs by section through the CLI. Keep the existing three bullets unchanged.
 
 ## Work
 

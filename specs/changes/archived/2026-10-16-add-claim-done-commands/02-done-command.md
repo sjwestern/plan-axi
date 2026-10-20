@@ -9,7 +9,7 @@ Docs: none
 
 ## Context
 
-ADR 5: Owns is the write set. Baseline = last commit touching tasks.md (`git log -1 --format=%H -- <tasks.md>`) or `--since`. Use a commit pathspec so other staged files are untouched. Dirty tree outside tasks.md is allowed (parallel steps).
+ADR-0005-owns-lists-the-files-a-step-edits: Owns is the write set. Baseline = last commit touching tasks.md (`git log -1 --format=%H -- <tasks.md>`) or `--since`. Use a commit pathspec so other staged files are untouched. Dirty tree outside tasks.md is allowed (parallel steps).
 
 ## Work
 

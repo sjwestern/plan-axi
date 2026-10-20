@@ -9,7 +9,7 @@ Bare docs-axi prints a dashboard with no index rows.
 
 ## Context
 
-ADR 0011. Reuse section counts already computed in homeCommand. ADR status counts come from the ADR section docs.
+ADR-0011-adrs-are-read-through-the-adr-subcommand. Reuse section counts already computed in homeCommand. ADR status counts come from the ADR section docs.
 
 ## Work
 

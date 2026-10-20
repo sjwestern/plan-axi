@@ -2,7 +2,7 @@
 
 ## Why
 
-Two checkouts can each create the next ADR number before either lands, so git merges both files cleanly and the repo ends up with two ADR 0012. Plans and docs reference ADRs by bare number, so a clash silently points at two documents, and fixing one means hand-editing prose. Nothing checks for duplicates at commit-plan or finish.
+Two checkouts can each create the next ADR number before either lands, so git merges both files cleanly and the repo ends up with two ADRs sharing one number. Plans and docs reference ADRs by bare number, so a clash silently points at two documents, and fixing one means hand-editing prose. Nothing checks for duplicates at commit-plan or finish.
 
 ## Context
 
@@ -10,7 +10,7 @@ Docs read: docs/architecture/package-structure.md (change-axi imports docs-axi/l
 
 ## What changes
 
-- ADR references in plans, steps and docs use one full form: ADR-NNNN-slug (for example ADR-0011-adrs-are-read-through-the-adr-subcommand). Bare numbers (ADR 7, ADR 0007) are errors.
+- ADR references in plans, steps and docs use one full form: ADR-NNNN-slug (for example ADR-0011-adrs-are-read-through-the-adr-subcommand). Bare numbers (`ADR 7`, `ADR 0007`) are errors.
 - docs-axi check and change-axi check report ADR refs that do not resolve (number and slug must both match) and bare refs.
 - docs-axi adr renumber <ref|path> [--to <n>] renames the ADR file, rewrites its number, rewrites every ADR-NNNN-slug ref in the docs dir, active plans and archived changes (changes may reference docs), and regenerates the index.
 - Next free number = highest across the working tree, the local default branch and its remote-tracking ref (origin/<default>, no network), plus 1. Gaps are never filled. --to is rejected if the number is taken in any of those.

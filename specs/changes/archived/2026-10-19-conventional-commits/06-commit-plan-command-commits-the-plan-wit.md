@@ -9,7 +9,7 @@ The human runs `change-axi commit-plan [<slug>]` to save a plan the agent just g
 
 ## Context
 
-The human commits the plan (ADR 0004); the agent never does. Uses the commit helper and `commitStyle` from step 01 (type/plan_type/scope/trailer). Plan paths: `specs/changes/active/<slug>`, `backlog.md`, and the docs dir from `docs-axi config` (new docs and ADRs). start.ts line ~153 already treats these paths as "the plan". Also used for plan amendments on a branch. Never stages other paths.
+The human commits the plan (ADR-0004-plans-are-committed-on-main-steps-run-in-a-worktree); the agent never does. Uses the commit helper and `commitStyle` from step 01 (type/plan_type/scope/trailer). Plan paths: `specs/changes/active/<slug>`, `backlog.md`, and the docs dir from `docs-axi config` (new docs and ADRs). start.ts line ~153 already treats these paths as "the plan". Also used for plan amendments on a branch. Never stages other paths.
 
 ## Work
 

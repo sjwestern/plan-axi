@@ -6,7 +6,7 @@
 
 ## Context
 
-Docs read: `docs/decisions/0006-agent-launch-uses-a-command-template.md`, `docs/domain/cli-quick-reference.md` (Agent config), `docs/architecture/plan-workflow.md`, `docs/domain/glossary.md`. ADR 6 applies (template stays as the escape hatch). Code: `packages/change-axi/src/agent.ts`, `enter` in `commands.ts`, `loadRawConfig` in `docs-axi/src/config.ts` (flat `table.key` map, arrays unioned). Reference only: firstmate's `config/crew-dispatch.json` (rules map task kinds to harness/model/effort).
+Docs read: `docs/decisions/0006-agent-launch-uses-a-command-template.md`, `docs/domain/cli-quick-reference.md` (Agent config), `docs/architecture/plan-workflow.md`, `docs/domain/glossary.md`. ADR-0006-agent-launch-uses-a-command-template applies (template stays as the escape hatch). Code: `packages/change-axi/src/agent.ts`, `enter` in `commands.ts`, `loadRawConfig` in `docs-axi/src/config.ts` (flat `table.key` map, arrays unioned). Reference only: firstmate's `config/crew-dispatch.json` (rules map task kinds to harness/model/effort).
 In flight: `configurable-docs-layout` edits `commands.ts`, `spec.ts`, `setup.ts`, the plan skills, README and the quick reference. Apply this change after it finishes, or expect rebase conflicts in those files.
 
 ## What changes
@@ -25,16 +25,16 @@ Launching steps in herdr or running a wave (change `add-run-wave`). Harness adap
 
 ## Approach
 
-A profile is data (`harness`, `model`, `effort`); `agent.ts` gains `buildProfileCommand(profile, prompt)` returning one shell command, so `enter` and the later `run` share it. Resolution stays deterministic: only the initial `Tier:` value comes from agent judgment (`plan-propose`), and a human can edit it in review. Tier guidance is plain text in config read through a CLI command, so skills never parse TOML (ADR 3 style).
+A profile is data (`harness`, `model`, `effort`); `agent.ts` gains `buildProfileCommand(profile, prompt)` returning one shell command, so `enter` and the later `run` share it. Resolution stays deterministic: only the initial `Tier:` value comes from agent judgment (`plan-propose`), and a human can edit it in review. Tier guidance is plain text in config read through a CLI command, so skills never parse TOML (ADR-0003-agents-read-and-write-docs-by-section-through-the-cli style).
 Alternatives: (a) per-step raw model names in the plan - rejected, plans would hard-code machine-specific models; tiers keep plans portable. (b) firstmate-style natural-language rules resolved at launch - rejected, nondeterministic at the point where the human is the controller; judgment happens once, at proposal time. (c) `{model}` placeholder in the template only - rejected, does not cover effort or other harnesses.
-Decision: new ADR extending ADR 6 with profiles and tiers.
+Decision: new ADR extending ADR-0006-agent-launch-uses-a-command-template with profiles and tiers.
 
 ## Steps
 
 - `01-profile-config-and-enter-agent.md` - profiles in config, pi adapter, `enter --agent`
 - `02-step-tier-field-and-tier-resolution.md` - `Tier:` step header, tier-to-profile resolution, check warnings
 - `03-tier-guidance-command-and-propose-skill.md` - `change-axi guidance` and `plan-propose` sets suggested tiers
-- `04-docs-and-adr.md` - docs and ADR 7
+- `04-docs-and-adr.md` - docs and ADR-0007-agent-profiles-and-step-tiers-extend-the-launch-template
 
 ## Acceptance
 

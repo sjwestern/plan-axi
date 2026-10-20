@@ -6,7 +6,7 @@ Agents often end a prose sentence with a command (`... then run change-axi finis
 
 ## Context
 
-Docs read: `docs/architecture/plan-workflow.md`, `docs/domain/cli-quick-reference.md`. ADR 3 (agents act through the CLI). Skills that tell agents what to report or tell users what to run: plan-explore, plan-propose, plan-apply, plan-archive, plan-migrate-docs. `change-axi setup` writes a managed block into AGENTS.md (`src/setup.ts`).
+Docs read: `docs/architecture/plan-workflow.md`, `docs/domain/cli-quick-reference.md`. ADR-0003-agents-read-and-write-docs-by-section-through-the-cli (agents act through the CLI). Skills that tell agents what to report or tell users what to run: plan-explore, plan-propose, plan-apply, plan-archive, plan-migrate-docs. `change-axi setup` writes a managed block into AGENTS.md (`src/setup.ts`).
 
 ## What changes
 

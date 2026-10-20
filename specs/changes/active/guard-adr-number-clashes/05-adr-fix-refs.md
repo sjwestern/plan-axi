@@ -14,7 +14,7 @@ ADR-0012-adr-references-carry-number-and-slug-and-clashes-are-guarded. No soft r
 ## Work
 
 1. commands/adrfixrefs.ts: adr fix-refs [--dry-run]. Scan the docs dir, specs/changes/active and specs/changes/archived (skip code fences).
-2. Bare refs (ADR 7, ADR 0007, ADR-7, ADR-0007) resolve by number. If exactly one ADR has that number, rewrite to ADR-NNNN-slug.
+2. Bare refs (`ADR 7`, `ADR 0007`, `ADR-7`, `ADR-0007`) resolve by number. If exactly one ADR has that number, rewrite to ADR-NNNN-slug.
 3. Full refs whose number matches exactly one ADR but whose slug is stale (ADR file renamed), rewrite to the current slug. A ref whose slug matches exactly one ADR but whose number differs is rewritten to that ADR number. Anything else is unresolved.
 4. Ambiguous (number shared by several ADRs, or no match) are never guessed: list file, line, ref and candidates, exit non-zero, and point to docs-axi adr renumber for duplicate numbers.
 5. Write only files that change. Output: counts of refs fixed per area (docs, active, archived), files changed, unresolved list, help line to run docs-axi check. --dry-run prints the same without writing.

@@ -9,7 +9,7 @@ list and search share one core with pluggable row formatters. search gains match
 
 ## Context
 
-ADR 0011, 0009. Core lives in read.ts. Later steps call the core with the ADR section and their own formatter. Unknown flags must error (args.ts parseArgs).
+ADR-0011-adrs-are-read-through-the-adr-subcommand, 0009. Core lives in read.ts. Later steps call the core with the ADR section and their own formatter. Unknown flags must error (args.ts parseArgs).
 
 ## Work
 

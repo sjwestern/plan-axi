@@ -6,7 +6,7 @@ After `finish`, the merged branch stays and is deleted by hand with `git branch 
 
 ## Context
 
-Docs read: `docs/architecture/plan-workflow.md`, `docs/domain/cli-quick-reference.md`. ADR 4 (plans on main, steps on a branch in a worktree). `finish` was added by the archived change polish-archive-and-step-add; the earlier plan listed branch deletion as out of scope and a risk.
+Docs read: `docs/architecture/plan-workflow.md`, `docs/domain/cli-quick-reference.md`. ADR-0004-plans-are-committed-on-main-steps-run-in-a-worktree (plans on main, steps on a branch in a worktree). `finish` was added by the archived change polish-archive-and-step-add; the earlier plan listed branch deletion as out of scope and a risk.
 
 ## What changes
 

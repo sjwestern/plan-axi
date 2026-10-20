@@ -6,7 +6,7 @@ Three slips from the add-agent-launch trial. After `archive --commit` on a branc
 
 ## Context
 
-Docs read: `docs/domain/cli-quick-reference.md`, `docs/architecture/plan-workflow.md`. ADR 4 (plans on main, branch in worktree). Trial notes items 5 and 6 in `.agent-memory/plan-axi.md`. `treehouse --help` lists `return`, not `release`.
+Docs read: `docs/domain/cli-quick-reference.md`, `docs/architecture/plan-workflow.md`. ADR-0004-plans-are-committed-on-main-steps-run-in-a-worktree (plans on main, branch in worktree). Trial notes items 5 and 6 in `.agent-memory/plan-axi.md`. `treehouse --help` lists `return`, not `release`.
 
 ## What changes
 

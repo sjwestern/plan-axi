@@ -13,7 +13,7 @@ ADR-0012-adr-references-carry-number-and-slug-and-clashes-are-guarded. Existing 
 
 ## Work
 
-1. docs-axi src/adrrefs.ts: findRefs(text), resolveRef(ref, adrs), findBareRefs(text) (ADR 7, ADR 0007, ADR-7).
+1. docs-axi src/adrrefs.ts: findRefs(text), resolveRef(ref, adrs), findBareRefs(text) (`ADR 7`, `ADR 0007`, `ADR-7`).
 2. docs-axi check: ADR_REF_UNKNOWN (number or slug mismatch) and ADR_REF_BARE over docs dir.
 3. change-axi check: same for proposal and step files of the change.
 4. Messages say the expected form and the fix.

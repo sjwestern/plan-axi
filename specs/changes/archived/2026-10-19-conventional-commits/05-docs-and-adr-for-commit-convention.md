@@ -9,7 +9,7 @@ Docs describe the commit convention, the tool commit format and the lint/changel
 
 ## Context
 
-ADR 0010 is scaffolded (proposed) by plan-propose; plan-archive accepts it. Docs must not reference the change. Steps 01-04 define the final behavior.
+ADR-0010-commits-are-conventional-with-a-change-trailer is scaffolded (proposed) by plan-propose; plan-archive accepts it. Docs must not reference the change. Steps 01-04 define the final behavior.
 
 ## Work
 
@@ -17,7 +17,7 @@ ADR 0010 is scaffolded (proposed) by plan-propose; plan-archive accepts it. Docs
 2. cli-quick-reference.md: tool commit subjects, trailer, and the `[commit] type|plan_type|scope|trailer` settings and the `commit-plan` command with defaults, next to the `[apply]` example.
 3. README.md: one line in the config section (line ~28) pointing at `[commit]`.
 4. CONTRIBUTING.md: conventional commits enforced by husky; `npm install` installs the hook; `npm run changelog`.
-5. Review ADR 0010 against what was built; adjust text only.
+5. Review ADR-0010-commits-are-conventional-with-a-change-trailer against what was built; adjust text only.
 
 ## Done when
 

@@ -9,7 +9,7 @@ Docs and an ADR describe the configurable layout.
 
 ## Context
 
-ADR 2/3/6 constrain: docs edited in place, section-level CLI, config via `.plan-axi.toml`. ADR numbers are assigned by `docs-axi adr` (expected 0007; set the Owns path to the file it creates). Docs must not link to changes.
+ADR-0002-docs-are-edited-directly-no-delta-spec-merge/3/6 constrain: docs edited in place, section-level CLI, config via `.plan-axi.toml`. ADR numbers are assigned by `docs-axi adr` (expected 0007; set the Owns path to the file it creates). Docs must not link to changes.
 
 ## Work
 

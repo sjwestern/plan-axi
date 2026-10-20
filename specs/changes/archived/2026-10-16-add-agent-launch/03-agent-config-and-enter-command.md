@@ -9,7 +9,7 @@ Docs: docs/decisions/0006-agent-launch-uses-a-command-template.md
 
 ## Context
 
-ADR 6. `start.ts` has `leaseWorktree` (finds a worktree by `[slug]` label or leases one) and `startChange`; export `leaseWorktree`. Config resolution order: repo `.plan-axi.toml` `[apply] agent`, user config, env `CHANGE_AXI_AGENT`, PATH autodetect table. `docs-axi/src/config.ts` currently exposes docs tables only; add a raw merged-tables accessor and keep behavior and tests for docs unchanged. Spawn with `cwd` = worktree, `stdio: inherit`, shell-quote `{prompt}`. Non-TTY or `--print`: print instead of spawn. If already on branch `<slug>` use the current directory.
+ADR-0006-agent-launch-uses-a-command-template. `start.ts` has `leaseWorktree` (finds a worktree by `[slug]` label or leases one) and `startChange`; export `leaseWorktree`. Config resolution order: repo `.plan-axi.toml` `[apply] agent`, user config, env `CHANGE_AXI_AGENT`, PATH autodetect table. `docs-axi/src/config.ts` currently exposes docs tables only; add a raw merged-tables accessor and keep behavior and tests for docs unchanged. Spawn with `cwd` = worktree, `stdio: inherit`, shell-quote `{prompt}`. Non-TTY or `--print`: print instead of spawn. If already on branch `<slug>` use the current directory.
 
 ## Work
 

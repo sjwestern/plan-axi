@@ -5,11 +5,11 @@ Docs: none
 
 ## Goal
 
-Docs and the apply skill describe `enter`, `setup`, branch-aware home and `[apply] agent`; ADR 6 accepted content matches the build.
+Docs and the apply skill describe `enter`, `setup`, branch-aware home and `[apply] agent`; ADR-0006-agent-launch-uses-a-command-template accepted content matches the build.
 
 ## Context
 
-ADR 6 was created at propose time with status proposed and is accepted at archive. Docs sections to touch are listed in the proposal Docs impact. The skill should tell agents on a change branch to run bare `change-axi` for orientation and to prefer `change-axi enter` for launch.
+ADR-0006-agent-launch-uses-a-command-template was created at propose time with status proposed and is accepted at archive. Docs sections to touch are listed in the proposal Docs impact. The skill should tell agents on a change branch to run bare `change-axi` for orientation and to prefer `change-axi enter` for launch.
 
 ## Work
 

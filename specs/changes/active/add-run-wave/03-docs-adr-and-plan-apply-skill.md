@@ -5,7 +5,7 @@ Docs: none
 
 ## Goal
 
-Docs and the plan-apply skill describe `run`; ADR 8 is filled.
+Docs and the plan-apply skill describe `run`; ADR-0008-run-launches-ready-steps-as-herdr-tabs is filled.
 
 ## Context
 
@@ -17,7 +17,7 @@ ADR file `0008-run-launches-ready-steps-as-herdr-tabs.md` already exists (propos
 2. `README.md`: short "Run a wave" paragraph after the `enter` paragraph.
 3. `docs/architecture/plan-workflow.md`: run stops at each wave for human review; archive and finish stay manual.
 4. `skills/plan-apply/SKILL.md`: from main or the worktree, a controller can `change-axi run <slug>`; agents in tabs follow Execute mode for their one step.
-5. ADR 8 Context, Decision, Consequences reviewed against the built code.
+5. ADR-0008-run-launches-ready-steps-as-herdr-tabs Context, Decision, Consequences reviewed against the built code.
 6. `docs-axi check` clean.
 
 ## Done when

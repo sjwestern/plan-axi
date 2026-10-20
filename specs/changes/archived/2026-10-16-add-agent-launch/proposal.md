@@ -6,7 +6,7 @@ After `change-axi start`, the user still has to enter the worktree, open an agen
 
 ## Context
 
-Docs read: `architecture/plan-workflow.md` (step execution), ADR 4 (plans on main, steps in a treehouse worktree), ADR 1 (task state via tasks-axi). `change-axi start` already leases the worktree and prints `enter:`. `treehouse enter --print-path <id>` prints a path; `pi [messages...]` takes the first prompt as an argument. Config today: `docs-axi/src/config.ts` reads `~/.config/plan-axi/config.toml` and `.plan-axi.toml`, docs tables only.
+Docs read: `architecture/plan-workflow.md` (step execution), ADR-0004-plans-are-committed-on-main-steps-run-in-a-worktree (plans on main, steps in a treehouse worktree), ADR-0001-task-state-and-dependencies-live-in-tasks-axi (task state via tasks-axi). `change-axi start` already leases the worktree and prints `enter:`. `treehouse enter --print-path <id>` prints a path; `pi [messages...]` takes the first prompt as an argument. Config today: `docs-axi/src/config.ts` reads `~/.config/plan-axi/config.toml` and `.plan-axi.toml`, docs tables only.
 
 ## What changes
 
@@ -28,7 +28,7 @@ Docs read: `architecture/plan-workflow.md` (step execution), ADR 4 (plans on mai
 - Config: extend `docs-axi/src/config.ts` to expose the merged raw tables (it already merges user + repo); change-axi reads `[apply]`. One TOML parser stays in one place.
 - Built-in table maps agent binary to template: `pi {prompt}`, `claude {prompt}`, `codex {prompt}`, `gemini -i {prompt}`, `opencode --prompt {prompt}`. Only pi is verified here; the others are documented as best-effort and overridable.
 - Alternatives rejected: per-agent adapters beyond a template table (maintenance), editing the user's shell hook (not portable), auto-editing AGENTS.md from `start` (surprising writes; a hint plus explicit `setup` instead).
-- Decision recorded as ADR 6.
+- Decision recorded as ADR-0006-agent-launch-uses-a-command-template.
 
 ## Steps
 

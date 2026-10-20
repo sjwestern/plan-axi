@@ -9,7 +9,7 @@ Docs: docs/decisions/0006-agent-launch-uses-a-command-template.md
 
 ## Context
 
-ADR 6: the command template stays; profiles add to it. `agent.ts` has `resolveAgent(root)` (config `apply.agent`, env, autodetect) and `buildCommand(template, vars)`. `loadRawConfig` returns a flat `table.key` map; confirm `[apply.agents.small]` flattens to `apply.agents.small.model`. Pi flags (verified with `pi --help`): `--model <provider/id>`, `--thinking <off|minimal|low|medium|high|xhigh|max>`. Step 2 and the later `run` command reuse `buildProfileCommand` and `resolveAgent`; keep their signatures stable.
+ADR-0006-agent-launch-uses-a-command-template: the command template stays; profiles add to it. `agent.ts` has `resolveAgent(root)` (config `apply.agent`, env, autodetect) and `buildCommand(template, vars)`. `loadRawConfig` returns a flat `table.key` map; confirm `[apply.agents.small]` flattens to `apply.agents.small.model`. Pi flags (verified with `pi --help`): `--model <provider/id>`, `--thinking <off|minimal|low|medium|high|xhigh|max>`. Step 2 and the later `run` command reuse `buildProfileCommand` and `resolveAgent`; keep their signatures stable.
 
 ## Work
 

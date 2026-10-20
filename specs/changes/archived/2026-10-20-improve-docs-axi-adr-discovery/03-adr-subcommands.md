@@ -9,7 +9,7 @@ docs-axi adr has bare hint, list, search, add and supersede; the old create form
 
 ## Context
 
-ADR 0011, 0009. Wrap the step 01 core with the ADR section from the layout. If the layout has no ADR section, error with a hint to run docs-axi config. cli.ts routes the adr command; create logic stays in write.ts (move to adr add). supersede is ADR-only, so it moves under adr too; its logic (SUPERSEDE_SPEC in write.ts) is reused. Accepting ADRs needs no new command: change-axi archive sets status in-process.
+ADR-0011-adrs-are-read-through-the-adr-subcommand, 0009. Wrap the step 01 core with the ADR section from the layout. If the layout has no ADR section, error with a hint to run docs-axi config. cli.ts routes the adr command; create logic stays in write.ts (move to adr add). supersede is ADR-only, so it moves under adr too; its logic (SUPERSEDE_SPEC in write.ts) is reused. Accepting ADRs needs no new command: change-axi archive sets status in-process.
 
 ## Work
 

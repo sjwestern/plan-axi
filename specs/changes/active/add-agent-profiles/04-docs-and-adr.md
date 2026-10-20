@@ -5,7 +5,7 @@ Docs: none
 
 ## Goal
 
-Docs describe profiles, tiers, `--agent`, `Tier:` and `guidance`; ADR 7 is accepted-ready.
+Docs describe profiles, tiers, `--agent`, `Tier:` and `guidance`; ADR-0007-agent-profiles-and-step-tiers-extend-the-launch-template is accepted-ready.
 
 ## Context
 
@@ -17,7 +17,7 @@ The ADR file already exists (status proposed; `change-axi archive` accepts it). 
 2. `README.md`: Config section gets `[apply.agents.*]`, `[apply.tiers]`, `[propose.tiers]` example.
 3. `docs/domain/glossary.md`: add Profile and Tier.
 4. `docs/architecture/plan-workflow.md`: propose sets tiers; apply resolves them.
-5. ADR 7: fill Context, Decision, Consequences with real content (alternatives rejected: raw model names in plans, launch-time natural-language rules).
+5. ADR-0007-agent-profiles-and-step-tiers-extend-the-launch-template: fill Context, Decision, Consequences with real content (alternatives rejected: raw model names in plans, launch-time natural-language rules).
 6. `docs-axi check` clean.
 
 ## Done when

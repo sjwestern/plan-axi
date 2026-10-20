@@ -6,7 +6,7 @@ The managed plan-axi block in AGENTS.md covers apply mode and status questions o
 
 ## Context
 
-Docs read: `architecture/plan-workflow.md` (Launch and orientation describes the setup block), `domain/cli-quick-reference.md`. ADR 3 applies (agents read docs by section through the CLI). Code: `packages/change-axi/src/setup.ts` (`SETUP_BLOCK`), `packages/change-axi/test/setup.test.ts`. No other ADR constrains this.
+Docs read: `architecture/plan-workflow.md` (Launch and orientation describes the setup block), `domain/cli-quick-reference.md`. ADR-0003-agents-read-and-write-docs-by-section-through-the-cli applies (agents read docs by section through the CLI). Code: `packages/change-axi/src/setup.ts` (`SETUP_BLOCK`), `packages/change-axi/test/setup.test.ts`. No other ADR constrains this.
 
 ## What changes
 
@@ -25,7 +25,7 @@ Docs read: `architecture/plan-workflow.md` (Launch and orientation describes the
 
 ## Approach
 
-Edit the `SETUP_BLOCK` constant and extend `setup.test.ts` to assert the new bullets and that a stale block is refreshed in place. Run `change-axi setup` in this repo to refresh AGENTS.md. Alternative considered: a separate `## docs` subsection in the block - rejected, two bullets are enough. Alternative: tell agents to read `docs/README.md` directly - rejected, ADR 3 and `docs-axi search` cover bodies and scale better. No new ADR.
+Edit the `SETUP_BLOCK` constant and extend `setup.test.ts` to assert the new bullets and that a stale block is refreshed in place. Run `change-axi setup` in this repo to refresh AGENTS.md. Alternative considered: a separate `## docs` subsection in the block - rejected, two bullets are enough. Alternative: tell agents to read `docs/README.md` directly - rejected, ADR-0003-agents-read-and-write-docs-by-section-through-the-cli and `docs-axi search` cover bodies and scale better. No new ADR.
 
 ## Steps
 

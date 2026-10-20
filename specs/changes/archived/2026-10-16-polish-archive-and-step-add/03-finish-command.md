@@ -9,7 +9,7 @@ Docs: docs/architecture/plan-workflow.md, docs/decisions/0004-plans-are-committe
 
 ## Context
 
-ADR 4: plans on main, steps on a branch in a worktree. `archive` stays its own command (step 01 only adds a hint); finish calls the exported `archiveChange(ctx, slug, {dryRun, commit: true, skipDocsCheck})` with `ctx.root` = worktree path, so its branch/clean/tasks-done/Docs checks apply unchanged. start.ts finds the worktree via the `treehouse status` row whose branch label is the slug (`statusRows`; export it). `treehouse return <path>` ends lingering processes including the shell. Archive on a branch puts the plan under specs/changes/archived/<date>-<slug>/ on that branch only: detect with `git ls-tree -r --name-only <slug> -- specs/changes/archived`, not the main working tree.
+ADR-0004-plans-are-committed-on-main-steps-run-in-a-worktree: plans on main, steps on a branch in a worktree. `archive` stays its own command (step 01 only adds a hint); finish calls the exported `archiveChange(ctx, slug, {dryRun, commit: true, skipDocsCheck})` with `ctx.root` = worktree path, so its branch/clean/tasks-done/Docs checks apply unchanged. start.ts finds the worktree via the `treehouse status` row whose branch label is the slug (`statusRows`; export it). `treehouse return <path>` ends lingering processes including the shell. Archive on a branch puts the plan under specs/changes/archived/<date>-<slug>/ on that branch only: detect with `git ls-tree -r --name-only <slug> -- specs/changes/archived`, not the main working tree.
 
 ## Work
 
