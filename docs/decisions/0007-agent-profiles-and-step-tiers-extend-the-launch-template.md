@@ -8,7 +8,7 @@ status: proposed
 
 ## Context
 
-ADR 6 launches one command template for every step. Controllers want a smaller model for small or parallel steps without retyping commands, and plans must stay portable across machines.
+ADR-0006-agent-launch-uses-a-command-template launches one command template for every step. Controllers want a smaller model for small or parallel steps without retyping commands, and plans must stay portable across machines.
 
 ## Decision
 

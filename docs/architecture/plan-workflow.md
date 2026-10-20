@@ -27,17 +27,17 @@ backlog.md                               one tasks-axi task per change
 
 - docs-axi: docs frontmatter, generated index, ADR numbers, sections inside docs.
 - change-axi: change folders, step files, dependency edges, plan checks.
-- tasks-axi (external): task state and dependencies. See ADR 1.
+- tasks-axi (external): task state and dependencies. See ADR-0001-task-state-and-dependencies-live-in-tasks-axi.
 - treehouse (external): worktrees and branches.
 - Skills: prompts only; they call the CLIs.
 
 ## Step execution
 
-Pick a ready step, claim it (`change-axi claim`), implement inside `Owns:`, verify Done when, commit own paths only, then `change-axi done` (commits only tasks.md, warns on writes outside Owns). See ADR 4 and ADR 5.
+Pick a ready step, claim it (`change-axi claim`), implement inside `Owns:`, verify Done when, commit own paths only, then `change-axi done` (commits only tasks.md, warns on writes outside Owns). See ADR-0004-plans-are-committed-on-main-steps-run-in-a-worktree and ADR-0005-owns-lists-the-files-a-step-edits.
 
 ## Commit format
 
-All commits are conventional (`type(scope): subject`) and carry a `Change: <slug>` trailer, so history is machine-readable and satisfies commitlint. See ADR 10.
+All commits are conventional (`type(scope): subject`) and carry a `Change: <slug>` trailer, so history is machine-readable and satisfies commitlint. See ADR-0010-commits-are-conventional-with-a-change-trailer.
 
 | Commit | Written by | Message |
 | --- | --- | --- |
@@ -51,7 +51,7 @@ Type, plan type, scope and trailer key are configurable under `[commit]`. If a c
 
 ## Launch and orientation
 
-`change-axi enter <slug> [step]` runs the `start` preflight and commit when the change is queued, finds or leases the worktree, then spawns the configured agent command there (cwd = worktree, no `treehouse enter`) with the prompt `apply <slug> [step]`. See ADR 6.
+`change-axi enter <slug> [step]` runs the `start` preflight and commit when the change is queued, finds or leases the worktree, then spawns the configured agent command there (cwd = worktree, no `treehouse enter`) with the prompt `apply <slug> [step]`. See ADR-0006-agent-launch-uses-a-command-template.
 
 Existing branch: when a worktree already has `<slug>` checked out it is reused. Otherwise, if branch `<slug>` exists, it is compared with the default branch. No commits beyond the default branch: the branch is deleted and recreated. Commits present: the branch is kept, a free worktree is leased without `-b`, and `git switch <slug>` runs there (failure gives `GIT_ERROR`, e.g. branch checked out elsewhere). If the comparison cannot be made (`rev-list` fails, e.g. no `main`/`master`), `enter` stops with `VALIDATION_ERROR` and never deletes: inspect with `git log <base>..<slug>`, then delete the branch or `git switch <slug>` in a free worktree by hand.
 

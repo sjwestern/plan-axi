@@ -8,7 +8,7 @@ status: proposed
 
 ## Context
 
-Two checkouts can each take the next ADR number; git merges both files cleanly and docs-axi check only reports the duplicate if run. Bare refs like ADR 7 cannot say which document is meant once two share a number, so fixing a clash means hand-editing prose.
+Two checkouts can each take the next ADR number; git merges both files cleanly and docs-axi check only reports the duplicate if run. Bare refs like `ADR 7` cannot say which document is meant once two share a number, so fixing a clash means hand-editing prose.
 
 ## Decision
 
