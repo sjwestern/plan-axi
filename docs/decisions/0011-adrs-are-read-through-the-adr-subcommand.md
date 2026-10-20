@@ -1,7 +1,7 @@
 ---
 title: ADRs are read through the adr subcommand
 summary: Why ADR list, search and add live under docs-axi adr and status filtering is ADR-only
-status: proposed
+status: accepted
 ---
 
 # ADRs are read through the adr subcommand
