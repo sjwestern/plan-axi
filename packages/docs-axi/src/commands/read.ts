@@ -213,7 +213,7 @@ examples:
 `,
 };
 
-function terms(raw: string[]): string[] {
+export function terms(raw: string[]): string[] {
   const out = new Set<string>();
   for (const part of raw)
     for (const t of part.toLowerCase().split(/[^a-z0-9]+/)) if (t !== "") out.add(t);

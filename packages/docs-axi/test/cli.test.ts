@@ -32,8 +32,8 @@ describe("new / adr / update / supersede", () => {
 
   it("creates docs, numbers ADRs, and keeps the index in sync", async () => {
     await repo.run("new", "domain", "Billing rules", "--summary", "Invoice rules", "--tags", "billing");
-    await repo.run("adr", "First choice", "--summary", "one");
-    await repo.run("adr", "Second choice", "--summary", "two");
+    await repo.run("adr", "add", "First choice", "--summary", "one");
+    await repo.run("adr", "add", "Second choice", "--summary", "two");
     expect(read("domain/billing-rules.md")).toContain("tags: [billing]");
     expect(read("decisions/0002-second-choice.md")).toContain("status: proposed");
     const idx = read("README.md");
@@ -57,7 +57,7 @@ describe("new / adr / update / supersede", () => {
   });
 
   it("update is idempotent and rejects empty updates", async () => {
-    await repo.run("adr", "Pick", "--summary", "s");
+    await repo.run("adr", "add", "Pick", "--summary", "s");
     expect((await repo.run("update", "1", "--status", "accepted")).out).toContain("updated");
     expect((await repo.run("update", "1", "--status", "accepted")).out).toContain("no-op");
     expect((await repo.run("update", "1")).code).toBe(2);
@@ -65,8 +65,8 @@ describe("new / adr / update / supersede", () => {
   });
 
   it("supersede links both ADRs and check passes", async () => {
-    await repo.run("adr", "Old", "--summary", "o");
-    await repo.run("adr", "New", "--summary", "n");
+    await repo.run("adr", "add", "Old", "--summary", "o");
+    await repo.run("adr", "add", "New", "--summary", "n");
     await repo.run("supersede", "1", "--by", "2");
     expect(read("decisions/0001-old.md")).toContain("status: superseded");
     expect(read("decisions/0001-old.md")).toContain('superseded-by: "0002"');
@@ -108,8 +108,8 @@ describe("configured layout commands", () => {
 
     await repo.run("new", "guides", "Getting started", "--summary", "Product guide");
     await repo.run("new", "reference", "API", "--summary", "API reference");
-    await repo.run("adr", "First decision", "--summary", "first");
-    await repo.run("adr", "Second decision", "--summary", "second");
+    await repo.run("adr", "add", "First decision", "--summary", "first");
+    await repo.run("adr", "add", "Second decision", "--summary", "second");
     expect(read("rfcs/0002-second-decision.md")).toContain("status: proposed");
     expect((await repo.run("list", "guides")).out).toContain("guides/getting-started.md");
     expect((await repo.run("search", "product", "--section", "guides")).out).toContain("guides/getting-started.md");
@@ -210,7 +210,7 @@ describe("check", () => {
   });
 
   it("detects duplicate ADR numbers (two branches picked the same one)", async () => {
-    await repo.run("adr", "One", "--summary", "s");
+    await repo.run("adr", "add", "One", "--summary", "s");
     mkdirSync(join(repo.dir, "docs/decisions"), { recursive: true });
     writeFileSync(
       join(repo.dir, "docs/decisions/0001-other.md"),

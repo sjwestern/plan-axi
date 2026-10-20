@@ -7,7 +7,7 @@ beforeEach(async () => {
   await repo.run("init");
   await repo.run("new", "domain", "Worktree launch", "--summary", "Launching worktrees");
   await repo.run("new", "domain", "Worktree cleanup", "--summary", "Removing trees");
-  await repo.run("adr", "Launch via enter", "--summary", "Use enter to launch worktree");
+  await repo.run("adr", "add", "Launch via enter", "--summary", "Use enter to launch worktree");
 });
 afterEach(() => repo.cleanup());
 

@@ -22,8 +22,8 @@ describe("home dashboard", () => {
   it("prints counts and adr statuses without doc rows", async () => {
     await repo.run("init");
     await repo.run("new", "domain", "Billing rules", "--summary", "Invoice rules");
-    await repo.run("adr", "First choice", "--summary", "one");
-    await repo.run("adr", "Second choice", "--summary", "two");
+    await repo.run("adr", "add", "First choice", "--summary", "one");
+    await repo.run("adr", "add", "Second choice", "--summary", "two");
     const r = await repo.run();
     expect(r.out).toContain("counts");
     expect(r.out).toContain("adrs: 2 (2 proposed)");

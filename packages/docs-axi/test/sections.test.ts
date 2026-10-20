@@ -135,10 +135,10 @@ describe("write / append", () => {
 
 describe("adr section flags", () => {
   it("fills template sections in one call and keeps headings", async () => {
-    await repo.run("adr", "Pick X", "--summary", "why x", "--context", "ctx text", "--decision", "dec text");
+    await repo.run("adr", "add", "Pick X", "--summary", "why x", "--context", "ctx text", "--decision", "dec text");
     const t = read("decisions/0001-pick-x.md");
     expect(t).toContain("## Context\n\nctx text\n\n## Decision\n\ndec text\n\n## Consequences");
-    const r = await repo.run("adr", "Pick Y", "--summary", "y", "--body", "b", "--context", "c");
+    const r = await repo.run("adr", "add", "Pick Y", "--summary", "y", "--body", "b", "--context", "c");
     expect(r.code).not.toBe(0);
   });
 });

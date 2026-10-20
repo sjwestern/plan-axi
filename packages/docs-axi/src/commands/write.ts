@@ -107,7 +107,7 @@ export function initCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     help: [
       `Run \`docs-axi new <section> "<title>" --summary "<one line>"\` to add a doc. Sections:\n${layoutGuideLines(ctx.config.layout)}`,
       ...(ctx.config.layout.adr
-        ? ['Run `docs-axi adr "<title>" --summary "<one line>"` to record a decision']
+        ? ['Run `docs-axi adr add "<title>" --summary "<one line>"` to record a decision']
         : []),
     ],
   };
@@ -145,7 +145,7 @@ examples:
 };
 
 export const ADR_SPEC: CmdSpec = {
-  name: "adr",
+  name: "adr add",
   flags: {
     ...NEW_FLAGS,
     "--status": "string",
@@ -155,18 +155,18 @@ export const ADR_SPEC: CmdSpec = {
   },
   min: 1,
   max: 1,
-  usage: 'docs-axi adr "<title>" --summary "<one line>" [--slug <s>] [--tags a,b] [--status <s>]',
-  help: `usage: docs-axi adr "<title>" --summary "<one line>" [flags]
+  usage: 'docs-axi adr add "<title>" --summary "<one line>" [--slug <s>] [--tags a,b] [--status <s>]',
+  help: `usage: docs-axi adr add "<title>" --summary "<one line>" [flags]
 Alias for creating a doc in the configured ADR section. Picks the next ADR number (NNNN-slug.md),
 status proposed. Same flags as \`new\`, plus:
   --context <t> --decision <t> --consequences <t>   fill those template sections in one call
 Without them the template headings are created empty; fill later with \`docs-axi write <n> --section Decision\`.
 examples:
-  docs-axi adr "Use Postgres for the job queue" --summary "Why jobs live in Postgres, not Redis"
+  docs-axi adr add "Use Postgres for the job queue" --summary "Why jobs live in Postgres, not Redis"
 `,
 };
 
-function requireAdrSection(ctx: Ctx, command: string): string {
+export function requireAdrSection(ctx: Ctx, command: string): string {
   const adr = ctx.config.layout.adr;
   if (adr === undefined) {
     throw new AxiError(`${command} requires an ADR section`, "VALIDATION_ERROR", [
@@ -188,7 +188,7 @@ function createDoc(ctx: Ctx, section: string, titleRaw: string, p: Parsed): AxiS
   const summaryRaw = flagStr(p, "--summary");
   if (summaryRaw === undefined) {
     throw new AxiError("--summary is required", "VALIDATION_ERROR", [
-      `docs-axi ${isAdr ? "adr" : `new ${section}`} "${title}" --summary "<one line>"`,
+      `docs-axi ${isAdr ? "adr add" : `new ${section}`} "${title}" --summary "<one line>"`,
     ]);
   }
   const summary = checkSummary(summaryRaw);
@@ -262,9 +262,9 @@ export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   return createDoc(ctx, p.pos[0] as string, p.pos[1] as string, p);
 }
 
-export function adrCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+export function adrAddCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(ADR_SPEC, args);
-  return createDoc(ctx, requireAdrSection(ctx, "adr"), p.pos[0] as string, p);
+  return createDoc(ctx, requireAdrSection(ctx, "adr add"), p.pos[0] as string, p);
 }
 
 // ---------------------------------------------------------------- update

@@ -15,13 +15,11 @@ import {
   showCommand,
 } from "./commands/read.js";
 import {
-  ADR_SPEC,
   INDEX_SPEC,
   INIT_SPEC,
   NEW_SPEC,
   SUPERSEDE_SPEC,
   UPDATE_SPEC,
-  adrCommand,
   indexCommand,
   initCommand,
   newCommand,
@@ -38,6 +36,7 @@ import {
 } from "./commands/sections.js";
 import { MIGRATE_SPEC, migrateCommand } from "./commands/migrate.js";
 import { CONFIG_HELP, configCommand } from "./commands/config.js";
+import { ADR_HELP, adrCommand } from "./commands/adr.js";
 import { VERSION } from "./version.js";
 
 export const DESCRIPTION =
@@ -54,7 +53,9 @@ examples:
   docs-axi show domain/billing --section Refunds
   docs-axi write domain/billing --section Refunds --body "..."
   docs-axi new domain "Billing rules" --summary "Invoice, proration and refund rules"
-  docs-axi adr "Use Postgres for jobs" --summary "Why jobs live in Postgres, not Redis"
+  docs-axi adr list --status accepted
+  docs-axi adr search cache --all
+  docs-axi adr add "Use Postgres for jobs" --summary "Why jobs live in Postgres, not Redis"
   docs-axi update 7 --status accepted
   docs-axi check
 `;
@@ -67,7 +68,7 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   search: { run: searchCommand, help: SEARCH_SPEC.help },
   show: { run: showCommand, help: SHOW_SPEC.help },
   new: { run: newCommand, help: NEW_SPEC.help },
-  adr: { run: adrCommand, help: ADR_SPEC.help },
+  adr: { run: adrCommand, help: ADR_HELP },
   update: { run: updateCommand, help: UPDATE_SPEC.help },
   supersede: { run: supersedeCommand, help: SUPERSEDE_SPEC.help },
   index: { run: indexCommand, help: INDEX_SPEC.help },
