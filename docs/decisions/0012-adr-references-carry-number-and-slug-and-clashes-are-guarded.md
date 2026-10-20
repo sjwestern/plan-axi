@@ -1,7 +1,7 @@
 ---
 title: ADR references carry number and slug and clashes are guarded
 summary: Why ADR refs use ADR-NNNN-slug, renumber rewrites them, and commit-plan and finish fail on duplicate numbers
-status: proposed
+status: accepted
 ---
 
 # ADR references carry number and slug and clashes are guarded
