@@ -4,6 +4,7 @@ import type { AxiStructuredOutput } from "../types.js";
 import { parseArgs, type CmdSpec } from "../args.js";
 import { cmp, toPosix } from "../fsutil.js";
 import { readmeState } from "../indexgen.js";
+import { adrInfos, checkRefs } from "../adrrefs.js";
 import {
   ADR_FILE_RE,
   ADR_STATUSES,
@@ -29,7 +30,7 @@ Validate the docs folder. Exit 1 when problems are found.
 Config: [docs] ignore / [docs.map] in .plan-axi.toml (repo) or ~/.config/plan-axi/config.toml (user).
 Docs outside the layout are indexed under "Other" and not style-checked; style issues in mapped docs are warnings (exit 0).
 Checks: frontmatter (title, summary, tags), file names, ADR numbers/status/supersession,
-relative links resolve, index in sync.
+relative links resolve, ADR refs (ADR-NNNN-slug) resolve and are not bare, index in sync.
 Warns (DOC_LINKS_TO_CHANGE) when a doc links to specs/changes/ or uses change:<slug>.
 `,
 };
@@ -108,8 +109,10 @@ export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   };
 
   const byNumber = new Map<number, Doc[]>();
+  const adrs = adrInfos(docs);
   for (const d of docs) {
     for (const e of d.parsed.errors) add("FRONTMATTER_PARSE", d.path, e);
+    for (const p of checkRefs(d.parsed.body, adrs)) add(p.code, d.path, p.detail);
     checkChangeRefs(d, warnings);
     // Docs outside the layout are indexed in place: no style checks, but dead links are reported (warnings).
     if (d.section === "other") {

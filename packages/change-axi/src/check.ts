@@ -1,8 +1,10 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { splitDoc } from "docs-axi/lib/sectionedit";
 import { sectionText, findSectionOrUndefined } from "docs-axi/lib/sections";
-import { activeDir, archivedDir, backlogSlugs, changeDir, headerLine, readLf, splitList, stepFiles, tasksRel, TOOL_DIRS, SLUG_RE, MAX_SLUG, type Ctx } from "./change.js";
+import { activeDir, archivedDir, backlogSlugs, changeDir, getDocsConfig, headerLine, readLf, splitList, stepFiles, tasksRel, TOOL_DIRS, SLUG_RE, MAX_SLUG, type Ctx } from "./change.js";
+import { adrInfos, checkRefs, type AdrInfo } from "docs-axi/lib/adrrefs";
+import { loadDocs } from "docs-axi/lib/model";
 import { PROPOSAL_SECTIONS, STEP_SECTIONS } from "./spec.js";
 import { listTasks, type Task } from "./tasks.js";
 
@@ -141,9 +143,18 @@ export function checkChange(ctx: Ctx, slug: string): CheckResult {
     if (!existsSync(d)) continue;
     for (const n of readdirSync(d)) known.add(d === archivedDir(ctx) && /^\d{4}-\d{2}-\d{2}-/.test(n) ? n.slice(11) : n);
   }
+  let adrs: AdrInfo[] = [];
+  try {
+    const config = getDocsConfig(ctx);
+    const docsDir = resolve(ctx.root, config.layout.dir);
+    if (existsSync(docsDir)) adrs = adrInfos(loadDocs({ root: ctx.root, docsDir, config }));
+  } catch {
+    warnings.push("ADR_REFS_UNCHECKED: could not load docs; ADR refs not checked");
+  }
   const refFiles = [...(hasProposal ? ["proposal.md"] : []), ...steps];
   for (const f of refFiles) {
     const text = f === "proposal.md" ? proposalText : readLf(join(dir, f));
+    for (const p of checkRefs(text, adrs)) errors.push(`${p.code}: ${f}: ${p.detail}`);
     const bad = new Set<string>();
     for (const m of text.matchAll(/(?<![\w-])change:([a-z0-9][a-z0-9-]*)/g)) {
       const ref = m[1] as string;
