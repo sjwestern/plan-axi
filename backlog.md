@@ -1,10 +1,10 @@
 # Backlog
 
 ## In flight
+- [ ] guard-adr-number-clashes - Guard against ADR number clashes (kind: change) (since 2026-10-20)
 ## Queued
 - [ ] add-agent-profiles - Agent profiles and step tiers (kind: change) (since 2026-10-19)
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
-- [ ] guard-adr-number-clashes - Guard against ADR number clashes (kind: change) (since 2026-10-20)
 ## Done
 - [x] improve-docs-axi-adr-discovery - Improve docs-axi ADR discovery and search (kind: change) (done 2026-10-20)
 - [x] conventional-commits - Use conventional commits with a Change trailer and lint them (kind: change) (done 2026-10-19)
