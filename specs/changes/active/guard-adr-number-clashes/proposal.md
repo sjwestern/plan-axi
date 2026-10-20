@@ -15,7 +15,8 @@ Docs read: docs/architecture/package-structure.md (change-axi imports docs-axi/l
 - docs-axi adr renumber <ref|path> [--to <n>] renames the ADR file, rewrites its number, rewrites every ADR-NNNN-slug ref in the docs dir, active plans and archived changes (changes may reference docs), and regenerates the index.
 - Next free number = highest across the working tree, the local default branch and its remote-tracking ref (origin/<default>, no network), plus 1. Gaps are never filled. --to is rejected if the number is taken in any of those.
 - commit-plan and finish fail on duplicate ADR numbers, on an ADR number already used by a different file on the default branch (local or origin/<default>), and on unresolved or bare refs. The error names the files, says which one is not on the default branch, and gives at most two commands: the renumber command, then the retry. It adds a `git pull --rebase` hint only when the local default branch is behind origin/<default>.
-- Existing active plans and docs are migrated to the new reference form.
+- docs-axi adr fix-refs [--dry-run] is the required one-time migration for existing repos. It rewrites bare and stale refs to ADR-NNNN-slug in docs, active changes and archived changes, lists ambiguous ones without guessing, and reports docs that reference changes (docs must not; changes may reference docs). No soft rollout: checks and guards fail until it has been run.
+- This repo is migrated by running it.
 
 ## Out of scope
 
@@ -25,7 +26,7 @@ Docs read: docs/architecture/package-structure.md (change-axi imports docs-axi/l
 
 ## Approach
 
-Add src/adrrefs.ts in docs-axi (docs-axi/lib/adrrefs): regex ADR-(\d{4})-([a-z0-9-]+); find refs outside code fences, resolve against loaded ADRs, detect bare refs. docs-axi check and change-axi check use it. renumber resolves the ADR, picks the number (--to or next free across tree, local default and origin/<default>), renames the file, replaces the exact token in docs, active and archived plans, regenerates the index. Guards share one adrguard function in change-axi used by commit-plan and finish. The fix path stays at renumber plus retry; pulling or rebasing is hinted only when the local default branch is behind origin. Alternatives: slug-only refs (bigger change), fetch-based prevention (does not fix a clash). Decision recorded in ADR-0012-adr-references-carry-number-and-slug-and-clashes-are-guarded.
+fix-refs reuses the same parser and resolves by number, then slug. Add src/adrrefs.ts in docs-axi (docs-axi/lib/adrrefs): regex ADR-(\d{4})-([a-z0-9-]+); find refs outside code fences, resolve against loaded ADRs, detect bare refs. docs-axi check and change-axi check use it. renumber resolves the ADR, picks the number (--to or next free across tree, local default and origin/<default>), renames the file, replaces the exact token in docs, active and archived plans, regenerates the index. Guards share one adrguard function in change-axi used by commit-plan and finish. The fix path stays at renumber plus retry; pulling or rebasing is hinted only when the local default branch is behind origin. Alternatives: slug-only refs (bigger change), fetch-based prevention (does not fix a clash). Decision recorded in ADR-0012-adr-references-carry-number-and-slug-and-clashes-are-guarded.
 
 ## Steps
 
@@ -33,6 +34,7 @@ Add src/adrrefs.ts in docs-axi (docs-axi/lib/adrrefs): regex ADR-(\d{4})-([a-z0-
 - `02-adr-renumber-command.md`
 - `03-guard-commit-plan-and-finish.md`
 - `04-migrate-refs-docs-and-skills.md`
+- `05-adr-fix-refs.md` - docs-axi adr fix-refs migration command
 
 ## Acceptance
 

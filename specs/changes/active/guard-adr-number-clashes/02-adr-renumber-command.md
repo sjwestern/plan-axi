@@ -9,7 +9,7 @@ docs-axi adr renumber moves an ADR to a new number and fixes every reference, in
 
 ## Context
 
-ADR-0012-adr-references-carry-number-and-slug-and-clashes-are-guarded. Needs the adr router from change:improve-docs-axi-adr-discovery. The slug in each ref disambiguates a clashing pair. Never touch specs/changes/archived.
+ADR-0012-adr-references-carry-number-and-slug-and-clashes-are-guarded. Needs the adr router from change:improve-docs-axi-adr-discovery. The slug in each ref disambiguates a clashing pair. Archived changes are rewritten too (changes may reference docs); archived refs must stay valid.
 
 ## Work
 

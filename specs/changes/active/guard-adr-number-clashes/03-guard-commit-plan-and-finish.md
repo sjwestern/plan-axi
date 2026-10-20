@@ -14,9 +14,9 @@ ADR-0012-adr-references-carry-number-and-slug-and-clashes-are-guarded. No fetch.
 ## Work
 
 1. src/adrguard.ts: checkAdrs(ctx) returns duplicate numbers in the tree, ADR numbers already used by a different file on the local default branch or origin/<default> (git ls-tree, no fetch), and unresolved/bare refs. The file not present on the default branch is the one to renumber.
-2. commit-plan and finish call it before committing; on failure throw VALIDATION_ERROR listing the files and at most two help lines: docs-axi adr renumber <ref>, then retry the same command. Add a pull hint (git pull --rebase) only when the local default branch is behind origin/<default>.
+2. commit-plan and finish call it before committing; on failure throw VALIDATION_ERROR listing the files and at most two help lines: docs-axi adr renumber <ref> (for clashes) or docs-axi adr fix-refs (for bare or stale refs), then retry the same command. Add a pull hint (git pull --rebase) only when the local default branch is behind origin/<default>.
 3. Dry-run output reports it too.
 
 ## Done when
 
-test/adrguard.test.ts passes: duplicate in tree blocks commit-plan and finish; a number used on the default branch blocks and names the branch-side file; the help is at most two commands; after renumber the command succeeds; bare ref blocks. npm test passes.
+test/adrguard.test.ts passes: duplicate in tree blocks commit-plan and finish; a number used on the default branch blocks and names the branch-side file; the help is at most two commands; after renumber the command succeeds; bare ref blocks and the error names docs-axi adr fix-refs. npm test passes.
