@@ -102,7 +102,7 @@ describe("change refs", () => {
 
   it("docs-axi warns on docs and ADRs linking changes, ignores placeholders", async () => {
     await docs("new", "architecture", "Arch", "--summary", "A");
-    await docs("adr", "Pick", "--summary", "pick", "--context", "see change:alpha", "--decision", "d", "--consequences", "e");
+    await docs("adr", "add", "Pick", "--summary", "pick", "--context", "see change:alpha", "--decision", "d", "--consequences", "e");
     const a = join(dir, "docs/architecture/arch.md");
     writeFileSync(a, readFileSync(a, "utf8") + "\nSee [plan](../../specs/changes/active/alpha/proposal.md). Also `specs/changes/active/<slug>/`.\n");
     await docs("index");

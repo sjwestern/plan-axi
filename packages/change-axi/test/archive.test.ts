@@ -37,7 +37,7 @@ beforeEach(async () => {
   await run("write", P, "proposal", "--section", "Docs impact", "--body", "- `docs/domain/thing.md` - new: thing\n- `docs/decisions/0001-pick.md` - new ADR");
   for (const s of ["Goal", "Context", "Work", "Done when"]) await run("write", P, "01", "--section", s, "--body", "x");
   await docs("new", "domain", "Thing", "--summary", "A thing");
-  await docs("adr", "Pick", "--summary", "pick", "--context", "c", "--decision", "d", "--consequences", "e");
+  await docs("adr", "add", "Pick", "--summary", "pick", "--context", "c", "--decision", "d", "--consequences", "e");
   writeFileSync(join(dir, ".gitignore"), "");
   git("add", "-A");
   git("commit", "-q", "-m", "plan");
@@ -60,7 +60,7 @@ describe("archive", () => {
     rmSync(join(dir, "docs"), { recursive: true, force: true });
     await docs("init");
     await docs("new", "guides", "Thing", "--summary", "A thing");
-    await docs("adr", "Pick", "--summary", "pick", "--context", "c", "--decision", "d", "--consequences", "e");
+    await docs("adr", "add", "Pick", "--summary", "pick", "--context", "c", "--decision", "d", "--consequences", "e");
     await run(
       "write",
       "demo-change",
