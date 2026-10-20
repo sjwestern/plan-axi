@@ -42,9 +42,9 @@ npm test passes. docs-axi shows a dashboard with no rows. docs-axi adr, adr list
 
 ## Docs impact
 
-- docs/domain/cli-quick-reference.md - update: adr subcommands, search --all and matched, dashboard home.
-- docs/decisions/0011-adrs-are-read-through-the-adr-subcommand.md - create: ADR (proposed).
-- skills/plan-propose/SKILL.md, skills/plan-explore/SKILL.md - update: new adr commands.
+- `docs/domain/cli-quick-reference.md` - update: adr subcommands, search --all and matched, dashboard home.
+- `docs/decisions/0011-adrs-are-read-through-the-adr-subcommand.md` - create: ADR (proposed).
+- `skills/plan-propose/SKILL.md`, `skills/plan-explore/SKILL.md` - update: new adr commands.
 
 ## Risks and open questions
 
