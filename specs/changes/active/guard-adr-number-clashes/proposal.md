@@ -42,10 +42,10 @@ npm test passes. With two ADRs numbered 0012, docs-axi check reports the clash; 
 
 ## Docs impact
 
-- docs/decisions/0012-adr-references-carry-number-and-slug-and-clashes-are-guarded.md - create: ADR (proposed).
-- docs/domain/cli-quick-reference.md - update: adr renumber, ref form, guard errors.
-- docs/domain/glossary.md - update: ADR reference.
-- skills/plan-propose/SKILL.md, skills/plan-explore/SKILL.md - update: full ref form, clash fix.
+- `docs/decisions/0012-adr-references-carry-number-and-slug-and-clashes-are-guarded.md` - create: ADR (proposed).
+- `docs/domain/cli-quick-reference.md` - update: adr renumber, ref form, guard errors.
+- `docs/domain/glossary.md` - update: ADR reference.
+- `skills/plan-propose/SKILL.md`, `skills/plan-explore/SKILL.md` - update: full ref form, clash fix.
 
 ## Risks and open questions
 
