@@ -9,7 +9,7 @@ Shape a change with the user. **Write nothing**: no files, no scratch notes, no 
 
 ## Read first
 
-1. Docs map: `docs-axi` (no args). Then `docs-axi search <terms>` for the topic, and `docs-axi sections <path>` then `docs-axi show <path> --section <name>` for the parts that matter (read whole docs only when needed). Run `docs-axi config` for the docs layout (sections and what each is for). Check ADRs (the `adr` section) that touch the area; an accepted ADR is a constraint unless the user wants to supersede it.
+1. Docs map: `docs-axi` (no args). Then `docs-axi search <terms>` for the topic, and `docs-axi sections <path>` then `docs-axi show <path> --section <name>` for the parts that matter (read whole docs only when needed). Run `docs-axi config` for the docs layout (sections and what each is for). Check ADRs that touch the area with `docs-axi adr search <terms>` (or `docs-axi adr list --status accepted`); an accepted ADR is a constraint unless the user wants to supersede it.
 2. If `docs-axi` is "command not found", stop and tell the user to install it (`npm run build && npm link`).
 3. Code: read what the idea touches. Prefer reading over guessing.
 4. Planned and in-flight work, so the idea does not collide: `tasks-axi list --state queued` and `tasks-axi list --state in_flight` (repo `backlog.md`). Active plans: `specs/changes/active/*/proposal.md` titles only. Refer to related changes as `change:<slug>` (find one with `change-axi where <slug>`), never by path. Docs and ADRs stand alone: do not plan docs that point at a change; the doc holds what the reader needs.

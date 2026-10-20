@@ -10,14 +10,19 @@ Run `<tool> <command> --help` for flags.
 ## docs-axi
 
 ```sh
-docs-axi                                   # map
-docs-axi search billing invoice
+docs-axi                                   # dashboard: counts, ADR statuses, hints
+docs-axi search billing invoice            # matched column is N/M terms
+docs-axi search billing invoice --all      # only docs with every term
+docs-axi adr                               # ADR counts by status
+docs-axi adr list --status accepted        # all|proposed|accepted|superseded|deprecated
+docs-axi adr list --full                   # adds decision text, superseded-by
+docs-axi adr search cache --all
 docs-axi sections domain/billing           # headings and refs
 docs-axi show domain/billing --section Refunds
 printf 'text' | docs-axi write domain/billing --section Refunds
 docs-axi append domain/billing --section "Open questions" --body "- Tax?"
 docs-axi new domain "Billing" --summary "Invoice rules" --body-file -
-docs-axi adr "Use Postgres" --summary "Why jobs live in Postgres" \
+docs-axi adr add "Use Postgres" --summary "Why jobs live in Postgres" \
   --context "..." --decision "..." --consequences "..."
 docs-axi update 7 --status accepted
 docs-axi check
