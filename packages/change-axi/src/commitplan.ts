@@ -46,7 +46,8 @@ export function commitPlan(ctx: Ctx, slugArg: string | undefined, o: CommitPlanO
   const header = commitHeader(style.planType, style.scope, subject);
   const message = style.trailer === "" ? header : `${header}\n\n${style.trailer}: ${slug}`;
 
-  const status = git(ctx, ["status", "--porcelain", "-uall"]);
+  // raw: trimming would strip the leading space of the first porcelain line (" M file") and corrupt its path
+  const status = git(ctx, ["status", "--porcelain", "-uall"], false, true);
   const isPlan = (f: string): boolean => paths.some((p) => f === p || f.startsWith(`${p}/`));
   const all = porcelainFiles(status);
   const files = all.filter(isPlan);

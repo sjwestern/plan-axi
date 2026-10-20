@@ -46,6 +46,17 @@ afterEach(() => {
 });
 
 describe("commit-plan", () => {
+  it("reports backlog.md in files and prints unmangled warning paths", async () => {
+    writeFileSync(join(dir, "backlog.md"), "# b\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "backlog");
+    await plan("demo");
+    writeFileSync(join(dir, "stray.txt"), "x");
+    const { out } = await run("commit-plan", "--dry-run");
+    expect(out).toContain("backlog.md");
+    expect(out).toContain("stray.txt");
+    expect(out).not.toMatch(/[^b]acklog\.md/);
+  });
   it("auto-detects the one plan, default message and trailer", async () => {
     await plan("demo");
     const r = await run("commit-plan");

@@ -3,9 +3,10 @@ import { AxiError } from "axi-sdk-js";
 import type { Ctx } from "./change.js";
 import { commitHeader, commitStyle } from "./commitstyle.js";
 
-export function git(ctx: Ctx, args: string[], allowFail = false): string {
+export function git(ctx: Ctx, args: string[], allowFail = false, raw = false): string {
   try {
-    return execFileSync("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+    const out = execFileSync("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return raw ? out : out.trim();
   } catch (e) {
     if (allowFail) return "";
     const err = e as { stderr?: string; message?: string };
