@@ -15,6 +15,7 @@ Docs read: docs/domain/cli-quick-reference.md, docs/architecture/package-structu
 - docs-axi adr list [--status <s>|all] [--full] [--limit n]: all ADRs by default; schema number,title,status,summary; --full adds truncated decision text and superseded-by.
 - docs-axi adr search <terms> [--all] [--full]: ranked search scoped to the ADR section, resolved from the layout.
 - docs-axi adr add "<title>" ...: the old docs-axi adr "<title>" create. The old form errors with a hint.
+- docs-axi adr supersede <old> --by <new>: moved from top-level supersede, which errors with a hint. Accepting needs no command (archive does it in-process).
 - docs-axi search gains a matched N/M column and --all (require every term). Mixed list/search results mark ADRs explicitly.
 - Unknown flags and subcommands fail loudly.
 
