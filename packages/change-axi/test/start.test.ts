@@ -54,7 +54,7 @@ describe("start", () => {
     expect(r.code).toBe(0);
     expect(r.out).toContain("started");
     expect(r.out).toContain("01-do-it");
-    expect(git("log", "-1", "--format=%s")).toBe("chore(plan): start change");
+    expect(git("log", "-1", "--format=%s")).toBe(`chore(plan): start ${P}`);
     expect(git("log", "-1", "--format=%(trailers:key=Change,valueonly)").trim()).toBe(P);
     expect(git("show", "--name-only", "--format=", "HEAD")).toBe("backlog.md");
     expect(git("status", "--porcelain")).toContain("unrelated.txt");

@@ -115,7 +115,7 @@ describe("archive", () => {
     expect(existsSync(join(dir, `specs/changes/archived/${date}-demo-change/proposal.md`))).toBe(true);
     expect(readFileSync(join(dir, "docs/decisions/0001-pick.md"), "utf8")).toContain("status: accepted");
     expect(git("status", "--porcelain")).toBe("");
-    expect(git("log", "-1", "--format=%s")).toBe("chore(plan): archive change");
+    expect(git("log", "-1", "--format=%s")).toBe(`chore(plan): archive demo-change`);
     expect(git("log", "-1", "--format=%(trailers:key=Change,valueonly)").trim()).toBe("demo-change");
     expect(tasks("show", "demo-change", "--file", "backlog.md")).toContain("state: done");
     expect((await run("archive", "demo-change")).out).toContain("already archived");

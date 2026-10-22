@@ -70,7 +70,7 @@ describe("finish", () => {
     const r = await run("finish", S);
     expect(r.code).toBe(0);
     expect(r.out).toContain("finished");
-    expect(git("log", "-1", "--format=%s")).toBe("chore(plan): archive change");
+    expect(git("log", "-1", "--format=%s")).toBe(`chore(plan): archive ${S}`);
     expect(git("rev-parse", "HEAD")).toBe(wgit("rev-parse", "HEAD"));
     expect(existsSync(join(dir, `specs/changes/active/${S}`))).toBe(false);
     expect(returnLog().trim()).toBe("1");
@@ -201,7 +201,7 @@ fi
       expect(returnLog().trim().split("\n")).toEqual(["1", "1"]);
       expect(git("branch", "--list", S)).toBe("");
       expect(git("rev-parse", "HEAD")).toBe(head);
-      expect(git("log", "-1", "--format=%s")).toBe("chore(plan): archive change");
+      expect(git("log", "-1", "--format=%s")).toBe(`chore(plan): archive ${S}`);
     });
 
     it("holder-less slot: succeeds with a manual hint", async () => {

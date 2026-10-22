@@ -70,7 +70,7 @@ Upgrade note: existing repos run `docs-axi adr fix-refs` once, because bare refs
 
 ## Commit format
 
-Tool commits are `chore(plan): start change`, `chore(plan): done <step-id>` and `chore(plan): archive change`; `commit-plan` writes `docs(plan): propose <slug>`. Each has a `Change: <slug>` trailer. Defaults shown; override under `[commit]` (repo over user config):
+Tool commits are `chore(plan): start <slug>`, `chore(plan): done <slug> <step-id>` and `chore(plan): archive <slug>`; `commit-plan` writes `docs(plan): propose <slug>`. Each has a `Change: <slug>` trailer. Defaults shown; override under `[commit]` (repo over user config):
 
 ```toml
 [commit]

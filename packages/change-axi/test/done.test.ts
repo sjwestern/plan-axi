@@ -49,7 +49,7 @@ describe("done", () => {
     const r = await run("done", "demo", "01");
     expect(r.code).toBe(0);
     expect(r.out).not.toContain("OUTSIDE_OWNS");
-    expect(git("show", "--name-only", "--format=%s", "HEAD")).toBe("chore(plan): done 01-first\n\nspecs/changes/active/demo/tasks.md");
+    expect(git("show", "--name-only", "--format=%s", "HEAD")).toBe("chore(plan): done demo 01-first\n\nspecs/changes/active/demo/tasks.md");
     expect(git("status", "--porcelain")).toContain("other-dirty.txt");
     expect((await run("done", "demo", "01")).out).toContain("already done");
   });

@@ -38,7 +38,7 @@ export function done(ctx: Ctx, slug: string, stepArg: string, since?: string): D
   runTasks(ctx.root, ["done", hit.id, "--file", file]);
   git(ctx, ["add", "--", file]);
   try {
-    commit(ctx, `done ${hit.id}`, slug, [file]);
+    commit(ctx, `done ${slug} ${hit.id}`, slug, [file]);
   } catch (e) {
     git(ctx, ["restore", "--staged", "--worktree", "--", file], true);
     throw e;

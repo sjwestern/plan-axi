@@ -36,7 +36,7 @@ domain = ["domain.md", "domain-glossary.md", "features/"]
 architecture = ["standards/"]
 ```
 
-Commit format: tool commits are conventional (`chore(plan): start change`, ...) with a `Change: <slug>` trailer; override under `[commit]` (see `docs/domain/cli-quick-reference.md`).
+Commit format: tool commits are conventional (`chore(plan): start <slug>`, ...) with a `Change: <slug>` trailer; override under `[commit]` (see `docs/domain/cli-quick-reference.md`).
 
 Docs layout (defaults: folder `docs`, sections `domain`, `architecture`, `decisions`, ADRs in `decisions`):
 

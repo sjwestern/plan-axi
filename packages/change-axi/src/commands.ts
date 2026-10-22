@@ -580,7 +580,7 @@ Checks: clean tree (specs, docs, backlog.md), all tasks done, plan check passes,
 and changed since the plan commit (ADRs exempt). Then: accepts proposed ADRs listed in Docs impact (reindexes),
 git mv to specs/changes/archived/<date>-<slug>, marks the backlog task done.
   --dry-run          run the checks, report ADRs that would be accepted, change nothing
-  --commit           commit everything as "chore(plan): archive change" with a Change trailer
+  --commit           commit everything as "chore(plan): archive <slug>" with a Change trailer
   --skip-docs-check  allow Docs impact docs that were not changed (say why in the commit message)
 Idempotent: an already archived change only ensures the backlog task is done.
 If an accepted ADR replaces an older one: docs-axi supersede <old> --by <new>.
@@ -621,7 +621,7 @@ export const START_SPEC: CmdSpec = {
   help: `usage: change-axi start <slug> [--dry-run] [--no-worktree]
 Launch a committed plan. Run on the default branch (the main checkout).
 Preflight: not behind the remote, plan committed and clean, plan check passes, backlog task queued.
-Then: marks the change in flight in backlog.md and commits only that file ("chore(plan): start change", Change trailer),
+Then: marks the change in flight in backlog.md and commits only that file ("chore(plan): start <slug>", Change trailer),
 and leases a treehouse worktree on branch <slug> (reused if one already exists for it).
 Idempotent: an in-flight change is not started twice; the worktree is looked up instead.
   --dry-run       run the preflight, change nothing

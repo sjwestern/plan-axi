@@ -227,7 +227,7 @@ export function startChange(ctx: Ctx, slug: string, o: StartOptions): StartRepor
     runTasks(ctx.root, ["start", slug, "--file", "backlog.md"]);
     git(ctx, ["add", "--", "backlog.md"]);
     try {
-      commit(ctx, "start change", slug, ["backlog.md"]);
+      commit(ctx, `start ${slug}`, slug, ["backlog.md"]);
     } catch (e) {
       git(ctx, ["restore", "--staged", "--worktree", "--", "backlog.md"], true);
       throw e;

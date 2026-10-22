@@ -41,9 +41,9 @@ All commits are conventional (`type(scope): subject`) and carry a `Change: <slug
 
 | Commit | Written by | Message |
 | --- | --- | --- |
-| start | `change-axi start` | `chore(plan): start change` |
-| done | `change-axi done` | `chore(plan): done <step-id>` |
-| archive | `change-axi archive --commit` | `chore(plan): archive change` |
+| start | `change-axi start` | `chore(plan): start <slug>` |
+| done | `change-axi done` | `chore(plan): done <slug> <step-id>` |
+| archive | `change-axi archive --commit` | `chore(plan): archive <slug>` |
 | plan | `change-axi commit-plan` (human) | `docs(plan): propose <slug>`, or `docs(plan): <reason>` with `--reason` |
 | step work | agent | `<type>(<area>): <summary>`, `feat`/`fix`/`refactor`/`test`/`docs`, area = package or feature |
 

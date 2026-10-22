@@ -52,7 +52,7 @@ describe("rejected commits", () => {
     unlinkSync(hook());
     const r2 = await run("start", P, "--no-worktree");
     expect(r2.code).toBe(0);
-    expect(git("log", "-1", "--format=%s")).toBe("chore(plan): start change");
+    expect(git("log", "-1", "--format=%s")).toBe(`chore(plan): start ${P}`);
   });
 
   it("done fails cleanly and a rerun succeeds", async () => {
@@ -66,7 +66,7 @@ describe("rejected commits", () => {
     expect(git("status", "--porcelain")).toBe("");
     unlinkSync(hook());
     expect((await run("done", P, "01")).code).toBe(0);
-    expect(git("log", "-1", "--format=%s")).toBe("chore(plan): done 01-first");
+    expect(git("log", "-1", "--format=%s")).toBe("chore(plan): done demo 01-first");
   });
 
   it("archive leaves changes staged", async () => {

@@ -162,7 +162,7 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
   if (o.commit) {
     git(ctx, ["add", "--", "specs", layout.dir, "backlog.md"]);
     try {
-      commit(ctx, "archive change", slug);
+      commit(ctx, `archive ${slug}`, slug);
     } catch (e) {
       if (e instanceof AxiError) throw new AxiError(e.message, e.code, [...(e.suggestions ?? []), "Changes are staged; fix the hook problem and run git commit"]);
       throw e;
