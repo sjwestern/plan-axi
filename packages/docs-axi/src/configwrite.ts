@@ -1,63 +1,15 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { loadConfig } from "./config.js";
-import { writeText } from "./fsutil.js";
+import { applyTomlEdit, quote, upsertKey } from "./tomlwrite.js";
 
 export interface LayoutChanges {
   dir?: string;
   sections?: string[];
   adr?: string | null;
   guides?: Array<{ name: string; guide: string }>;
-}
-
-function quote(value: string): string {
-  return JSON.stringify(value);
-}
-
-function commentIndex(line: string): number {
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    if (line[i] === "\\" && quoted) i++;
-    else if (line[i] === '"') quoted = !quoted;
-    else if (line[i] === "#" && !quoted) return i;
-  }
-  return -1;
-}
-
-function upsertKey(lines: string[], table: string, key: string, value: string): void {
-  const header = `[${table}]`;
-  let start = -1;
-  let end = lines.length;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i]!.trim() === header) {
-      start = i;
-      for (let j = i + 1; j < lines.length; j++) {
-        if (/^\s*\[[^\]]+\]\s*(?:#.*)?$/.test(lines[j]!)) {
-          end = j;
-          break;
-        }
-      }
-      break;
-    }
-  }
-  const assignment = new RegExp(`^(\\s*)${key.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\s*=`);
-  if (start >= 0) {
-    for (let i = start + 1; i < end; i++) {
-      const line = lines[i]!;
-      const match = assignment.exec(line);
-      if (!match) continue;
-      const comment = commentIndex(line);
-      const suffix = comment < 0 ? "" : ` ${line.slice(comment).trimStart()}`;
-      lines[i] = `${match[1]}${key} = ${value}${suffix}`;
-      return;
-    }
-    lines.splice(end, 0, `${key} = ${value}`);
-    return;
-  }
-  if (lines.length > 0 && lines[lines.length - 1]!.trim() !== "") lines.push("");
-  lines.push(header, `${key} = ${value}`);
 }
 
 function pruneRemovedGuides(lines: string[], sections: Set<string>): string[] {
@@ -86,15 +38,7 @@ function validateCandidate(text: string): void {
 
 export function writeLayoutConfig(root: string, changes: LayoutChanges): void {
   const path = join(root, ".plan-axi.toml");
-  const original = (() => {
-    try {
-      return readFileSync(path, "utf8");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
-      throw error;
-    }
-  })();
-  let lines = original.replace(/\r\n/g, "\n").split("\n");
+  applyTomlEdit(path, (lines) => {
   const selectedSections = changes.sections;
   if (selectedSections) lines = pruneRemovedGuides(lines, new Set(selectedSections));
   if (changes.dir !== undefined) upsertKey(lines, "docs", "dir", quote(changes.dir));
@@ -103,10 +47,8 @@ export function writeLayoutConfig(root: string, changes: LayoutChanges): void {
   for (const { name, guide } of changes.guides ?? []) {
     upsertKey(lines, `docs.section.${name}`, "guide", quote(guide));
   }
-  const eol = original.includes("\r\n") ? "\r\n" : "\n";
-  const candidate = lines.join(eol);
-  validateCandidate(candidate);
-  writeText(path, candidate);
+  return lines;
+  }, validateCandidate);
 }
 
 export function parseGuide(value: string): { name: string; guide: string } {
