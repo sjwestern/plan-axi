@@ -37,7 +37,7 @@ import {
   getDocsConfig,
   type Ctx,
 } from "./change.js";
-import { STEP_HEADER_LINES, STEP_SECTIONS, proposalSections, proposalSkeleton, stepSkeleton } from "./spec.js";
+import { STEP_HEADER_LINES, STEP_SECTIONS, proposalSections, proposalSkeleton, stepSkeleton, TIERS, tierProfile } from "./spec.js";
 import { listTasks, runTasks } from "./tasks.js";
 
 const guideRows = (list: { name: string; guide: string }[]): Record<string, string>[] => list.map((s) => ({ section: s.name, guide: s.guide }));
@@ -152,6 +152,7 @@ const STEP_FLAGS = {
   "--after": "string",
   "--name": "string",
   "--title": "string",
+  "--tier": "string",
 } as const;
 
 export const STEP_SPEC: CmdSpec = {
@@ -159,21 +160,32 @@ export const STEP_SPEC: CmdSpec = {
   flags: STEP_FLAGS,
   min: 2,
   max: 4,
-  usage: 'change-axi step add <slug> "<title>" --owns a,b [--docs x,y] [--after id,id] [--name <kebab>] | step set <slug> <step> [--owns ..] [--docs ..] [--title ..]',
+  usage: 'change-axi step add <slug> "<title>" --owns a,b [--docs x,y] [--after id,id] [--name <kebab>] [--tier <t>] | step set <slug> <step> [--owns ..] [--docs ..] [--title ..] [--tier <t|none>]',
   help: `usage:
-  change-axi step add <slug> "<title>" --owns a,b [--docs x,y] [--after id,id] [--name <kebab>]
-  change-axi step set <slug> <step> [--owns a,b] [--docs x,y] [--title "<t>"]
+  change-axi step add <slug> "<title>" --owns a,b [--docs x,y] [--after id,id] [--name <kebab>] [--tier <t>]
+  change-axi step set <slug> <step> [--owns a,b] [--docs x,y] [--title "<t>"] [--tier <small|standard|deep|none>]
 add: next number NN, creates NN-<name>.md (empty required sections) and its task (body "Spec: NN-<name>.md").
   --owns   repo paths/globs the step EDITS (required)
   --docs   docs to read first (default none)
   --after  step ids this step depends on (must exist)
   --name   file slug (default from title)
-set: edit the Owns/Docs header lines or the title (also retitles the task).
+  --tier   small, standard or deep: the agent profile via [apply.tiers] (optional)
+set: edit the Owns/Docs/Tier header lines (--tier none removes it) or the title (also retitles the task).
 Dependencies later: change-axi dep <slug> <step> --on|--off <ids>
 examples:
   change-axi step add split-auth "Extract token store" --owns src/auth/tokens/ --after 01-schema
 `,
 };
+
+function checkTier(v: string | undefined, allowNone: boolean): string | undefined {
+  if (v === undefined) return undefined;
+  const t = v.trim();
+  if (allowNone && t === "none") return "none";
+  if (!(TIERS as readonly string[]).includes(t)) {
+    throw new AxiError(`bad tier "${t}"`, "VALIDATION_ERROR", [`--tier: ${TIERS.join(", ")}${allowNone ? ", none" : ""}`]);
+  }
+  return t;
+}
 
 function slugName(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
@@ -203,6 +215,7 @@ function stepAdd(ctx: Ctx, dir: string, slug: string, titleArg: string | undefin
   const owns = splitList(flagStr(p, "--owns"));
   if (owns.length === 0) throw new AxiError("--owns is required", "VALIDATION_ERROR", ["Paths the step edits, e.g. --owns src/auth/,tests/auth/"]);
   const docs = splitList(flagStr(p, "--docs"));
+  const tier = checkTier(flagStr(p, "--tier"), false);
   const name = flagStr(p, "--name") ?? slugName(title);
   if (!SLUG_RE.test(name)) throw new AxiError(`bad step name "${name}"`, "VALIDATION_ERROR", ["kebab-case, from --name or the title"]);
   const existing = stepFiles(dir);
@@ -213,7 +226,7 @@ function stepAdd(ctx: Ctx, dir: string, slug: string, titleArg: string | undefin
   const known = listTasks(ctx.root, tasksRel(slug)).map((t) => t.id);
   const after = splitList(flagStr(p, "--after")).map((a) => resolveStepId(known, a, "--after: "));
   const file = join(dir, `${id}.md`);
-  writeText(file, stepSkeleton(num, title, owns, docs));
+  writeText(file, stepSkeleton(num, title, owns, docs, tier));
   try {
     runTasks(ctx.root, [
       "add", id, title, "--file", tasksRel(slug), "--body", `Spec: ${id}.md`,
@@ -226,6 +239,7 @@ function stepAdd(ctx: Ctx, dir: string, slug: string, titleArg: string | undefin
   return {
     created: `specs/changes/active/${slug}/${id}.md`,
     task: id,
+    ...(tier ? { tier } : {}),
     blocked_by: after.length > 0 ? after.join(",") : "none",
     sections: guideRows(STEP_SECTIONS),
     help: [`Fill each with \`change-axi write ${slug} ${id} --section "<name>"\``, `List it in proposal "Steps": \`change-axi append ${slug} proposal --section Steps --body "- \\\`${id}.md\\\` - ${title}"\``],
@@ -242,7 +256,8 @@ function stepSet(ctx: Ctx, dir: string, slug: string, which: string | undefined,
   const owns = flagStr(p, "--owns");
   const docs = flagStr(p, "--docs");
   const title = flagStr(p, "--title");
-  if (owns === undefined && docs === undefined && title === undefined) throw new AxiError("nothing to set", "VALIDATION_ERROR", [`usage: ${STEP_SPEC.usage}`]);
+  const tier = checkTier(flagStr(p, "--tier"), true);
+  if (owns === undefined && docs === undefined && title === undefined && tier === undefined) throw new AxiError("nothing to set", "VALIDATION_ERROR", [`usage: ${STEP_SPEC.usage}`]);
   const setLine = (key: string, value: string): void => {
     const re = new RegExp(`^${key}:.*$`, "m");
     text = re.test(text) ? text.replace(re, `${key}: ${value}`) : text.replace(/^(# .*\n\n?)/, `$1${key}: ${value}\n`);
@@ -253,6 +268,12 @@ function stepSet(ctx: Ctx, dir: string, slug: string, which: string | undefined,
     setLine("Owns", list.join(", "));
   }
   if (docs !== undefined) setLine("Docs", splitList(docs).join(", ") || "none");
+  if (tier === "none") text = text.replace(/^Tier:.*\n/m, "");
+  else if (tier !== undefined) {
+    if (/^Tier:/m.test(text)) text = text.replace(/^Tier:.*$/m, `Tier: ${tier}`);
+    else if (/^Docs:.*$/m.test(text)) text = text.replace(/^(Docs:.*)$/m, `$1\nTier: ${tier}`);
+    else setLine("Tier", tier);
+  }
   if (title !== undefined) {
     const t = requireSingleLine("--title", title);
     text = text.replace(/^# (\d+) - .*$/m, `# $1 - ${t}`);
@@ -260,7 +281,7 @@ function stepSet(ctx: Ctx, dir: string, slug: string, which: string | undefined,
   const changed = text !== raw;
   if (changed) writeText(abs, applyEol(text, "\n"));
   if (title !== undefined) runTasks(ctx.root, ["update", file.replace(/\.md$/, ""), "--title", title.trim(), "--file", tasksRel(slug)]);
-  return { step: `${file} ${changed || title !== undefined ? "updated" : "unchanged (no-op)"}`, owns: headerLine(text, "Owns") ?? "-", docs: headerLine(text, "Docs") ?? "-" };
+  return { step: `${file} ${changed || title !== undefined ? "updated" : "unchanged (no-op)"}`, owns: headerLine(text, "Owns") ?? "-", docs: headerLine(text, "Docs") ?? "-", tier: headerLine(text, "Tier") ?? "-" };
 }
 
 // ---------------------------------------------------------------- dep
@@ -861,14 +882,21 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
   out["prompt"] = prompt;
   const help: string[] = out_;
   const profileName = flagStr(p, "--agent");
-  const agent = resolveAgent(path, profileName !== undefined ? { profile: profileName } : {});
+  let tierOpts: { tierProfile?: string; tier?: string } = {};
+  if (step && profileName === undefined) {
+    const stepFile = join(path, "specs", "changes", "active", slug, `${step}.md`);
+    const tier = existsSync(stepFile) ? headerLine(readLf(stepFile), "Tier") : undefined;
+    const mapped = tier ? tierProfile(path, tier) : undefined;
+    if (tier && mapped) tierOpts = { tierProfile: mapped, tier };
+  }
+  const agent = resolveAgent(path, profileName !== undefined ? { profile: profileName } : tierOpts);
   if (!agent) {
     help.push('No agent found. Set one in .plan-axi.toml: [apply]  agent = "pi {prompt}"  (or export CHANGE_AXI_AGENT)');
     help.push(`Then start your agent in the worktree with: ${prompt}`);
   } else {
     const vars = { prompt, slug, ...(step ? { step } : {}), path };
     const cmd = agent.profile ? buildProfileCommand(agent.profile, vars) : buildCommand(agent.template, vars);
-    out["agent"] = agent.profile ? `${agent.profile.name} (${agent.source})` : `${agent.template} (${agent.source})`;
+    out["agent"] = agent.profile ? `${agent.profile.name} (${agent.source}${agent.source.startsWith("tier ") ? ` -> ${agent.profile.name}` : ""})` : `${agent.template} (${agent.source})`;
     out["command"] = cmd;
     const tty = Boolean(process.stdout.isTTY);
     if (flagBool(p, "--print") || !(tty || flagBool(p, "--run"))) {

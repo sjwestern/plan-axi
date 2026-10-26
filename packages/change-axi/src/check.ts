@@ -5,7 +5,8 @@ import { sectionText, findSectionOrUndefined } from "docs-axi/lib/sections";
 import { activeDir, archivedDir, backlogSlugs, changeDir, getDocsConfig, headerLine, readLf, splitList, stepFiles, tasksRel, TOOL_DIRS, SLUG_RE, MAX_SLUG, type Ctx } from "./change.js";
 import { adrInfos, checkRefs, type AdrInfo } from "docs-axi/lib/adrrefs";
 import { loadDocs } from "docs-axi/lib/model";
-import { PROPOSAL_SECTIONS, STEP_SECTIONS } from "./spec.js";
+import { PROPOSAL_SECTIONS, STEP_SECTIONS, TIERS, tierProfile, tiersConfigured } from "./spec.js";
+import { loadProfiles } from "./agent.js";
 import { listTasks, type Task } from "./tasks.js";
 
 export interface CheckResult {
@@ -122,6 +123,22 @@ export function checkChange(ctx: Ctx, slug: string): CheckResult {
   for (const f of steps) {
     const text = readLf(join(dir, f));
     sectionErrors(errors, f, text, STEP_SECTIONS, "step");
+    const tier = headerLine(text, "Tier");
+    if (tier !== undefined && tier !== "") {
+      if (!(TIERS as readonly string[]).includes(tier)) {
+        warnings.push(`TIER_UNKNOWN: ${f} has Tier "${tier}"; use ${TIERS.join(", ")}`);
+      } else if (tiersConfigured(ctx.root)) {
+        const prof = tierProfile(ctx.root, tier);
+        let defined: string[] = [];
+        try {
+          defined = loadProfiles(ctx.root).map((x) => x.name);
+        } catch {
+          /* bad profile config surfaces at enter */
+        }
+        if (!prof) warnings.push(`TIER_UNMAPPED: ${f} has Tier "${tier}" but [apply.tiers] has no "${tier}" entry`);
+        else if (!defined.includes(prof)) warnings.push(`TIER_UNMAPPED: ${f} Tier "${tier}" maps to undefined profile "${prof}"`);
+      }
+    }
     const ownsLine = headerLine(text, "Owns");
     if (ownsLine === undefined || splitList(ownsLine).length === 0) {
       warnings.push(`NO_OWNS: ${f} has no "Owns:" paths; parallel safety cannot be checked`);

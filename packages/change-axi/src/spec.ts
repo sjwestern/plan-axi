@@ -1,4 +1,4 @@
-import type { Layout } from "docs-axi/lib/config";
+import { loadRawConfig, type Layout } from "docs-axi/lib/config";
 
 export interface SectionSpec {
   name: string;
@@ -36,15 +36,29 @@ export const STEP_SECTIONS: SectionSpec[] = [
 export const STEP_HEADER_LINES: SectionSpec[] = [
   { name: "Owns", guide: "Comma separated repo-relative paths or globs the step EDITS (write set for parallel overlap checks). Read-only context goes in Docs." },
   { name: "Docs", guide: "Docs to read before starting, comma separated paths, or `none`." },
+  { name: "Tier", guide: "Optional: `small`, `standard` or `deep`. Picks the agent profile for the step through `[apply.tiers]`. Omit for no tier." },
 ];
+
+export const TIERS = ["small", "standard", "deep"] as const;
+
+/** Profile name mapped to `tier` by `[apply.tiers] <tier> = "<profile>"`, if any. */
+export function tierProfile(root: string, tier: string): string | undefined {
+  const v = loadRawConfig(root)[`apply.tiers.${tier}`];
+  return typeof v === "string" && v.trim() !== "" ? v.trim() : undefined;
+}
+
+/** True when any `[apply.tiers]` key is configured. */
+export function tiersConfigured(root: string): boolean {
+  return Object.keys(loadRawConfig(root)).some((k) => k.startsWith("apply.tiers."));
+}
 
 export function proposalSkeleton(title: string): string {
   return `# ${title}\n\n${PROPOSAL_SECTIONS.map((s) => `## ${s.name}\n`).join("\n")}`;
 }
 
-export function stepSkeleton(num: string, title: string, owns: string[], docs: string[]): string {
+export function stepSkeleton(num: string, title: string, owns: string[], docs: string[], tier?: string): string {
   return (
-    `# ${num} - ${title}\n\nOwns: ${owns.join(", ")}\nDocs: ${docs.length > 0 ? docs.join(", ") : "none"}\n\n` +
+    `# ${num} - ${title}\n\nOwns: ${owns.join(", ")}\nDocs: ${docs.length > 0 ? docs.join(", ") : "none"}\n${tier ? `Tier: ${tier}\n` : ""}\n` +
     STEP_SECTIONS.map((s) => `## ${s.name}\n`).join("\n")
   );
 }
