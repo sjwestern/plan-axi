@@ -36,6 +36,23 @@ domain = ["domain.md", "domain-glossary.md", "features/"]
 architecture = ["standards/"]
 ```
 
+Agent profiles and step tiers (see `docs/domain/cli-quick-reference.md`):
+
+```toml
+[apply.agents.small]                          # profile: harness (pi), model, effort
+harness = "pi"
+model = "provider/id"
+effort = "low"
+
+[apply.tiers]                                 # a step's `Tier:` -> profile
+small = "small"
+
+[propose.tiers]                               # rules plan-propose uses to suggest tiers
+standard = ["changes that touch db migrations"]
+```
+
+`change-axi enter <slug> <step> --agent <profile>` overrides the tier.
+
 Commit format: tool commits are conventional (`chore(plan): start <slug>`, ...) with a `Change: <slug>` trailer; override under `[commit]` (see `docs/domain/cli-quick-reference.md`).
 
 Docs layout (defaults: folder `docs`, sections `domain`, `architecture`, `decisions`, ADRs in `decisions`):

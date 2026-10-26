@@ -40,6 +40,8 @@ change-axi new split-auth "Split the auth module"
 change-axi write split-auth proposal --section Why --body "Slow builds."
 change-axi step add split-auth "Extract tokens" --owns src/auth/ --after 01-schema
 change-axi step set split-auth 02 --owns src/auth/,tests/auth/
+change-axi step set split-auth 02 --tier small     # small|standard|deep|none; also `step add --tier`
+change-axi guidance                                # tier rules from [propose.tiers] and the profile per tier
 change-axi dep split-auth 03 --on 01,02    # cycles are reverted
 change-axi check split-auth --waves
 change-axi status split-auth
@@ -90,6 +92,25 @@ A rejecting commit hook fails the command with `commit rejected` and the hook ou
 [apply]
 agent = "pi {prompt}"    # placeholders: {prompt} (shell-quoted) {slug} {step} {path}
 ```
+
+Profiles bundle a harness, model and effort; tiers map a step's `Tier:` to a profile. `enter` resolves the agent in this order: `--agent <name>`, the step's tier (`[apply.tiers]`), `[apply] agent`, env, autodetect. The output names the source, e.g. `small (tier small -> small)`.
+
+```toml
+[apply.agents.small]
+harness = "pi"          # pi is the only built-in adapter; or set command = "... {prompt}"
+model = "provider/id"   # pi --model
+effort = "low"          # pi --thinking
+
+[apply.tiers]           # tier -> profile name
+small = "small"
+
+[propose.tiers]         # plain-language rules read by plan-propose via `change-axi guidance`
+standard = ["changes that touch db migrations"]
+[propose]
+default_tier = "small"  # optional
+```
+
+`change-axi check` warns `TIER_UNKNOWN` (not small/standard/deep) and `TIER_UNMAPPED` (no `[apply.tiers]` entry, or an undefined profile).
 
 Without a TTY, `enter` prints the command instead of running it (`--run` overrides).
 
