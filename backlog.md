@@ -3,6 +3,7 @@
 ## In flight
 ## Queued
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
+- [ ] add-config-cli - Add change-axi config to show and set plan config (kind: change) (since 2026-10-27)
 ## Done
 - [x] add-agent-profiles - Agent profiles and step tiers (kind: change) (done 2026-10-26)
 - [x] guard-adr-number-clashes - Guard against ADR number clashes (kind: change) (done 2026-10-20)
