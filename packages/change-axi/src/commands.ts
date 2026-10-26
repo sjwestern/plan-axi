@@ -12,6 +12,8 @@ import { claim } from "./claim.js";
 import { commitPlan } from "./commitplan.js";
 import { done } from "./done.js";
 import { loadGuidance } from "./guidance.js";
+import { PI_THINKING_FALLBACK } from "./agent.js";
+import { readPlanConfig } from "./planconfig.js";
 import { buildCommand, buildProfileCommand, resolveAgent, runAgent } from "./agent.js";
 import { finishChange } from "./finish.js";
 import { git } from "./git.js";
@@ -735,7 +737,10 @@ const MODEL_SETUP = `  [apply.agents.small]        # profile: harness required (
   [propose]
   default_tier = "small"      # optional
 Then set a step's tier: change-axi step add ... --tier <t> | change-axi step set <slug> <step> --tier <t>.
-change-axi check warns TIER_UNMAPPED when a tier has no profile.`;
+change-axi check warns TIER_UNMAPPED when a tier has no profile.
+Set this up with \`change-axi config\` instead of editing the file by hand.
+pi effort levels: ${PI_THINKING_FALLBACK.join(", ")} (\`change-axi config --verify\` checks them against the installed pi).
+Agent choice order: --agent <profile>, the step's tier profile, [apply] agent, CHANGE_AXI_AGENT, then PATH autodetect.`;
 
 export const GUIDANCE_SPEC: CmdSpec = {
   name: "guidance",
@@ -744,7 +749,8 @@ export const GUIDANCE_SPEC: CmdSpec = {
   max: 0,
   usage: "change-axi guidance",
   help: `usage: change-axi guidance
-Show the model-tier rules for steps and the agent profile each tier maps to. plan-propose uses this to set \`step add --tier\`.
+Show the model-tier rules for steps and the agent profile (with model and effort) each tier maps to. plan-propose uses this to set \`step add --tier\`.
+Change it with \`change-axi config\`.
 Full model setup in .plan-axi.toml (repo or user config):
 ${MODEL_SETUP}`,
 };
@@ -752,17 +758,18 @@ ${MODEL_SETUP}`,
 export function guidanceCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   parseArgs(GUIDANCE_SPEC, args);
   const g = loadGuidance(ctx.root);
+  const resolved = readPlanConfig(ctx.root).resolved;
   const any = TIERS.some((t) => g.tiers[t].length > 0) || g.default_tier;
   if (!any) {
     return {
       guidance: "none configured",
-      help: ["Models are set up in .plan-axi.toml: profiles [apply.agents.<name>] (harness, model, effort), tier map [apply.tiers], rules [propose.tiers], optional [propose] default_tier", "Full example: change-axi guidance --help"],
+      help: ["Models are set up in .plan-axi.toml: profiles [apply.agents.<name>] (harness, model, effort), tier map [apply.tiers], rules [propose.tiers], optional [propose] default_tier", "Set it up with `change-axi config` (change-axi guidance --help shows the file format)"],
     };
   }
   return {
     default_tier: g.default_tier ?? "none",
-    tiers: TIERS.map((t) => ({ tier: t, profile: tierProfile(ctx.root, t) ?? "-", rules: g.tiers[t].length > 0 ? g.tiers[t].join("; ") : "-" })),
-    help: ["Set a step's tier with `change-axi step add ... --tier <t>` or `change-axi step set <slug> <step> --tier <t>`", "Profiles/tier map: [apply.agents.<name>], [apply.tiers]; see `change-axi guidance --help`"],
+    tiers: TIERS.map((t) => ({ tier: t, profile: tierProfile(ctx.root, t) ?? "-", model: resolved.find((r) => r.tier === t)?.model ?? "-", effort: resolved.find((r) => r.tier === t)?.effort ?? "-", rules: g.tiers[t].length > 0 ? g.tiers[t].join("; ") : "-" })),
+    help: ["Set a step's tier with `change-axi step add ... --tier <t>` or `change-axi step set <slug> <step> --tier <t>`", "Change profiles, tiers and rules with `change-axi config`; see `change-axi guidance --help`"],
   };
 }
 
