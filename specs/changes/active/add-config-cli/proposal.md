@@ -53,10 +53,10 @@ Decision: recorded by extending ADR-0007-agent-profiles-and-step-tiers-extend-th
 
 ## Docs impact
 
-- docs/domain/cli-quick-reference.md - update: add `change-axi config` and make it the primary setup path over hand-editing TOML.
-- docs/architecture/package-structure.md - update: shared TOML writer lib.
-- docs/decisions/0007-agent-profiles-and-step-tiers-extend-the-launch-template.md - update: config is shown and set through `change-axi config` (`--user` for personal choices), writes are validated, change-axi owns apply/propose/commit config while docs-axi config keeps the docs layout (ADR-0009-docs-layout-is-config-adr-section-stays-a-fixed-type).
-- skills/plan-propose/SKILL.md and skills/plan-apply/SKILL.md - update: point to `change-axi config` for model setup.
+- `docs/domain/cli-quick-reference.md` - update: add `change-axi config` and make it the primary setup path over hand-editing TOML.
+- `docs/architecture/package-structure.md` - update: shared TOML writer lib.
+- `docs/decisions/0007-agent-profiles-and-step-tiers-extend-the-launch-template.md` - update: config is shown and set through `change-axi config` (`--user` for personal choices), writes are validated, change-axi owns apply/propose/commit config while docs-axi config keeps the docs layout (ADR-0009-docs-layout-is-config-adr-section-stays-a-fixed-type).
+- `skills/plan-propose/SKILL.md` and `skills/plan-apply/SKILL.md` - update: point to `change-axi config` for model setup.
 
 ## Risks and open questions
 
