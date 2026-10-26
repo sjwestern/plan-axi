@@ -11,6 +11,7 @@ import { archiveChange } from "./archive.js";
 import { claim } from "./claim.js";
 import { commitPlan } from "./commitplan.js";
 import { done } from "./done.js";
+import { loadGuidance } from "./guidance.js";
 import { buildCommand, buildProfileCommand, resolveAgent, runAgent } from "./agent.js";
 import { finishChange } from "./finish.js";
 import { git } from "./git.js";
@@ -719,6 +720,41 @@ export function finishCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (dry) out["help"] = [`Run \`change-axi finish ${slug}\` to apply`];
   else if (r.buildHint) out["help"] = [r.buildHint];
   return out;
+}
+
+// ---------------------------------------------------------------- guidance
+
+export const GUIDANCE_SPEC: CmdSpec = {
+  name: "guidance",
+  flags: {},
+  min: 0,
+  max: 0,
+  usage: "change-axi guidance",
+  help: `usage: change-axi guidance
+Show the model-tier rules for steps: [propose.tiers] small/standard/deep = ["<rule>", ...] and [propose] default_tier,
+with the agent profile each tier maps to ([apply.tiers]). plan-propose uses this to set \`step add --tier\`.
+Example .plan-axi.toml:
+  [propose.tiers]
+  standard = ["changes that touch db migrations"]
+  deep = ["cross-cutting refactors"]
+`,
+};
+
+export function guidanceCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  parseArgs(GUIDANCE_SPEC, args);
+  const g = loadGuidance(ctx.root);
+  const any = TIERS.some((t) => g.tiers[t].length > 0) || g.default_tier;
+  if (!any) {
+    return {
+      guidance: "none configured",
+      help: ['Add rules to .plan-axi.toml, e.g. [propose.tiers]  standard = ["changes that touch db migrations"]', "Tiers: small, standard, deep; optional [propose] default_tier"],
+    };
+  }
+  return {
+    default_tier: g.default_tier ?? "none",
+    tiers: TIERS.map((t) => ({ tier: t, profile: tierProfile(ctx.root, t) ?? "-", rules: g.tiers[t].length > 0 ? g.tiers[t].join("; ") : "-" })),
+    help: ["Set a step's tier with `change-axi step add ... --tier <t>` or `change-axi step set <slug> <step> --tier <t>`"],
+  };
 }
 
 // ---------------------------------------------------------------- setup
