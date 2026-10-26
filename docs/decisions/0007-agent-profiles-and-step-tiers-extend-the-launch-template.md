@@ -1,7 +1,7 @@
 ---
 title: Agent profiles and step tiers extend the launch template
 summary: Why agent launch gains harness/model/effort profiles and per-step tiers
-status: proposed
+status: accepted
 ---
 
 # Agent profiles and step tiers extend the launch template
