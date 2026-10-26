@@ -19,3 +19,5 @@ Docs in `docs/` are edited directly as part of a change. Each proposal has a Doc
 - Archive checks that every doc in Docs impact was touched.
 - No merge tooling to build or trust.
 - Docs and code change in the same commits and review.
+- Docs should never have references to changes they need to be self evident.
+- Changes can reference docs.
