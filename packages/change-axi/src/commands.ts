@@ -11,7 +11,7 @@ import { archiveChange } from "./archive.js";
 import { claim } from "./claim.js";
 import { commitPlan } from "./commitplan.js";
 import { done } from "./done.js";
-import { buildCommand, resolveAgent, runAgent } from "./agent.js";
+import { buildCommand, buildProfileCommand, resolveAgent, runAgent } from "./agent.js";
 import { finishChange } from "./finish.js";
 import { git } from "./git.js";
 import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
@@ -736,11 +736,11 @@ const SETUP_HINT = "Run `change-axi setup` so agents in the worktree know to use
 
 export const ENTER_SPEC: CmdSpec = {
   name: "enter",
-  flags: { "--print": "boolean", "--run": "boolean", "--list": "boolean" },
+  flags: { "--print": "boolean", "--run": "boolean", "--list": "boolean", "--agent": "string" },
   min: 0,
   max: 2,
-  usage: "change-axi enter [slug] [step] [--print] [--run] | enter --list",
-  help: `usage: change-axi enter [slug] [step] [--print] [--run]
+  usage: "change-axi enter [slug] [step] [--print] [--run] [--agent <name>] | enter --list",
+  help: `usage: change-axi enter [slug] [step] [--print] [--run] [--agent <name>]
        change-axi enter --list
 Without a slug: uses the change on the current branch, else the only in-flight change; with several, a TTY gets a
 numbered prompt and otherwise the list is printed (exit 1).
@@ -748,6 +748,7 @@ Start the change if needed, find its worktree, and run the configured agent ther
 Agent command: [apply] agent = "pi {prompt}" in .plan-axi.toml (repo) or the user config, then env CHANGE_AXI_AGENT,
 then the first of pi, claude, codex, gemini, opencode found on PATH. Placeholders: {prompt} {slug} {step} {path}.
 On branch <slug> the current directory is used. Without a TTY, or with --print, the command is printed, not run.
+  --agent   use profile [apply.agents.<name>] (harness, model, effort, command) instead of the default agent
   --print   print the path and command only
   --run     run even when stdout is not a TTY
   --list    list active changes with worktree, branch state and in-flight steps
@@ -859,13 +860,15 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
   if (enter) out["enter"] = enter;
   out["prompt"] = prompt;
   const help: string[] = out_;
-  const agent = resolveAgent(path);
+  const profileName = flagStr(p, "--agent");
+  const agent = resolveAgent(path, profileName !== undefined ? { profile: profileName } : {});
   if (!agent) {
     help.push('No agent found. Set one in .plan-axi.toml: [apply]  agent = "pi {prompt}"  (or export CHANGE_AXI_AGENT)');
     help.push(`Then start your agent in the worktree with: ${prompt}`);
   } else {
-    const cmd = buildCommand(agent.template, { prompt, slug, ...(step ? { step } : {}), path });
-    out["agent"] = `${agent.template} (${agent.source})`;
+    const vars = { prompt, slug, ...(step ? { step } : {}), path };
+    const cmd = agent.profile ? buildProfileCommand(agent.profile, vars) : buildCommand(agent.template, vars);
+    out["agent"] = agent.profile ? `${agent.profile.name} (${agent.source})` : `${agent.template} (${agent.source})`;
     out["command"] = cmd;
     const tty = Boolean(process.stdout.isTTY);
     if (flagBool(p, "--print") || !(tty || flagBool(p, "--run"))) {

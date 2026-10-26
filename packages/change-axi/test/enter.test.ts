@@ -77,6 +77,19 @@ describe("enter", () => {
     expect(r.out).toContain("command");
   });
 
+  it("--agent uses a profile and names it", async () => {
+    writeFileSync(join(dir, ".plan-axi.toml"), '[apply.agents.small]\nharness = "pi"\nmodel = "p/m"\neffort = "low"\n');
+    const r = await run("enter", P, "01-do-it", "--agent", "small", "--print");
+    expect(r.out).toContain("small (--agent small)");
+    expect(r.out).toContain(`pi --model 'p/m' --thinking 'low' 'apply ${P} 01-do-it'`);
+  });
+
+  it("--agent with an unknown profile errors", async () => {
+    const r = await run("enter", P, "--agent", "nope", "--print");
+    expect(r.out).toContain("unknown agent profile");
+    expect(r.code).not.toBe(0);
+  });
+
   it("does not run without a TTY", async () => {
     fakeAgent();
     const r = await run("enter", P);
