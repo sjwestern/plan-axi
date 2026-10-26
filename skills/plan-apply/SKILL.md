@@ -16,6 +16,7 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 - **`tasks.md` and `backlog.md` are changed only through `tasks-axi`**, always with `--file` after the command, run from the repo (or worktree) root. If `tasks-axi` is "command not found", fall back to `npx -y tasks-axi@0.2.6 <args>`.
 - Step task id = step file stem; its body is `Spec: <file>.md`.
 - Plan tool: `change-axi` (`enter`/`start` launch, `finish` merges and releases the worktree, `archive` only archives; bare `change-axi` on a change branch shows its status) (call the binary on PATH; if "command not found", stop and tell the user to install it with `npm run build && npm link`). `CHECK` below = `change-axi check <slug> --waves`. `change-axi status <slug>` shows steps, waves and what is ready. `change-axi show <slug> <step> [--section Work]` reads a step or one section of it.
+- Models: `change-axi config` (no flags) shows the profile, tier and agent setup; set models with its flags (`--profile --harness --model --effort --tier`, `--user` for personal choices) and live-check with `change-axi config --verify`. Never hand-edit `.plan-axi.toml` for this.
 - Docs: `docs-axi` (binary on PATH; if "command not found", stop and tell the user to install it).
 
 ## Launch (on main)

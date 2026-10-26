@@ -42,6 +42,8 @@ change-axi step add split-auth "Extract tokens" --owns src/auth/ --after 01-sche
 change-axi step set split-auth 02 --owns src/auth/,tests/auth/
 change-axi step set split-auth 02 --tier small     # small|standard|deep|none; also `step add --tier`
 change-axi guidance                                # tier rules from [propose.tiers] and the profile per tier
+change-axi config                                  # show effective profiles, tiers, rules, agent, commit style
+change-axi config --verify                         # live-check models and efforts, writes nothing
 change-axi dep split-auth 03 --on 01,02    # cycles are reverted
 change-axi check split-auth --waves
 change-axi status split-auth
@@ -94,6 +96,17 @@ agent = "pi {prompt}"    # placeholders: {prompt} (shell-quoted) {slug} {step} {
 ```
 
 Profiles bundle a harness, model and effort; tiers map a step's `Tier:` to a profile. `enter` resolves the agent in this order: `--agent <name>`, the step's tier (`[apply.tiers]`), `[apply] agent`, env, autodetect. The output names the source, e.g. `small (tier small -> small)`.
+
+Set this up with `change-axi config` (repo `.plan-axi.toml`, or `--user` for personal model choices). It validates before writing and keeps comments:
+
+```sh
+change-axi config --profile small --harness pi --model provider/id --effort low --tier small=small
+change-axi config --rule standard="db migrations" --default-tier small
+change-axi config --remove-profile small --unset-tier small
+change-axi config --verify [--profile small]
+```
+
+Structural errors (unknown tier, undefined profile, profile without harness or command) and an invalid pi model or effort fail and leave the file unchanged; `--force` writes past an invalid model or effort. A missing harness is a warning. `--model` must be `provider/id`. Hand-editing the TOML is equivalent:
 
 ```toml
 [apply.agents.small]

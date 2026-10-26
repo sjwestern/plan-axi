@@ -7,6 +7,7 @@ summary: How docs-axi and change-axi share section logic and where code lives
 
 - `packages/docs-axi`: commands under `src/commands/`, pure section logic in `src/sections.ts`, raw-text edit in `src/sectionedit.ts`.
 - `packages/change-axi`: imports docs-axi code as `docs-axi/lib/<module>` (no `.js` extension). Required sections in `src/spec.ts`, validation in `src/check.ts`, tasks-axi wrapper in `src/tasks.ts`.
+- Shared TOML writing (`upsertKey`, `removeKey`, `removeTable`, `applyTomlEdit` with a validate callback) lives in `packages/docs-axi/src/tomlwrite.ts`; docs-axi `config` and change-axi `config` both use it via `docs-axi/lib/tomlwrite`. change-axi plan config read model and validation are in `src/planconfig.ts`; the command is `src/configcmd.ts`.
 - Build order matters: docs-axi first (the root `npm run build` does it).
 
 ## Docs layout
