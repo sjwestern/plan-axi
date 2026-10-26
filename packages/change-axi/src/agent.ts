@@ -33,6 +33,120 @@ const HARNESS_ADAPTERS: Record<string, (p: AgentProfile, q: (s: string) => strin
   pi: (p, q) => ["pi", ...(p.model ? ["--model", q(p.model)] : []), ...(p.effort ? ["--thinking", q(p.effort)] : [])].join(" ") + " {prompt}",
 };
 
+export type CheckStatus = "ok" | "invalid" | "skipped";
+
+export interface CheckResult {
+  status: CheckStatus;
+  field: "harness" | "model" | "effort" | "command";
+  message: string;
+}
+
+/** Side effects of live harness checks, injectable so tests need no real binaries. */
+export interface CheckDeps {
+  /** Run a binary; output is stdout+stderr combined. `error` is set when it could not run or timed out. */
+  run(bin: string, args: string[]): { status: number | null; output: string; error?: string };
+  onPath(bin: string): boolean;
+}
+
+export const defaultCheckDeps: CheckDeps = {
+  run(bin, args) {
+    const r = spawnSync(bin, args, { encoding: "utf8", timeout: 20000, maxBuffer: 64 * 1024 * 1024, shell: process.platform === "win32" });
+    const output = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    if (r.error) return { status: r.status, output, error: r.error.message };
+    return { status: r.status, output };
+  },
+  onPath: (bin) => onPath(bin),
+};
+
+export const PI_THINKING_FALLBACK = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+
+/** Thinking levels from the `--thinking` line of `pi --help`, or undefined when not parseable. */
+export function parsePiThinkingLevels(help: string): string[] | undefined {
+  const m = /--thinking\s+<level>[^\n]*?:\s*([^\n]+)/.exec(help);
+  if (!m) return undefined;
+  const levels = m[1]!.split(",").map((x) => x.trim()).filter((x) => /^[a-z]+$/.test(x));
+  return levels.length > 0 ? levels : undefined;
+}
+
+export interface ModelRow {
+  provider: string;
+  model: string;
+}
+
+/** Rows of `pi --list-models` output (provider and model columns). Undefined when the output is neither a table nor a no-match notice. */
+export function parsePiModelRows(output: string): ModelRow[] | undefined {
+  const lines = output.split(/\r?\n/).filter((l) => l.trim() !== "");
+  if (lines.some((l) => /^No models matching/i.test(l.trim()))) return [];
+  const headerAt = lines.findIndex((l) => /^\s*provider\s+model\b/i.test(l));
+  if (headerAt < 0) return undefined;
+  const rows: ModelRow[] = [];
+  for (const l of lines.slice(headerAt + 1)) {
+    const cols = l.trim().split(/\s+/);
+    if (cols.length >= 2) rows.push({ provider: cols[0]!, model: cols[1]! });
+  }
+  return rows;
+}
+
+/** Effort check against pi's levels (pure). */
+export function checkPiEffort(effort: string, helpOutput: string | undefined): CheckResult {
+  const levels = (helpOutput !== undefined ? parsePiThinkingLevels(helpOutput) : undefined) ?? PI_THINKING_FALLBACK;
+  if (levels.includes(effort)) return { status: "ok", field: "effort", message: `effort "${effort}" is valid` };
+  return { status: "invalid", field: "effort", message: `effort "${effort}" is not a pi thinking level; use one of: ${levels.join(", ")}` };
+}
+
+/** Model check against `pi --list-models <search>` rows (pure). Exact, case-sensitive provider and model match only. */
+export function checkPiModel(model: string, rows: ModelRow[] | undefined): CheckResult {
+  const field = "model" as const;
+  if (rows === undefined) return { status: "skipped", field, message: `could not parse \`pi --list-models\` output; model "${model}" not verified` };
+  const slash = model.indexOf("/");
+  if (slash < 0) {
+    const same = rows.filter((r) => r.model === model).map((r) => `${r.provider}/${r.model}`);
+    const hint = same.length > 0 ? `; choose one of: ${same.join(", ")}` : "";
+    return { status: "invalid", field, message: `model "${model}" needs a provider, written provider/model${hint}` };
+  }
+  const provider = model.slice(0, slash);
+  const id = model.slice(slash + 1);
+  if (rows.some((r) => r.provider === provider && r.model === id)) return { status: "ok", field, message: `model "${model}" found` };
+  const near = rows.slice(0, 5).map((r) => `${r.provider}/${r.model}`);
+  const hint = near.length > 0 ? `; close matches: ${near.join(", ")}` : "";
+  return { status: "invalid", field, message: `model "${model}" is not available in pi${hint}` };
+}
+
+function checkPiProfile(p: AgentProfile, deps: CheckDeps): CheckResult[] {
+  if (!deps.onPath("pi")) return [{ status: "skipped", field: "harness", message: `pi not found on PATH; profile ${p.name} cannot launch on this machine` }];
+  const out: CheckResult[] = [];
+  if (p.effort) {
+    const r = deps.run("pi", ["--help"]);
+    out.push(checkPiEffort(p.effort, r.error ? undefined : r.output));
+  }
+  if (p.model) {
+    const slash = p.model.indexOf("/");
+    const search = slash < 0 ? p.model : p.model.slice(slash + 1);
+    const r = deps.run("pi", ["--list-models", search]);
+    if (r.error) out.push({ status: "skipped", field: "model", message: `pi --list-models failed (${r.error}); model "${p.model}" not verified` });
+    else out.push(checkPiModel(p.model, parsePiModelRows(r.output)));
+  }
+  if (out.length === 0) out.push({ status: "ok", field: "harness", message: "pi found on PATH" });
+  return out;
+}
+
+/** Harness -> live profile check. Adapters without one are not checked. */
+const HARNESS_CHECKS: Record<string, (p: AgentProfile, deps: CheckDeps) => CheckResult[]> = {
+  pi: checkPiProfile,
+};
+
+/** Live checks for one profile: harness profiles use their adapter, command profiles only check the first word is on PATH. */
+export function checkProfile(profile: AgentProfile, deps: CheckDeps = defaultCheckDeps): CheckResult[] {
+  if (profile.command) {
+    const bin = profile.command.trim().split(/\s+/)[0] ?? "";
+    if (!deps.onPath(bin)) return [{ status: "skipped", field: "command", message: `${bin} not found on PATH; profile ${profile.name} cannot launch on this machine` }];
+    return [{ status: "ok", field: "command", message: `${bin} found on PATH` }];
+  }
+  const check = profile.harness ? HARNESS_CHECKS[profile.harness] : undefined;
+  if (!check) return [{ status: "skipped", field: "harness", message: `no live check for harness "${profile.harness ?? ""}"; profile ${profile.name} not verified` }];
+  return check(profile, deps);
+}
+
 /** Profiles from `[apply.agents.<name>]` (harness, model, effort, command); harness required unless command is set. */
 export function loadProfiles(root: string): AgentProfile[] {
   const raw = loadRawConfig(root);
