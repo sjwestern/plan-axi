@@ -50,7 +50,7 @@ describe("guidance", () => {
   it("prints a hint with no config", async () => {
     const r = await run("guidance");
     expect(r.out).toContain("none configured");
-    expect(r.out).toContain("[propose.tiers]");
+    expect(r.out).toContain("[apply.agents");
     expect(r.code).toBe(0);
   });
 });

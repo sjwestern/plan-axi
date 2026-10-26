@@ -724,6 +724,19 @@ export function finishCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
 // ---------------------------------------------------------------- guidance
 
+const MODEL_SETUP = `  [apply.agents.small]        # profile: harness required (or command = "... {prompt}")
+  harness = "pi"              # only pi is a built-in adapter
+  model = "provider/id"       # pi --model
+  effort = "low"              # pi --thinking
+  [apply.tiers]               # tier (small|standard|deep) -> profile name
+  small = "small"
+  [propose.tiers]             # plain-language rules plan-propose uses to pick a tier per step
+  standard = ["changes that touch db migrations"]
+  [propose]
+  default_tier = "small"      # optional
+Then set a step's tier: change-axi step add ... --tier <t> | change-axi step set <slug> <step> --tier <t>.
+change-axi check warns TIER_UNMAPPED when a tier has no profile.`;
+
 export const GUIDANCE_SPEC: CmdSpec = {
   name: "guidance",
   flags: {},
@@ -731,13 +744,9 @@ export const GUIDANCE_SPEC: CmdSpec = {
   max: 0,
   usage: "change-axi guidance",
   help: `usage: change-axi guidance
-Show the model-tier rules for steps: [propose.tiers] small/standard/deep = ["<rule>", ...] and [propose] default_tier,
-with the agent profile each tier maps to ([apply.tiers]). plan-propose uses this to set \`step add --tier\`.
-Example .plan-axi.toml:
-  [propose.tiers]
-  standard = ["changes that touch db migrations"]
-  deep = ["cross-cutting refactors"]
-`,
+Show the model-tier rules for steps and the agent profile each tier maps to. plan-propose uses this to set \`step add --tier\`.
+Full model setup in .plan-axi.toml (repo or user config):
+${MODEL_SETUP}`,
 };
 
 export function guidanceCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
@@ -747,13 +756,13 @@ export function guidanceCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (!any) {
     return {
       guidance: "none configured",
-      help: ['Add rules to .plan-axi.toml, e.g. [propose.tiers]  standard = ["changes that touch db migrations"]', "Tiers: small, standard, deep; optional [propose] default_tier"],
+      help: ["Models are set up in .plan-axi.toml: profiles [apply.agents.<name>] (harness, model, effort), tier map [apply.tiers], rules [propose.tiers], optional [propose] default_tier", "Full example: change-axi guidance --help"],
     };
   }
   return {
     default_tier: g.default_tier ?? "none",
     tiers: TIERS.map((t) => ({ tier: t, profile: tierProfile(ctx.root, t) ?? "-", rules: g.tiers[t].length > 0 ? g.tiers[t].join("; ") : "-" })),
-    help: ["Set a step's tier with `change-axi step add ... --tier <t>` or `change-axi step set <slug> <step> --tier <t>`"],
+    help: ["Set a step's tier with `change-axi step add ... --tier <t>` or `change-axi step set <slug> <step> --tier <t>`", "Profiles/tier map: [apply.agents.<name>], [apply.tiers]; see `change-axi guidance --help`"],
   };
 }
 
