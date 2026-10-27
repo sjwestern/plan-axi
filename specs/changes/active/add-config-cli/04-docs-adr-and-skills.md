@@ -18,7 +18,9 @@ Tier small: prose edits. No new ADR: extend the accepted ADR-0007-agent-profiles
 2. package-structure.md: shared tomlwrite lib.
 3. ADR-0007-agent-profiles-and-step-tiers-extend-the-launch-template: add to Decision that profiles, tier map, rules and default tier are shown and set through `change-axi config` (`--user` for personal choices); add to Consequences that writes are validated before saving and that change-axi config owns apply/propose/commit config while docs-axi config keeps the docs layout (ADR-0009-docs-layout-is-config-adr-section-stays-a-fixed-type). Use `docs-axi write` by section.
 4. plan-propose and plan-apply skills: run `change-axi config` (no flags) to see setup; set models with its flags.
-5. Regenerate docs index: `docs-axi index`.
+5. cli-quick-reference.md: add a short "choosing tiers and effort" section: three tiers are enough (no fourth tier; commits and similar bookkeeping are not plan steps); set effort per tier (low for small, medium for standard, high for deep); write `[propose.tiers]` rules by risk and ambiguity, not size.
+6. cli-quick-reference.md: state the launch fallback order for a step (`enter --agent`, step tier, `[apply] agent`, `CHANGE_AXI_AGENT`, autodetect) and that `[propose] default_tier` only sets the tier plan-propose assigns when no rule matches; it is not a launch fallback.
+7. Regenerate docs index: `docs-axi index`.
 
 ## Done when
 
