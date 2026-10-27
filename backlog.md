@@ -1,9 +1,9 @@
 # Backlog
 
 ## In flight
+- [ ] verify-profile-on-enter - Verify agent profile before enter launches blocked-by: add-config-cli (kind: change) (since 2026-10-27)
 ## Queued
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
-- [ ] verify-profile-on-enter - Verify agent profile before enter launches blocked-by: add-config-cli (kind: change) (since 2026-10-27)
 ## Done
 - [x] enter-resolves-step-for-tier - Resolve a step on bare enter so its tier applies (kind: change) (done 2026-10-27)
 - [x] add-backlog-ideas - Capture backlog ideas and promote them into changes (kind: change) (done 2026-10-27)
