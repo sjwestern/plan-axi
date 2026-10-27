@@ -1,7 +1,7 @@
 ---
 title: Unplanned backlog items use their own kinds and are promoted by change-axi new
 summary: Why ideas, bugs and chores are separate backlog kinds, adopted into kind change by new, and how deprioritized and rejected work is handled
-status: proposed
+status: accepted
 ---
 
 # Unplanned backlog items use their own kinds and are promoted by change-axi new
