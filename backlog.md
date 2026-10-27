@@ -1,12 +1,12 @@
 # Backlog
 
 ## In flight
-- [ ] add-config-cli - Add change-axi config to show and set plan config (kind: change) (since 2026-10-27)
 ## Queued
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
 - [ ] verify-profile-on-enter - Verify agent profile before enter launches blocked-by: add-config-cli (kind: change) (since 2026-10-27)
 - [ ] add-backlog-ideas - Capture backlog ideas and promote them into changes (kind: change) (since 2026-10-27)
 ## Done
+- [x] add-config-cli - Add change-axi config to show and set plan config (kind: change) (done 2026-10-27)
 - [x] add-agent-profiles - Agent profiles and step tiers (kind: change) (done 2026-10-26)
 - [x] guard-adr-number-clashes - Guard against ADR number clashes (kind: change) (done 2026-10-20)
 - [x] improve-docs-axi-adr-discovery - Improve docs-axi ADR discovery and search (kind: change) (done 2026-10-20)
