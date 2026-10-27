@@ -49,9 +49,9 @@ Decision recorded by extending ADR-0007-agent-profiles-and-step-tiers-extend-the
 
 ## Docs impact
 
-- docs/domain/cli-quick-reference.md - update: enter preflight, `--no-verify`, invalid versus skipped.
-- docs/decisions/0007-agent-profiles-and-step-tiers-extend-the-launch-template.md - update: launch resolution includes a profile preflight.
-- skills/plan-apply/SKILL.md - update: what the enter preflight failure means and how to fix it with `change-axi config`.
+- `docs/domain/cli-quick-reference.md` - update: enter preflight, `--no-verify`, invalid versus skipped.
+- `docs/decisions/0007-agent-profiles-and-step-tiers-extend-the-launch-template.md` - update: launch resolution includes a profile preflight.
+- `skills/plan-apply/SKILL.md` - update: what the enter preflight failure means and how to fix it with `change-axi config`.
 
 ## Risks and open questions
 
