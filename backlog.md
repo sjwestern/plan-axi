@@ -5,6 +5,7 @@
 ## Queued
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
 - [ ] verify-profile-on-enter - Verify agent profile before enter launches blocked-by: add-config-cli (kind: change) (since 2026-10-27)
+- [ ] add-backlog-ideas - Capture backlog ideas and promote them into changes (kind: change) (since 2026-10-27)
 ## Done
 - [x] add-agent-profiles - Agent profiles and step tiers (kind: change) (done 2026-10-26)
 - [x] guard-adr-number-clashes - Guard against ADR number clashes (kind: change) (done 2026-10-20)

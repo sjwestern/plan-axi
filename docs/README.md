@@ -34,4 +34,5 @@ Manage with `docs-axi` (search, new, update, check). Keep files small and single
 - [0010 Commits are conventional with a Change trailer](decisions/0010-commits-are-conventional-with-a-change-trailer.md) - Tool and agent commits use conventional commit format; the change slug moves to a Change trailer (accepted)
 - [0011 ADRs are read through the adr subcommand](decisions/0011-adrs-are-read-through-the-adr-subcommand.md) - Why ADR list, search and add live under docs-axi adr and status filtering is ADR-only (accepted)
 - [0012 ADR references carry number and slug and clashes are guarded](decisions/0012-adr-references-carry-number-and-slug-and-clashes-are-guarded.md) - Why ADR refs use ADR-NNNN-slug, renumber rewrites them, and commit-plan and finish fail on duplicate numbers (accepted)
+- [0013 Unplanned backlog items use their own kinds and are promoted by change-axi new](decisions/0013-unplanned-backlog-items-use-their-own-kinds-and-are.md) - Why ideas, bugs and chores are separate backlog kinds, adopted into kind change by new, and how deprioritized and rejected work is handled (proposed)
 <!-- docs-axi:index:end -->
