@@ -23,6 +23,14 @@ specs/changes/archived/<date>-<slug>/
 backlog.md                               one tasks-axi task per change
 ```
 
+## Backlog items
+
+- `change-axi idea` captures an unplanned item (kind idea, bug or chore; priority P0-P4, P0 highest; optional `--repo`). `change-axi backlog` lists them by priority, then age.
+- `change-axi new <slug>` adopts an unplanned item into kind change; `--from <old>` adopts it under a new slug and carries title, body, priority, repo and blocked-by links. `start` refuses unplanned items.
+- Slugs are never reused: active, archived and every backlog item count.
+- Deprioritized: stays queued with a lower priority. Decided not to do: an accepted ADR "Do not X", the item removed with `tasks-axi rm`, any plan folder deleted.
+- See ADR-0013-unplanned-backlog-items-use-their-own-kinds-and-are.
+
 ## Ownership
 
 - docs-axi: docs frontmatter, generated index, ADR numbers, sections inside docs.

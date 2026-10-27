@@ -13,5 +13,8 @@ summary: "Terms used across plan-axi: change, step, Owns, wave, backlog, ADR"
 - **Tier**: optional step label (`small`, `standard`, `deep`) in the `Tier:` header. `[apply.tiers]` maps it to a profile; plan-propose suggests it from `[propose.tiers]` rules.
 - **Wave**: steps with no unfinished blockers between them; they may run in parallel if Owns do not overlap.
 - **Backlog**: `backlog.md`, one task per change (queued, in flight, done).
+- **Unplanned item**: backlog task of kind `idea`, `bug` or `chore` with no plan folder, made by `change-axi idea`. `kind: change` always means a plan folder exists.
+- **Idea / bug / chore**: the three unplanned kinds. Priority is the tasks-axi `--priority 0-4` (P0 highest).
+- **Ready**: an explored item whose draft has scope and acceptance criteria, so it can be proposed.
 - **Docs impact**: proposal section listing every doc a change creates or edits.
 - **ADR**: numbered decision record in `docs/decisions/`, status proposed until archive. Cited as an **ADR reference** in the full form `ADR-NNNN-slug` (number and slug must both match a file); bare `ADR 7` is an error.

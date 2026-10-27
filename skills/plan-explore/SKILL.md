@@ -12,7 +12,8 @@ Shape a change with the user. **Write nothing**: no files, no scratch notes, no 
 1. Docs map: `docs-axi` (no args). Then `docs-axi search <terms>` for the topic, and `docs-axi sections <path>` then `docs-axi show <path> --section <name>` for the parts that matter (read whole docs only when needed). Run `docs-axi config` for the docs layout (sections and what each is for). Check ADRs that touch the area with `docs-axi adr search <terms>` (or `docs-axi adr list --status accepted`); an accepted ADR is a constraint unless the user wants to supersede it. Cite ADRs in full form `ADR-NNNN-slug`, never `ADR 7`.
 2. If `docs-axi` is "command not found", stop and tell the user to install it (`npm run build && npm link`).
 3. Code: read what the idea touches. Prefer reading over guessing.
-4. Planned and in-flight work, so the idea does not collide: `tasks-axi list --state queued` and `tasks-axi list --state in_flight` (repo `backlog.md`). Active plans: `specs/changes/active/*/proposal.md` titles only. Refer to related changes as `change:<slug>` (find one with `change-axi where <slug>`), never by path. Docs and ADRs stand alone: do not plan docs that point at a change; the doc holds what the reader needs.
+4. A backlog item as input: if the user names a slug, read it with `tasks-axi show <slug> --full --file backlog.md` and start from its title and body. `change-axi backlog` lists unplanned items (idea, bug, chore) by priority; capture new ones with `change-axi idea "<one-liner>"`. Before shaping an idea, check for a rejected-idea ADR (`docs-axi adr search "do not <topic>" --all`); an accepted "Do not X" ADR means the item should be dropped, not planned.
+5. Planned and in-flight work, so the idea does not collide: `tasks-axi list --state queued` and `tasks-axi list --state in_flight` (repo `backlog.md`). Active plans: `specs/changes/active/*/proposal.md` titles only. Refer to related changes as `change:<slug>` (find one with `change-axi where <slug>`), never by path. Docs and ADRs stand alone: do not plan docs that point at a change; the doc holds what the reader needs.
 
 Say which docs you used. If nothing relevant exists, say "no relevant docs found" - do not invent context.
 
@@ -35,6 +36,8 @@ Keep a compact draft in the conversation and update it as the user answers. Show
 Steps should be vertical, independently testable, and small enough to commit once. Prefer fewer, clearer steps. Separate steps that touch disjoint paths so they can run in parallel.
 
 ## Hand-off
+
+An item is **Ready** for propose when the draft has scope and acceptance criteria. To park one instead, leave it queued and lower its priority; to reject it, propose an ADR "Do not X" (plan-propose covers this).
 
 When the draft is stable, say so and tell the user to ask to **propose** (skill `plan-propose`), which turns the draft into `specs/changes/active/<slug>/`. Do not start it yourself unprompted. If the user wants to change direction, update the draft; it is cheap.
 
