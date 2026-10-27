@@ -33,7 +33,7 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 
 The skill picks its mode from the branch, so prompts stay short. Give the user these (filled in):
 
-- First agent, worktree `<path>` (launched by `change-axi enter <slug> [step]`, which the human runs from main): `apply <slug>` (takes the next ready step, loops) or `apply <slug> <step-id>` (that step only, then stop).
+- First agent, worktree `<path>` (launched by `change-axi enter <slug> [step]`, which the human runs from main): `apply <slug> <step-id>` (that step only, then stop; `enter` resolves the step so its tier profile applies). Bare `change-axi enter <slug>` picks the single ready step, or lists the ready wave when several are ready; launch each with `enter <slug> <step>`. `apply <slug>` alone takes the next ready step and loops on one model.
 - Another agent in the same worktree: `apply <slug> <step-id>` for a parallel-safe step. Execute step 1 makes it skip steps whose `Owns:` overlap an in-flight step.
 
 ## Execute (in the worktree)

@@ -131,4 +131,4 @@ default_tier = "small"  # optional
 
 Without a TTY, `enter` prints the command instead of running it (`--run` overrides).
 
-If branch `<slug>` already exists, `enter` recreates it when it holds no commits beyond the default branch, and switches to it (keeping the commits) when it does. If the comparison cannot be made, `enter` errors without deleting; inspect with `git log <base>..<slug>`, then delete or switch manually. Without a step, `enter` resumes the single in-flight step; zero or several in-flight steps give the plain `apply <slug>` prompt.
+If branch `<slug>` already exists, `enter` recreates it when it holds no commits beyond the default branch, and switches to it (keeping the commits) when it does. If the comparison cannot be made, `enter` errors without deleting; inspect with `git log <base>..<slug>`, then delete or switch manually. Without a step, `enter` resumes the single in-flight step. With none in flight, a single ready step is picked, so its tier profile applies; several ready steps are listed (`ready[]{step,tier,profile}`) and nothing launches until you run `enter <slug> <step>`.

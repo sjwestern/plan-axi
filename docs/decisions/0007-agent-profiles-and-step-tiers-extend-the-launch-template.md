@@ -19,5 +19,6 @@ Alternatives rejected: raw model names in plans (not portable across machines an
 ## Consequences
 
 Plans name tiers, not models. Judgment happens once at proposal time and is reviewable. Each new harness needs a small adapter for model and effort flags.
+- Launches always carry a step so tiers apply: bare `enter <slug>` picks the single ready step or lists several ready steps instead of launching.
 - Config writes are validated before saving: structural errors always fail, and an invalid pi model or effort fails unless `--force`; a missing harness only warns. `change-axi config --verify` re-checks live.
 - `change-axi config` owns apply/propose/commit config; `docs-axi config` keeps the docs layout (ADR-0009-docs-layout-is-config-adr-section-stays-a-fixed-type). Both share the TOML writer in docs-axi.
