@@ -1,11 +1,11 @@
 # Backlog
 
 ## In flight
-- [ ] enter-resolves-step-for-tier - Resolve a step on bare enter so its tier applies (kind: change) (since 2026-10-27)
 ## Queued
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
 - [ ] verify-profile-on-enter - Verify agent profile before enter launches blocked-by: add-config-cli (kind: change) (since 2026-10-27)
 ## Done
+- [x] enter-resolves-step-for-tier - Resolve a step on bare enter so its tier applies (kind: change) (done 2026-10-27)
 - [x] add-backlog-ideas - Capture backlog ideas and promote them into changes (kind: change) (done 2026-10-27)
 - [x] add-config-cli - Add change-axi config to show and set plan config (kind: change) (done 2026-10-27)
 - [x] add-agent-profiles - Agent profiles and step tiers (kind: change) (done 2026-10-26)
