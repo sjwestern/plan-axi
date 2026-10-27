@@ -609,6 +609,11 @@ Steps with state, dependencies, wave, and which are ready to start now.
 `,
 };
 
+/** Ids of steps that can start now: queued with no open blockers. */
+export function readyStepIds(tasks: ReturnType<typeof listTasks>): string[] {
+  return tasks.filter((t) => t.state === "queued" && t.blockers.length === 0).map((t) => t.id);
+}
+
 export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(STATUS_SPEC, args);
   const slug = p.pos[0] as string;
@@ -619,7 +624,7 @@ export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const { waves } = computeWaves(active);
   const waveOf = new Map<string, number>();
   for (const [w, ids] of waves) for (const id of ids) waveOf.set(id, w);
-  const ready = active.filter((t) => t.state === "queued" && t.blockers.length === 0).map((t) => t.id);
+  const ready = readyStepIds(tasks);
   if (archived) {
     return {
       change: `${slug} (archived, read-only)`,
@@ -1060,14 +1065,33 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
   if (!step) {
     // Resume: the worktree's branch holds the live step state.
     let flying: string[] = [];
+    let ready: string[] = [];
     try {
-      flying = listTasks(path, tasksRel(slug)).filter((t) => t.state === "in_flight").map((t) => t.id);
+      const tasks = listTasks(path, tasksRel(slug));
+      flying = tasks.filter((t) => t.state === "in_flight").map((t) => t.id);
+      ready = readyStepIds(tasks);
     } catch {
       /* no tasks file yet */
     }
     if (flying.length === 1) {
       step = flying[0];
       out_.push(`Resuming in-flight step ${step}`);
+    } else if (flying.length === 0 && ready.length === 1) {
+      step = ready[0];
+    } else if (flying.length === 0 && ready.length > 1) {
+      const rows = ready.map((id) => {
+        const f = join(path, "specs", "changes", "active", slug, `${id}.md`);
+        const tier = (existsSync(f) ? headerLine(readLf(f), "Tier") : undefined) ?? "-";
+        return { step: id, tier, profile: (tier !== "-" ? tierProfile(path, tier) : undefined) ?? "-" };
+      });
+      const listing: AxiStructuredOutput = { worktree: path, branch: slug };
+      if (enter) listing["enter"] = enter;
+      listing["ready"] = rows;
+      listing["help"] = [
+        `Several steps are ready. Run \`change-axi enter ${slug} <step>\` to launch one with its tier profile`,
+        `Or run \`change-axi run ${slug}\` to run them`,
+      ];
+      return listing;
     }
   }
   const prompt = step ? `apply ${slug} ${step}` : `apply ${slug}`;

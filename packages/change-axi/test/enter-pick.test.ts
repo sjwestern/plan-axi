@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -104,5 +104,53 @@ describe("slug-less enter", () => {
     expect(r.code).toBe(1);
     expect(r.out).toContain("alpha");
     expect(r.out).toContain("beta");
+  });
+});
+
+describe("bare enter resolves a step", () => {
+  const P = "demo";
+  const PROFILES = '[apply]\nagent = "dflt {prompt}"\n[apply.agents.small]\nharness = "pi"\nmodel = "p/m"\n[apply.agents.other]\nharness = "pi"\n[apply.tiers]\nsmall = "small"\n';
+  const cfg = (): void => writeFileSync(join(dir, ".plan-axi.toml"), PROFILES);
+  async function setup(steps: number): Promise<void> {
+    process.env["XDG_CONFIG_HOME"] = join(dir, "xdg");
+    delete process.env["CHANGE_AXI_AGENT"];
+    await run("new", P, P);
+    for (let i = 0; i < steps; i++) await run("step", "add", P, `Step ${i}`, "--owns", `src${i}/`, "--tier", "small");
+    git("checkout", "-q", "-b", P);
+  }
+
+  it("single ready step uses its tier profile", async () => {
+    await setup(1);
+    cfg();
+    const r = await run("enter", P, "--print");
+    expect(r.out).toContain("small (tier small -> small)");
+    expect(r.out).toContain(`apply ${P} 01-step-0`);
+  });
+
+  it("several ready steps are listed and nothing launches", async () => {
+    await setup(2);
+    cfg();
+    const r = await run("enter", P, "--print");
+    expect(r.out).toContain("ready[2]");
+    expect(r.out).toContain("01-step-0");
+    expect(r.out).toContain("02-step-1");
+    expect(r.out).not.toContain("command");
+    expect(r.out).toContain(`change-axi enter ${P} <step>`);
+  });
+
+  it("one in-flight step resumes", async () => {
+    await setup(2);
+    cfg();
+    await run("claim", P, "02-step-1");
+    const r = await run("enter", P, "--print");
+    expect(r.out).toContain("Resuming in-flight step 02-step-1");
+    expect(r.out).toContain(`apply ${P} 02-step-1`);
+  });
+
+  it("--agent overrides the tier profile", async () => {
+    await setup(1);
+    cfg();
+    const r = await run("enter", P, "--agent", "other", "--print");
+    expect(r.out).toContain("other (--agent other)");
   });
 });

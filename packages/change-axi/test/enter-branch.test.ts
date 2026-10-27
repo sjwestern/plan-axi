@@ -158,8 +158,7 @@ describe("enter resume", () => {
     await setup([]);
     const r = await run("enter", S, "--print");
     expect(r.out).not.toContain("Resuming");
-    expect(r.out).toContain(`apply ${S}`);
-    expect(r.out).not.toContain(`apply ${S} 0`);
+    expect(r.out).toContain("ready[2]");
   });
 
   it("does not resume with two in-flight steps", async () => {

@@ -59,7 +59,7 @@ describe("enter", () => {
     fakeAgent();
     const r = await run("enter", P, "--run");
     expect(r.code).toBe(0);
-    expect(readFileSync(join(dir, "agent.arg"), "utf8")).toBe(`apply ${P}`);
+    expect(readFileSync(join(dir, "agent.arg"), "utf8")).toBe(`apply ${P} 01-do-it`);
     expect(readFileSync(join(dir, "agent.cwd"), "utf8").trim()).toBe(execFileSync("pwd", { cwd: dir, encoding: "utf8" }).trim());
   });
 
