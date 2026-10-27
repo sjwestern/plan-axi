@@ -101,6 +101,8 @@ agent = "pi {prompt}"    # placeholders: {prompt} (shell-quoted) {slug} {step} {
 
 Profiles bundle a harness, model and effort; tiers map a step's `Tier:` to a profile. `enter` resolves the agent in this order: `--agent <name>`, the step's tier (`[apply.tiers]`), `[apply] agent`, env, autodetect. The output names the source, e.g. `small (tier small -> small)`.
 
+Before launching a profile, `enter` live-checks its model and effort (preflight). An invalid result blocks the launch with the field, value and a fix hint; a skipped result (harness not on PATH, output not parsable) only warns. With `--print` or no TTY, invalid results are warnings. `--no-verify` skips the check. Fix an invalid profile with `change-axi config --profile <name> ...`; re-check with `change-axi config --verify`.
+
 Set this up with `change-axi config` (repo `.plan-axi.toml`, or `--user` for personal model choices). It validates before writing and keeps comments:
 
 ```sh
