@@ -16,6 +16,7 @@ import { loadGuidance } from "./guidance.js";
 import { PI_THINKING_FALLBACK } from "./agent.js";
 import { readPlanConfig } from "./planconfig.js";
 import { buildCommand, buildProfileCommand, resolveAgent, runAgent } from "./agent.js";
+import { preflightProfile } from "./preflight.js";
 import { finishChange } from "./finish.js";
 import { git } from "./git.js";
 import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
@@ -957,11 +958,11 @@ const SETUP_HINT = "Run `change-axi setup` so agents in the worktree know to use
 
 export const ENTER_SPEC: CmdSpec = {
   name: "enter",
-  flags: { "--print": "boolean", "--run": "boolean", "--list": "boolean", "--agent": "string" },
+  flags: { "--print": "boolean", "--run": "boolean", "--list": "boolean", "--agent": "string", "--no-verify": "boolean" },
   min: 0,
   max: 2,
-  usage: "change-axi enter [slug] [step] [--print] [--run] [--agent <name>] | enter --list",
-  help: `usage: change-axi enter [slug] [step] [--print] [--run] [--agent <name>]
+  usage: "change-axi enter [slug] [step] [--print] [--run] [--agent <name>] [--no-verify] | enter --list",
+  help: `usage: change-axi enter [slug] [step] [--print] [--run] [--agent <name>] [--no-verify]
        change-axi enter --list
 Without a slug: uses the change on the current branch, else the only in-flight change; with several, a TTY gets a
 numbered prompt and otherwise the list is printed (exit 1).
@@ -972,6 +973,7 @@ On branch <slug> the current directory is used. Without a TTY, or with --print, 
   --agent   use profile [apply.agents.<name>] (harness, model, effort, command) instead of the default agent
   --print   print the path and command only
   --run     run even when stdout is not a TTY
+  --no-verify  skip the live check of the profile's model and effort before launch
   --list    list active changes with worktree, branch state and in-flight steps
 examples:
   change-axi enter --list
@@ -1118,7 +1120,24 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
     out["agent"] = agent.profile ? `${agent.profile.name} (${agent.source}${agent.source.startsWith("tier ") ? ` -> ${agent.profile.name}` : ""})` : `${agent.template} (${agent.source})`;
     out["command"] = cmd;
     const tty = Boolean(process.stdout.isTTY);
-    if (flagBool(p, "--print") || !(tty || flagBool(p, "--run"))) {
+    const willRun = !(flagBool(p, "--print") || !(tty || flagBool(p, "--run")));
+    if (agent.profile && !flagBool(p, "--no-verify")) {
+      const results = preflightProfile(agent);
+      const bad = results.filter((r) => r.status === "invalid");
+      if (bad.length > 0 && willRun) {
+        const name = agent.profile.name;
+        throw new AxiError(
+          `agent profile "${name}" is invalid: ${bad.map((r) => `${r.field}: ${r.message}`).join("; ")}`,
+          "VALIDATION_ERROR",
+          [`Fix it: change-axi config --profile ${name} --model <provider/id> --effort <level>`, "Launch anyway: change-axi enter ... --no-verify"],
+        );
+      }
+      for (const r of results) {
+        if (r.status === "invalid") help.push(`warning: profile ${agent.profile.name} ${r.field}: ${r.message}`);
+        else if (r.status === "skipped") help.push(`warning: profile ${agent.profile.name} ${r.field} not verified: ${r.message}`);
+      }
+    }
+    if (!willRun) {
       help.push(flagBool(p, "--print") ? "Printed only (--print)" : "Not a TTY: printed only. Use --run to run anyway");
     } else {
       const code = runAgent(cmd, path);

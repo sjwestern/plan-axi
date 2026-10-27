@@ -127,4 +127,90 @@ describe("enter", () => {
     const r = await run("enter", P, "99-nope", "--print");
     expect(r.code).not.toBe(0);
   });
+
+  describe.skipIf(process.platform === "win32")("profile preflight", () => {
+    let bin: string;
+    let saved: string | undefined;
+    const fakePi = (): void => {
+      writeFileSync(
+        join(bin, "pi"),
+        `#!/bin/sh
+if [ "$1" = "--help" ]; then
+  echo "  --thinking <level>   Set thinking level: off, minimal, low, medium, high"
+elif [ "$1" = "--list-models" ]; then
+  echo "provider  model  context"
+  echo "prov      good   1M"
+else
+  echo ran > "${dir}/pi.ran"
+fi
+`,
+      );
+      chmodSync(join(bin, "pi"), 0o755);
+    };
+    const profile = (extra: string): void => writeFileSync(join(dir, ".plan-axi.toml"), `[apply.agents.p]\nharness = "pi"\n${extra}`);
+    beforeEach(() => {
+      bin = mkdtempSync(join(tmpdir(), "change-axi-bin-"));
+      saved = process.env["PATH"];
+      process.env["PATH"] = `${bin}${delimiter}/usr/bin${delimiter}/bin`;
+    });
+    afterEach(() => {
+      process.env["PATH"] = saved;
+      rmSync(bin, { recursive: true, force: true });
+    });
+
+    it("blocks a run on invalid effort", async () => {
+      fakePi();
+      profile('model = "prov/good"\neffort = "ultra"\n');
+      const r = await run("enter", P, "--agent", "p", "--run");
+      expect(r.code).not.toBe(0);
+      expect(r.out).toContain("effort");
+      expect(r.out).toContain("ultra");
+      expect(r.out).toContain("--no-verify");
+      expect(existsSync(join(dir, "pi.ran"))).toBe(false);
+    });
+
+    it("blocks a run on invalid model", async () => {
+      fakePi();
+      profile('model = "prov/nope"\n');
+      const r = await run("enter", P, "--agent", "p", "--run");
+      expect(r.code).not.toBe(0);
+      expect(r.out).toContain("prov/nope");
+      expect(existsSync(join(dir, "pi.ran"))).toBe(false);
+    });
+
+    it("--no-verify launches anyway", async () => {
+      fakePi();
+      profile('model = "prov/good"\neffort = "ultra"\n');
+      const r = await run("enter", P, "--agent", "p", "--run", "--no-verify");
+      expect(r.code).toBe(0);
+      expect(existsSync(join(dir, "pi.ran"))).toBe(true);
+    });
+
+    it("print mode warns instead of blocking", async () => {
+      fakePi();
+      profile('effort = "ultra"\n');
+      const r = await run("enter", P, "--agent", "p", "--print");
+      expect(r.code).toBe(0);
+      expect(r.out).toContain("warning");
+      expect(r.out).toContain("ultra");
+    });
+
+    it("skipped check warns and still launches", async () => {
+      process.env["PATH"] = `${bin}${delimiter}/usr/bin${delimiter}/bin`;
+      writeFileSync(join(bin, "pi"), `#!/bin/sh\necho ran > "${dir}/pi.ran"\n`);
+      chmodSync(join(bin, "pi"), 0o755);
+      profile('model = "prov/good"\n');
+      const r = await run("enter", P, "--agent", "p", "--run");
+      expect(r.code).toBe(0);
+      expect(r.out).toContain("not verified");
+      expect(existsSync(join(dir, "pi.ran"))).toBe(true);
+    });
+
+    it("non-profile agent is unchanged", async () => {
+      fakeAgent();
+      const r = await run("enter", P, "--run");
+      expect(r.code).toBe(0);
+      expect(r.out).not.toContain("warning");
+    });
+  });
 });
