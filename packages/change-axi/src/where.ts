@@ -10,7 +10,7 @@ export const WHERE_SPEC: CmdSpec = {
   max: 1,
   usage: "change-axi where <slug>",
   help: `usage: change-axi where <slug>
-Print where a change lives and its state: active, archived or backlog (only in backlog.md, no plan files).
+Print where a change lives and its state: active, archived or backlog (only in backlog.md, no plan files; shows the item kind, e.g. idea).
 Refer to changes by slug (\`change:<slug>\`), not by path; archive moves them.
 `,
 };
@@ -20,5 +20,6 @@ export function whereCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const slug = p.pos[0] as string;
   const r = resolveChange(ctx, slug);
   if (!r) throw new AxiError(`change "${slug}" not found in active, archived or backlog`, "NOT_FOUND");
-  return r.rel ? { change: slug, state: r.state, path: r.rel } : { change: slug, state: r.state };
+  if (r.rel) return { change: slug, state: r.state, path: r.rel };
+  return { change: slug, state: r.state, ...(r.kind ? { kind: r.kind } : {}) };
 }

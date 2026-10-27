@@ -7,7 +7,7 @@ import { applyEol, writeText } from "docs-axi/lib/fsutil";
 import { editSection, splitDoc } from "docs-axi/lib/sectionedit";
 import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
-import { checkKind, deriveSlug, listUnplanned, slugTaken, UNPLANNED_KINDS } from "./backlog.js";
+import { checkKind, deriveSlug, isUnplannedKind, listUnplanned, slugTaken, UNPLANNED_KINDS } from "./backlog.js";
 import { archiveChange } from "./archive.js";
 import { claim } from "./claim.js";
 import { commitPlan } from "./commitplan.js";
@@ -28,6 +28,7 @@ import {
   archivedDir,
   changeDir,
   checkSlug,
+  getBacklogItem,
   headerLine,
   readLf,
   requireChange,
@@ -39,6 +40,7 @@ import {
   tasksRel,
   SLUG_RE,
   getDocsConfig,
+  type BacklogItemInfo,
   type Ctx,
 } from "./change.js";
 import { STEP_HEADER_LINES, STEP_SECTIONS, proposalSections, proposalSkeleton, stepSkeleton, TIERS, tierProfile } from "./spec.js";
@@ -100,44 +102,115 @@ export function specCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
 export const NEW_SPEC: CmdSpec = {
   name: "new",
-  flags: {},
-  min: 2,
+  flags: { "--from": "string" },
+  min: 1,
   max: 2,
-  usage: 'change-axi new <slug> "<title>"',
-  help: `usage: change-axi new <slug> "<title>"
+  usage: 'change-axi new <slug> ["<title>"] [--from <old-slug>]',
+  help: `usage: change-axi new <slug> ["<title>"] [--from <old-slug>]
 Create specs/changes/active/<slug>/proposal.md (empty required sections), ensure .tasks.toml, and queue the change in backlog.md.
-slug: kebab-case, verb first, max 50 chars. Must not be active, archived, or already in the backlog.
+slug: kebab-case, verb first, max 50 chars. Must not be active, archived, or already a planned change in the backlog.
+Adopt: when <slug> is an unplanned backlog item (kind idea|bug|chore from \`change-axi idea\`), it becomes a change in place.
+The title is optional then (the item's title is kept) and the item body seeds the proposal's Why section.
+--from <old-slug>: adopt the unplanned item <old-slug> under a new slug. Title, body, priority, repo and blocked-by links
+are carried over; the old item is removed. Both happen or neither does.
 Does not commit.
 examples:
   change-axi new split-auth-module "Split the auth module"
+  change-axi new dark-mode-toggle
+  change-axi new add-dark-mode --from dark-mode-toggle
 `,
 };
+
+function seedWhy(skeleton: string, body: string): string {
+  const text = body.trim();
+  return text === "" ? skeleton : skeleton.replace("## Why\n", `## Why\n\n${text}\n`);
+}
+
+function tryRun(ctx: Ctx, args: string[]): void {
+  try {
+    runTasks(ctx.root, args);
+  } catch {
+    /* best effort rollback */
+  }
+}
 
 export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(NEW_SPEC, args);
   const slug = p.pos[0] as string;
-  const title = requireSingleLine("title", p.pos[1] as string);
+  const titleArg = p.pos[1] === undefined ? undefined : requireSingleLine("title", p.pos[1]);
+  const from = flagStr(p, "--from");
   checkSlug(slug);
   const dir = changeDir(ctx, slug);
-  const where = slugTaken(ctx, slug);
-  if (where !== undefined) {
+  const taken = resolveChange(ctx, slug);
+  const adopt = from === undefined && taken?.state === "backlog" && taken.kind !== undefined && isUnplannedKind(taken.kind);
+  if (taken && !adopt) {
+    const where = slugTaken(ctx, slug) as string;
     throw new AxiError(`slug "${slug}" is taken (${where})`, "VALIDATION_ERROR", [
       "Slugs are never reused. Pick a more specific name, e.g. add a scope or qualifier (`" + slug + "-<scope>`)",
       `Inspect the existing one with \`change-axi where ${slug}\``,
     ]);
   }
+  let source: BacklogItemInfo | undefined;
+  if (from !== undefined) {
+    checkSlug(from);
+    source = getBacklogItem(ctx, from);
+    if (!source || !isUnplannedKind(source.kind) || resolveChange(ctx, from)?.rel) {
+      throw new AxiError(`--from "${from}" is not an unplanned backlog item`, "VALIDATION_ERROR", [
+        "Only items from `change-axi idea` (kind idea|bug|chore) can be renamed this way",
+        "Run `change-axi backlog` to list them",
+      ]);
+    }
+  } else if (adopt) {
+    source = getBacklogItem(ctx, slug);
+  }
+  const title = titleArg ?? source?.title;
+  if (title === undefined || title === "") {
+    throw new AxiError("title is required", "VALIDATION_ERROR", [`usage: ${NEW_SPEC.usage}`]);
+  }
   mkdirSync(dir, { recursive: true });
-  writeText(join(dir, "proposal.md"), proposalSkeleton(title));
+  try {
+    writeText(join(dir, "proposal.md"), seedWhy(proposalSkeleton(title), source?.body ?? ""));
+  } catch (e) {
+    rmSync(dir, { recursive: true, force: true });
+    throw e;
+  }
   const toml = join(ctx.root, ".tasks.toml");
   let tomlNote = "present";
   if (!existsSync(toml)) {
     writeFileSync(toml, "[markdown]\ndone_keep = 1000\n");
     tomlNote = "created";
   }
-  runTasks(ctx.root, ["add", slug, title, "--kind", "change", "--file", "backlog.md"]);
+  let carried: string[] = [];
+  try {
+    if (from !== undefined && source) {
+      runTasks(ctx.root, [
+        "add", slug, title, "--kind", "change",
+        ...(source.repo !== undefined ? ["--repo", source.repo] : []),
+        ...(source.priority !== undefined ? ["--priority", source.priority] : []),
+        ...(source.body !== "" ? ["--body", source.body] : []),
+        "--file", "backlog.md",
+      ]);
+      try {
+        for (const b of source.blockedBy) runTasks(ctx.root, ["block", slug, "--by", b, "--file", "backlog.md"]);
+        runTasks(ctx.root, ["rm", from, "--file", "backlog.md"]);
+      } catch (e) {
+        tryRun(ctx, ["rm", slug, "--file", "backlog.md"]);
+        throw e;
+      }
+      carried = source.blockedBy;
+    } else if (adopt) {
+      runTasks(ctx.root, ["update", slug, "--kind", "change", ...(titleArg !== undefined ? ["--title", titleArg] : []), "--file", "backlog.md"]);
+    } else {
+      runTasks(ctx.root, ["add", slug, title, "--kind", "change", "--file", "backlog.md"]);
+    }
+  } catch (e) {
+    rmSync(dir, { recursive: true, force: true });
+    throw e;
+  }
   return {
     created: `specs/changes/active/${slug}/proposal.md`,
-    backlog: `${slug} queued`,
+    backlog: from !== undefined ? `${slug} queued (renamed from ${from})` : adopt ? `${slug} adopted (was ${source?.kind})` : `${slug} queued`,
+    ...(carried.length > 0 ? { blocked_by: carried.join(",") } : {}),
     tasks_toml: tomlNote,
     sections: guideRows(proposalSections(getDocsConfig(ctx).layout)),
     help: [

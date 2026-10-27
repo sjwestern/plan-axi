@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { loadConfig, type DocsConfig } from "docs-axi/lib/config";
-import { listTasks } from "./tasks.js";
+import { listTasks, runTasks } from "./tasks.js";
 import { readText, normalizeEol } from "docs-axi/lib/fsutil";
 
 export interface Ctx {
@@ -51,6 +51,58 @@ export interface ResolvedChange {
   dir?: string;
   /** Repo-relative dir with `/` (undefined for backlog-only). */
   rel?: string;
+  /** Backlog task kind (backlog-only results). */
+  kind?: string;
+}
+
+export interface BacklogItemInfo {
+  slug: string;
+  kind: string;
+  state: string;
+  title: string;
+  body: string;
+  priority: string | undefined;
+  repo: string | undefined;
+  /** Active blockers. */
+  blockedBy: string[];
+}
+
+/** One backlog.md task via `tasks-axi show`, or undefined when absent or the file is missing. */
+export function getBacklogItem(ctx: Ctx, slug: string): BacklogItemInfo | undefined {
+  if (!existsSync(join(ctx.root, "backlog.md"))) return undefined;
+  let out: string;
+  try {
+    out = runTasks(ctx.root, ["show", slug, "--file", "backlog.md"]);
+  } catch {
+    return undefined;
+  }
+  const f: Record<string, string> = {};
+  for (const line of out.split("\n")) {
+    const m = /^ {2}([a-z_]+): (.*)$/.exec(line);
+    if (!m) continue;
+    let v = m[2] as string;
+    if (v.startsWith('"')) {
+      try {
+        v = JSON.parse(v) as string;
+      } catch {
+        /* keep raw */
+      }
+    }
+    f[m[1] as string] = v;
+  }
+  if (f["id"] !== slug) return undefined;
+  const dash = (v: string | undefined): string | undefined => (v === undefined || v === "-" || v === "" ? undefined : v);
+  const bb = f["blocked_by"] ?? "none";
+  return {
+    slug,
+    kind: f["kind"] ?? "",
+    state: f["state"] ?? "",
+    title: f["title"] ?? "",
+    body: f["body"] ?? "",
+    priority: dash(f["priority"]),
+    repo: dash(f["repo"]),
+    blockedBy: bb === "none" || bb === "" ? [] : bb.split(","),
+  };
 }
 
 /** Resolve a change slug: active first, then archived/<date>-<slug>, then backlog-only. */
@@ -63,7 +115,8 @@ export function resolveChange(ctx: Ctx, slug: string): ResolvedChange | undefine
       .pop();
     if (hit) return { slug, state: "archived", dir: join(archivedDir(ctx), hit), rel: `specs/changes/archived/${hit}` };
   }
-  if (backlogSlugs(ctx).has(slug)) return { slug, state: "backlog" };
+  const item = getBacklogItem(ctx, slug);
+  if (item) return { slug, state: "backlog", kind: item.kind };
   return undefined;
 }
 

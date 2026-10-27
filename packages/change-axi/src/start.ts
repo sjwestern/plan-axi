@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
-import { getDocsConfig, requireChange, type Ctx } from "./change.js";
+import { isUnplannedKind } from "./backlog.js";
+import { getDocsConfig, requireChange, resolveChange, type Ctx } from "./change.js";
 import { checkChange } from "./check.js";
 import { commit, defaultBranch, firstCommitOf, git } from "./git.js";
 import { listTasks, runTasks } from "./tasks.js";
@@ -181,6 +182,12 @@ export function leaseWorktree(ctx: Ctx, slug: string): Worktree {
 }
 
 export function startChange(ctx: Ctx, slug: string, o: StartOptions): StartReport {
+  const planned = resolveChange(ctx, slug);
+  if (planned?.state === "backlog" && planned.kind !== undefined && isUnplannedKind(planned.kind)) {
+    throw new AxiError(`"${slug}" is an unplanned ${planned.kind} in the backlog; propose it first`, "VALIDATION_ERROR", [
+      `Run \`change-axi new ${slug}\` to turn it into a plan, then write and commit the plan`,
+    ]);
+  }
   const dir = requireChange(ctx, slug);
   const base = defaultBranch(ctx);
   const current = git(ctx, ["branch", "--show-current"]);
