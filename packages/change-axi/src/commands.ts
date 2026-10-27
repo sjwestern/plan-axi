@@ -7,6 +7,7 @@ import { applyEol, writeText } from "docs-axi/lib/fsutil";
 import { editSection, splitDoc } from "docs-axi/lib/sectionedit";
 import { renderSection, sectionsTable } from "docs-axi/lib/commands/sections";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
+import { checkKind, deriveSlug, listUnplanned, slugTaken, UNPLANNED_KINDS } from "./backlog.js";
 import { archiveChange } from "./archive.js";
 import { claim } from "./claim.js";
 import { commitPlan } from "./commitplan.js";
@@ -118,9 +119,8 @@ export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const title = requireSingleLine("title", p.pos[1] as string);
   checkSlug(slug);
   const dir = changeDir(ctx, slug);
-  const taken = resolveChange(ctx, slug);
-  if (taken) {
-    const where = { active: "an active change", archived: "an archived change", backlog: "already in backlog.md" }[taken.state];
+  const where = slugTaken(ctx, slug);
+  if (where !== undefined) {
     throw new AxiError(`slug "${slug}" is taken (${where})`, "VALIDATION_ERROR", [
       "Slugs are never reused. Pick a more specific name, e.g. add a scope or qualifier (`" + slug + "-<scope>`)",
       `Inspect the existing one with \`change-axi where ${slug}\``,
@@ -144,6 +144,76 @@ export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
       `Fill each with \`change-axi write ${slug} proposal --section "<name>"\` (body on stdin)`,
       `Add steps with \`change-axi step add ${slug} "<title>" --owns <paths>\``,
     ],
+  };
+}
+
+// ---------------------------------------------------------------- idea / backlog
+
+export const IDEA_SPEC: CmdSpec = {
+  name: "idea",
+  flags: { "--kind": "string", "--slug": "string", "--body": "string", "--priority": "string", "--repo": "string" },
+  min: 1,
+  max: 1,
+  usage: 'change-axi idea "<one-liner>" [--kind idea|bug|chore] [--slug <s>] [--body <text>] [--priority 0-4] [--repo <name>]',
+  help: `usage: change-axi idea "<one-liner>" [--kind idea|bug|chore] [--slug <s>] [--body <text>] [--priority 0-4] [--repo <name>]
+Capture an unplanned item in backlog.md (no plan files). Kind defaults to idea; priority 0 is highest.
+The slug is derived from the one-liner unless --slug is given. Slugs are never reused (active, archived, or any backlog item).
+Does not commit. Turn an item into a plan later with plan-propose.
+examples:
+  change-axi idea "dark mode toggle" --kind chore --priority 1 --repo web
+  change-axi idea "Login fails on empty password" --kind bug --body "Seen on staging"
+`,
+};
+
+export function ideaCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(IDEA_SPEC, args);
+  const title = requireSingleLine("title", p.pos[0] as string);
+  const kind = checkKind(flagStr(p, "--kind") ?? "idea");
+  const slug = flagStr(p, "--slug") ?? deriveSlug(title);
+  checkSlug(slug);
+  const prio = flagStr(p, "--priority");
+  if (prio !== undefined && !/^[0-4]$/.test(prio)) throw new AxiError(`bad priority "${prio}"`, "VALIDATION_ERROR", ["Use 0-4 (0 is highest)"]);
+  const where = slugTaken(ctx, slug);
+  if (where !== undefined) {
+    throw new AxiError(`slug "${slug}" is taken (${where})`, "VALIDATION_ERROR", [
+      `Pick another with \`--slug ${slug}-<scope>\``,
+      `Inspect the existing one with \`change-axi where ${slug}\``,
+    ]);
+  }
+  const repo = flagStr(p, "--repo");
+  const body = flagStr(p, "--body");
+  const toml = join(ctx.root, ".tasks.toml");
+  if (!existsSync(toml)) writeFileSync(toml, "[markdown]\ndone_keep = 1000\n");
+  runTasks(ctx.root, [
+    "add", slug, title, "--kind", kind,
+    ...(repo !== undefined ? ["--repo", repo] : []),
+    ...(prio !== undefined ? ["--priority", prio] : []),
+    ...(body !== undefined ? ["--body", body] : []),
+    "--file", "backlog.md",
+  ]);
+  return { idea: `${slug} queued`, kind, ...(prio !== undefined ? { priority: Number(prio) } : {}), ...(repo !== undefined ? { repo } : {}), help: ["Run `change-axi backlog` to list unplanned items", `Plan it later with plan-propose (slug ${slug})`] };
+}
+
+export const BACKLOG_SPEC: CmdSpec = {
+  name: "backlog",
+  flags: {},
+  min: 0,
+  max: 0,
+  usage: "change-axi backlog",
+  help: `usage: change-axi backlog
+List unplanned backlog items (kinds: ${UNPLANNED_KINDS.join(", ")}) sorted by priority then age.
+examples:
+  change-axi backlog
+`,
+};
+
+export function backlogCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  parseArgs(BACKLOG_SPEC, args);
+  const items = listUnplanned(ctx);
+  if (items.length === 0) return { backlog: "0 unplanned items", help: ['Capture one with `change-axi idea "<one-liner>"`'] };
+  return {
+    backlog: items.map((i) => ({ slug: i.slug, kind: i.kind, priority: i.priority ?? "-", repo: i.repo || "-", title: i.title })),
+    help: ["Turn an item into a plan with plan-propose (use the slug)"],
   };
 }
 
