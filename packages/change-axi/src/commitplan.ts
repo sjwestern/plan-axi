@@ -46,7 +46,7 @@ export function commitPlan(ctx: Ctx, slugArg: string | undefined, o: CommitPlanO
   const paths = [`specs/changes/active/${slug}`, "backlog.md", ".tasks.toml", docsDir].filter((p) => existsSync(join(ctx.root, p)));
   const style = commitStyle(ctx.root);
   const subject = o.reason && o.reason.trim() !== "" ? o.reason.trim() : `propose ${slug}`;
-  const header = commitHeader(style.planType, style.scope, subject);
+  const header = commitHeader(style.planType, style.scope, subject, slug);
   const message = style.trailer === "" ? header : `${header}\n\n${style.trailer}: ${slug}`;
 
   // raw: trimming would strip the leading space of the first porcelain line (" M file") and corrupt its path

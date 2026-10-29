@@ -50,7 +50,7 @@ export function isAncestorOf(ctx: Ctx, a: string, b: string): boolean {
  */
 export function commit(ctx: Ctx, subject: string, slug: string, paths?: string[], type?: string): void {
   const style = commitStyle(ctx.root);
-  const args = ["commit", "-q", "-m", commitHeader(type ?? style.type, style.scope, subject)];
+  const args = ["commit", "-q", "-m", commitHeader(type ?? style.type, style.scope, subject, slug)];
   if (style.trailer !== "") args.push("-m", `${style.trailer}: ${slug}`);
   if (paths) args.push("--", ...paths);
   try {

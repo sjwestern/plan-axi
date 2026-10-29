@@ -47,6 +47,20 @@ describe("commitStyle", () => {
     expect(commitHeader("chore", "", "x")).toBe("chore: x");
   });
 
+  it("shortens a long slug to keep the conventional header within 100 characters", () => {
+    const slug = "long-slug-name-something-".repeat(5);
+    const header = commitHeader("chore", "plan", `start ${slug}`, slug);
+    expect(header).toHaveLength(100);
+    expect(header).toMatch(/^chore\(plan\): start long-slug-name-something-.*\.\.\.$/);
+    expect(header).not.toContain(slug);
+  });
+
+  it("truncates an overlong subject without a slug", () => {
+    const header = commitHeader("chore", "plan", "x".repeat(200));
+    expect(header).toHaveLength(100);
+    expect(header.endsWith("...")).toBe(true);
+  });
+
   it("commits without parens or trailer when configured", () => {
     cfg('[commit]\nscope = ""\ntrailer = ""\n');
     const g = (...a: string[]): string => execFileSync("git", a, { cwd: dir, encoding: "utf8" }).trim();
@@ -57,5 +71,19 @@ describe("commitStyle", () => {
     g("add", "a");
     commit({ root: dir } as never, "start change", "demo");
     expect(g("log", "-1", "--format=%B")).toBe("chore: start change");
+  });
+
+  it("commits a shortened header and keeps the full slug in the trailer", () => {
+    const g = (...a: string[]): string => execFileSync("git", a, { cwd: dir, encoding: "utf8" }).trim();
+    g("init", "-q", "-b", "main");
+    g("config", "user.email", "t@t");
+    g("config", "user.name", "t");
+    const slug = "long-slug-name-something-".repeat(5);
+    writeFileSync(join(dir, "a"), "x");
+    g("add", "a");
+    commit({ root: dir } as never, `start ${slug}`, slug);
+    const [header, , trailer] = g("log", "-1", "--format=%B").split("\n");
+    expect(header).toHaveLength(100);
+    expect(trailer).toBe(`Change: ${slug}`);
   });
 });
