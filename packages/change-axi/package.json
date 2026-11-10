@@ -1,6 +1,6 @@
 {
   "name": "change-axi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AXI CLI for change plans (specs/changes): scaffold proposal and steps, write sections, task graph checks",
   "license": "MIT",
   "type": "module",

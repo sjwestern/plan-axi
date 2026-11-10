@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 - 2026-11-10
+
+### Features
+- **change-axi:** Replace finish tab-close prompt with --close-tab flag
+
 ## 0.1.0 - 2026-11-10
 
 ### Bug fixes
