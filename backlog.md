@@ -3,6 +3,7 @@
 ## In flight
 ## Queued
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
+- [ ] add-multi-repo-changes - Support changes that span several repos (kind: change) (since 2026-11-10)
 ## Done
 - [x] verify-profile-on-enter - Verify agent profile before enter launches blocked-by: add-config-cli (kind: change) (done 2026-10-27)
 - [x] enter-resolves-step-for-tier - Resolve a step on bare enter so its tier applies (kind: change) (done 2026-10-27)
