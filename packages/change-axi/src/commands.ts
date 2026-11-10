@@ -1130,7 +1130,6 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
       listing["ready"] = rows;
       listing["help"] = [
         `Several steps are ready. Run \`change-axi enter ${slug} <step>\` to launch one with its tier profile`,
-        `Or run \`change-axi run ${slug}\` to run them`,
       ];
       return listing;
     }
