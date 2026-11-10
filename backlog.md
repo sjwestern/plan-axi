@@ -1,11 +1,11 @@
 # Backlog
 
 ## In flight
-- [ ] validate-hand-edited-config - Validate hand-edited config with config --verify (kind: change) (since 2026-11-10)
 ## Queued
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
 - [ ] try-firstmate-supervising-plan-axi-runs-feed-ready - Try firstmate supervising plan-axi runs: feed ready steps (step file as brief) to firstmate tasks, mark done via change-axi; compare with add-run-wave before building run (kind: idea) (since 2026-11-10)
 ## Done
+- [x] validate-hand-edited-config - Validate hand-edited config with config --verify (kind: change) (done 2026-11-10)
 - [x] name-herdr-tab-on-enter - Name the herdr tab after the change on enter (kind: change) (done 2026-11-10)
 - [x] add-multi-repo-changes - Support changes that span several repos (kind: change) (done 2026-11-10)
 - [x] verify-profile-on-enter - Verify agent profile before enter launches blocked-by: add-config-cli (kind: change) (done 2026-10-27)
