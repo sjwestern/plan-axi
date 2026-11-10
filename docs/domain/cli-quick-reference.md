@@ -47,7 +47,7 @@ change-axi step set split-auth 02 --owns src/auth/,tests/auth/
 change-axi step set split-auth 02 --tier small     # small|standard|deep|none; also `step add --tier`
 change-axi guidance                                # tier rules from [propose.tiers] and the profile per tier
 change-axi config                                  # show effective profiles, tiers, rules, agent, commit style
-change-axi config --verify                         # live-check models and efforts, writes nothing
+change-axi config --verify                         # validate all config, then live-check profiles; writes nothing
 change-axi dep split-auth 03 --on 01,02    # cycles are reverted
 change-axi check split-auth --waves
 change-axi status split-auth
@@ -130,7 +130,15 @@ change-axi config --remove-profile small --unset-tier small
 change-axi config --verify [--profile small]
 ```
 
-Structural errors (unknown tier, undefined profile, profile without harness or command) and an invalid pi model or effort fail and leave the file unchanged; `--force` writes past an invalid model or effort. A missing harness is a warning. `--model` must be `provider/id`. Hand-editing the TOML is equivalent:
+`config --verify` validates the user and repo config files, then live-checks profiles. It prints `problems[n]{file,key,severity,message}` first (`problems: none` when clean), then one row per profile. It checks:
+
+- each file alone: syntax, key names, value types, `[commit]` values, tier names, repo keys and platform, and `{prompt}` in `apply.agent` and profile `command` templates;
+- the merged view: tiers map to a profile defined in either file, repo `path` present in either file, profiles have `harness` or `command`;
+- the `[docs]` layout (docs-axi rules), reported for every problem rather than only the first.
+
+Every problem names the file holding the key. An error (bad value, syntax error, `{prompt}` missing, undefined profile) makes the exit code 1; a warning (unknown key with a did-you-mean hint, unknown `{placeholder}`) does not. An invalid profile also exits 1; a missing binary is `skipped`. `--profile <name>` limits only the live checks; all config is still validated, and an unknown name fails. Live checks are skipped when a file has a syntax error.
+
+Structural errors (unknown tier, undefined profile, profile without harness or command) and an invalid pi model or effort fail and leave the file unchanged; `--force` writes past an invalid model or effort. A missing harness is a warning. `--model` must be `provider/id`. Hand-editing the TOML is equivalent; check it with `change-axi config --verify`:
 
 ```toml
 [apply.agents.small]
