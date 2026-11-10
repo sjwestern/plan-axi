@@ -1147,7 +1147,6 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
     help.push('No agent found. Set one in .plan-axi.toml: [apply]  agent = "pi {prompt}"  (or export CHANGE_AXI_AGENT)');
     help.push(`Then start your agent in the worktree with: ${prompt}`);
   } else {
-    const vars = { prompt, slug, ...(step ? { step } : {}), path };
     const reposJson = extra && extra.length > 0 ? JSON.stringify(Object.fromEntries(extra.map((w) => [w.repo, w.path]))) : "";
     const vars = { prompt: `${prompt}${AGENT_PROMPT_HINT}`, slug, ...(step ? { step } : {}), path, repos: reposJson };
     const cmd = agent.profile ? buildProfileCommand(agent.profile, vars) : buildCommand(agent.template, vars);
