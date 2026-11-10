@@ -21,7 +21,7 @@ import { finishChange } from "./finish.js";
 import { git } from "./git.js";
 import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
 import { listEnterable } from "./enter-list.js";
-import { leaseWorktree, startChange } from "./start.js";
+import { leaseRepos, leaseWorktree, startChange, type RepoWorktree } from "./start.js";
 import { changeHome, currentChangeSlug, whereAmI } from "./home.js";
 import { checkChange, computeWaves } from "./check.js";
 import {
@@ -806,6 +806,8 @@ Preflight: not behind the remote, plan committed and clean, plan check passes, b
 Then: marks the change in flight in backlog.md and commits only that file ("chore(plan): start <slug>", Change trailer),
 and leases a treehouse worktree on branch <slug> (reused if one already exists for it).
 Idempotent: an in-flight change is not started twice; the worktree is looked up instead.
+With a proposal \`Repos:\` header, one worktree per listed repo is also leased on branch <slug> from its base
+(default branch when no @base); the output lists repo, branch, base and path. Existing leases are reused.
   --dry-run       run the preflight, change nothing
   --no-worktree   skip the treehouse lease
 Output: worktree path, an enter command to copy, the ready steps with their Owns, and the parallel waves.
@@ -814,6 +816,10 @@ examples:
   change-axi start split-auth
 `,
 };
+
+function repoRows(ws: RepoWorktree[]): Record<string, unknown>[] {
+  return ws.map((w) => ({ repo: w.repo, branch: w.branch, base: w.base, path: w.path, native: w.nativePath }));
+}
 
 export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(START_SPEC, args);
@@ -829,6 +835,7 @@ export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     out["branch"] = slug;
     out["enter"] = r.worktree.name ? `treehouse enter ${r.worktree.name}` : `cd ${r.worktree.path}`;
   }
+  if (r.repos) out["repos"] = repoRows(r.repos);
   // Owns lists are long; show them only when parallel work is possible (more than one ready step).
   out["ready"] = r.ready.length > 1 ? r.ready : r.ready.map((x) => ({ id: x.id, owns: `${x.owns.split(",").length} path(s)` }));
   out["waves"] = [...r.waves].map(([w, ids]) => ({ wave: w, steps: ids.join(",") }));
@@ -1067,13 +1074,24 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
   }
   let path = ctx.root;
   let enter: string | undefined;
+  let extra: RepoWorktree[] | undefined;
   const out: AxiStructuredOutput = {};
   if (git(ctx, ["branch", "--show-current"], true) !== slug) {
     const inFlight = listTasks(ctx.root, "backlog.md").find((t) => t.id === slug)?.state === "in_flight";
-    const w = inFlight ? leaseWorktree(ctx, slug) : startChange(ctx, slug, { dryRun: false, worktree: true }).worktree;
+    let w;
+    if (inFlight) {
+      w = leaseWorktree(ctx, slug);
+      extra = leaseRepos(ctx, slug);
+    } else {
+      const sr = startChange(ctx, slug, { dryRun: false, worktree: true });
+      w = sr.worktree;
+      extra = sr.repos;
+    }
     if (!w) throw new AxiError("no worktree", "TREEHOUSE_ERROR");
     path = w.path;
     enter = w.name ? `treehouse enter ${w.name}` : `cd ${w.path}`;
+  } else {
+    extra = leaseRepos(ctx, slug);
   }
   const out_: string[] = [];
   if (!step) {
@@ -1100,6 +1118,7 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
       });
       const listing: AxiStructuredOutput = { worktree: path, branch: slug };
       if (enter) listing["enter"] = enter;
+      if (extra && extra.length > 0) listing["repos"] = repoRows(extra);
       listing["ready"] = rows;
       listing["help"] = [
         `Several steps are ready. Run \`change-axi enter ${slug} <step>\` to launch one with its tier profile`,
@@ -1112,6 +1131,7 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
   out["worktree"] = path;
   out["branch"] = slug;
   if (enter) out["enter"] = enter;
+  if (extra && extra.length > 0) out["repos"] = repoRows(extra);
   out["prompt"] = prompt;
   const help: string[] = out_;
   const profileName = flagStr(p, "--agent");
@@ -1127,7 +1147,9 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
     help.push('No agent found. Set one in .plan-axi.toml: [apply]  agent = "pi {prompt}"  (or export CHANGE_AXI_AGENT)');
     help.push(`Then start your agent in the worktree with: ${prompt}`);
   } else {
-    const vars = { prompt: `${prompt}${AGENT_PROMPT_HINT}`, slug, ...(step ? { step } : {}), path };
+    const vars = { prompt, slug, ...(step ? { step } : {}), path };
+    const reposJson = extra && extra.length > 0 ? JSON.stringify(Object.fromEntries(extra.map((w) => [w.repo, w.path]))) : "";
+    const vars = { prompt: `${prompt}${AGENT_PROMPT_HINT}`, slug, ...(step ? { step } : {}), path, repos: reposJson };
     const cmd = agent.profile ? buildProfileCommand(agent.profile, vars) : buildCommand(agent.template, vars);
     out["agent"] = agent.profile ? `${agent.profile.name} (${agent.source}${agent.source.startsWith("tier ") ? ` -> ${agent.profile.name}` : ""})` : `${agent.template} (${agent.source})`;
     out["command"] = cmd;
@@ -1152,7 +1174,7 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
     if (!willRun) {
       help.push(flagBool(p, "--print") ? "Printed only (--print)" : "Not a TTY: printed only. Use --run to run anyway");
     } else {
-      const code = runAgent(cmd, path);
+      const code = runAgent(cmd, path, reposJson ? { CHANGE_AXI_REPOS: reposJson } : undefined);
       out["exit"] = code;
       if (code !== 0) process.exitCode = code;
     }

@@ -236,16 +236,18 @@ export interface CommandVars {
   slug: string;
   step?: string;
   path: string;
+  /** JSON map of extra repo name -> worktree path; empty for single-repo changes. */
+  repos?: string;
 }
 
-/** Fill `{prompt}`, `{slug}`, `{step}`, `{path}` with shell-quoted values (unknown placeholders stay). */
+/** Fill `{prompt}`, `{slug}`, `{step}`, `{path}`, `{repos}` with shell-quoted values (unknown placeholders stay). */
 export function buildCommand(template: string, v: CommandVars, platform: NodeJS.Platform = process.platform): string {
-  const vals: Record<string, string> = { prompt: v.prompt, slug: v.slug, step: v.step ?? "", path: v.path };
-  return template.replace(/\{(prompt|slug|step|path)\}/g, (_m, k: string) => shellQuote(vals[k] as string, platform));
+  const vals: Record<string, string> = { prompt: v.prompt, slug: v.slug, step: v.step ?? "", path: v.path, repos: v.repos ?? "" };
+  return template.replace(/\{(prompt|slug|step|path|repos)\}/g, (_m, k: string) => shellQuote(vals[k] as string, platform));
 }
 
 /** Run the command in `cwd` with inherited stdio. Returns the exit code. */
-export function runAgent(command: string, cwd: string): number {
-  const r = spawnSync(command, { cwd, stdio: "inherit", shell: true });
+export function runAgent(command: string, cwd: string, env?: Record<string, string>): number {
+  const r = spawnSync(command, { cwd, stdio: "inherit", shell: true, ...(env ? { env: { ...process.env, ...env } } : {}) });
   return r.status ?? 1;
 }

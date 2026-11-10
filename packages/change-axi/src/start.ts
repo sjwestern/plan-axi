@@ -4,14 +4,29 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import { isUnplannedKind } from "./backlog.js";
-import { getDocsConfig, requireChange, resolveChange, type Ctx } from "./change.js";
+import { getDocsConfig, parseRepos, requireChange, resolveChange, type Ctx, type RepoRef } from "./change.js";
 import { checkChange } from "./check.js";
 import { commit, defaultBranch, firstCommitOf, git } from "./git.js";
+import { loadRepoRuntimes, type RepoRuntime } from "./repos.js";
 import { listTasks, runTasks } from "./tasks.js";
 
 export interface StartOptions {
   dryRun: boolean;
   worktree: boolean;
+  /** Injected repo runtimes (tests); default loads them from config. */
+  runtimes?: Map<string, RepoRuntime>;
+}
+
+export interface RepoWorktree {
+  repo: string;
+  branch: string;
+  base: string;
+  /** Path usable by this process. */
+  path: string;
+  /** Path as the repo's own tools see it. */
+  nativePath: string;
+  name?: string;
+  reused: boolean;
 }
 
 export interface Worktree {
@@ -24,6 +39,8 @@ export interface StartReport {
   already: boolean;
   commit?: string;
   worktree?: Worktree;
+  /** Worktrees leased for the extra repos in the proposal `Repos:` header (absent for single-repo changes). */
+  repos?: RepoWorktree[];
   ready: { id: string; owns: string }[];
   waves: Map<number, string[]>;
   warnings: string[];
@@ -181,6 +198,111 @@ export function leaseWorktree(ctx: Ctx, slug: string): Worktree {
   return { path, ...(row ? { name: row.name } : {}), reused: false };
 }
 
+function repoDefaultBranch(rt: RepoRuntime): string {
+  const head = rt.git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { allowFail: true });
+  if (head.startsWith("origin/")) return head.slice(7);
+  for (const b of ["main", "master"]) if (rt.git(["rev-parse", "--verify", "--quiet", `refs/heads/${b}`], { allowFail: true })) return b;
+  return "main";
+}
+
+function repoStatusRows(rt: RepoRuntime): StatusRow[] {
+  try {
+    const rows = parseStatusJson(rt.treehouse(["status", "--json"]));
+    if (rows) return rows;
+  } catch (e) {
+    if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
+  }
+  return parseStatusRows(rt.treehouse(["status"]));
+}
+
+/** Lease (or reuse) a treehouse worktree on branch `slug` in one repo, cut from `baseRef` or the repo default branch. */
+export function leaseRepoWorktree(rt: RepoRuntime, slug: string, baseRef?: string): RepoWorktree {
+  const base = baseRef ?? repoDefaultBranch(rt);
+  const mk = (path: string, name: string | undefined, reused: boolean): RepoWorktree => {
+    const wsl = rt.toWsl(path);
+    return { repo: rt.name, branch: slug, base, path: wsl, nativePath: rt.toNative(wsl), ...(name ? { name } : {}), reused };
+  };
+  const existing = repoStatusRows(rt).find((r) => r.branch === slug);
+  if (existing) return mk(existing.path, existing.name, true);
+  let reuseBranch = false;
+  if (rt.git(["rev-parse", "--verify", "--quiet", `refs/heads/${slug}`], { allowFail: true }) !== "") {
+    const unique = rt.git(["rev-list", "--count", `${base}..${slug}`], { allowFail: true });
+    if (!/^\d+$/.test(unique)) {
+      throw new AxiError(`${rt.name}: branch ${slug} exists but could not be compared with ${base}`, "VALIDATION_ERROR", [`Check with \`git log ${base}..${slug}\` in ${rt.nativePath}`]);
+    }
+    if (unique === "0") rt.git(["branch", "-D", slug]);
+    else reuseBranch = true;
+  }
+  const getArgs = ["get", "--lease", "--json", ...(reuseBranch ? [] : ["-b", slug]), ...(baseRef && !reuseBranch ? ["--base", baseRef] : [])];
+  let raw: string;
+  try {
+    raw = rt.treehouse([...getArgs, "--lease-holder", slug]);
+  } catch (e) {
+    if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR" || !/unknown flag|lease-holder/i.test(e.message)) throw e;
+    raw = rt.treehouse(getArgs);
+  }
+  let path: string;
+  try {
+    path = (JSON.parse(raw) as { path: string }).path;
+  } catch {
+    throw new AxiError(`${rt.name}: could not read treehouse lease output`, "TREEHOUSE_ERROR", [raw.slice(0, 200)]);
+  }
+  if (reuseBranch) {
+    const r = defaultRunSwitch(rt, rt.toWsl(path), slug);
+    if (r) throw new AxiError(`${rt.name}: git switch ${slug} failed in ${path}: ${r}`, "GIT_ERROR", ["Branch may be checked out elsewhere"]);
+  }
+  const rows = repoStatusRows(rt);
+  const row = rows.find((r) => r.path === path) ?? rows.find((r) => r.branch === slug);
+  return mk(path, row?.name, false);
+}
+
+function defaultRunSwitch(rt: RepoRuntime, path: string, slug: string): string | undefined {
+  try {
+    execFileSync(rt.viaWindows ? "git.exe" : "git", ["switch", slug], { cwd: path, stdio: ["ignore", "pipe", "pipe"] });
+    return undefined;
+  } catch (e) {
+    return ((e as { stderr?: Buffer }).stderr ?? "").toString().trim().split("\n")[0] || "failed";
+  }
+}
+
+/** Repos listed in the change proposal `Repos:` header; empty for single-repo changes. */
+export function changeRepos(ctx: Ctx, slug: string): RepoRef[] {
+  const file = join(requireChange(ctx, slug), "proposal.md");
+  try {
+    return parseRepos(readFileSync(file, "utf8").replace(/\r\n/g, "\n"));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Lease one worktree per extra repo. Stops at the first failure; earlier leases stay in place and are
+ * listed in the error so a rerun reuses them.
+ */
+export function leaseRepos(ctx: Ctx, slug: string, runtimes?: Map<string, RepoRuntime>): RepoWorktree[] {
+  const refs = changeRepos(ctx, slug);
+  if (refs.length === 0) return [];
+  const rts = runtimes ?? loadRepoRuntimes(ctx.root);
+  const unknown = refs.filter((r) => !rts.has(r.name)).map((r) => r.name);
+  if (unknown.length > 0) {
+    throw new AxiError(`Repos header names unconfigured repo(s): ${unknown.join(", ")}`, "VALIDATION_ERROR", ["Add [repos.<name>] path = \"...\" to .plan-axi.toml"]);
+  }
+  const done: RepoWorktree[] = [];
+  for (const ref of refs) {
+    try {
+      done.push(leaseRepoWorktree(rts.get(ref.name) as RepoRuntime, slug, ref.base));
+    } catch (e) {
+      const msg = e instanceof AxiError ? e.message : String(e);
+      const code = e instanceof AxiError ? e.code : "TREEHOUSE_ERROR";
+      throw new AxiError(`lease failed for repo ${ref.name}: ${msg}`, code, [
+        ...done.map((d) => `leased ${d.repo}: ${d.path} (branch ${d.branch}, base ${d.base}); left in place`),
+        "Fix the failure and rerun; existing leases are reused",
+      ]);
+    }
+  }
+  return done;
+}
+
 export function startChange(ctx: Ctx, slug: string, o: StartOptions): StartReport {
   const planned = resolveChange(ctx, slug);
   if (planned?.state === "backlog" && planned.kind !== undefined && isUnplannedKind(planned.kind)) {
@@ -241,7 +363,11 @@ export function startChange(ctx: Ctx, slug: string, o: StartOptions): StartRepor
     }
     report.commit = git(ctx, ["rev-parse", "--short", "HEAD"]);
   }
-  if (o.worktree) report.worktree = leaseWorktree(ctx, slug);
+  if (o.worktree) {
+    report.worktree = leaseWorktree(ctx, slug);
+    const repos = leaseRepos(ctx, slug, o.runtimes);
+    if (repos.length > 0) report.repos = repos;
+  }
   return report;
 }
 
