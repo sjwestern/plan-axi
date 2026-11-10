@@ -22,6 +22,7 @@ import { git } from "./git.js";
 import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
 import { listEnterable } from "./enter-list.js";
 import { leaseRepos, leaseWorktree, startChange, type RepoWorktree } from "./start.js";
+import { repoStateRows, repoStates } from "./repostate.js";
 import { changeHome, currentChangeSlug, whereAmI } from "./home.js";
 import { checkChange, computeWaves } from "./check.js";
 import {
@@ -634,6 +635,7 @@ export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const waveOf = new Map<string, number>();
   for (const [w, ids] of waves) for (const id of ids) waveOf.set(id, w);
   const ready = readyStepIds(tasks);
+  const repos = archived ? [] : repoStateRows(repoStates(ctx, slug));
   if (archived) {
     return {
       change: `${slug} (archived, read-only)`,
@@ -645,6 +647,7 @@ export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   return {
     change: slug,
     ...whereAmI(ctx),
+    ...(repos.length > 0 ? { repos } : {}),
     progress: `${tasks.length - active.length}/${tasks.length} done`,
     steps: tasks.map((t) => ({ id: t.id, state: t.state, blocked_by: t.blockers.join(",") || "none", wave: waveOf.get(t.id) ?? "-" })),
     ready: ready.join(",") || "none",

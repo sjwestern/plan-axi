@@ -198,14 +198,14 @@ export function leaseWorktree(ctx: Ctx, slug: string): Worktree {
   return { path, ...(row ? { name: row.name } : {}), reused: false };
 }
 
-function repoDefaultBranch(rt: RepoRuntime): string {
+export function repoDefaultBranch(rt: RepoRuntime): string {
   const head = rt.git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { allowFail: true });
   if (head.startsWith("origin/")) return head.slice(7);
   for (const b of ["main", "master"]) if (rt.git(["rev-parse", "--verify", "--quiet", `refs/heads/${b}`], { allowFail: true })) return b;
   return "main";
 }
 
-function repoStatusRows(rt: RepoRuntime): StatusRow[] {
+export function repoStatusRows(rt: RepoRuntime): StatusRow[] {
   try {
     const rows = parseStatusJson(rt.treehouse(["status", "--json"]));
     if (rows) return rows;

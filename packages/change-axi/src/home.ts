@@ -4,6 +4,7 @@ import type { AxiStructuredOutput } from "docs-axi/lib/types";
 import { computeWaves } from "./check.js";
 import { activeDir, tasksRel, type Ctx } from "./change.js";
 import { git } from "./git.js";
+import { repoStateRows, repoStates } from "./repostate.js";
 import { listTasks } from "./tasks.js";
 
 /** Slug when the current branch is named like an active change, else undefined. */
@@ -34,9 +35,11 @@ export function changeHome(ctx: Ctx, slug: string): AxiStructuredOutput {
   else if (active.length === 0) help.push(`All steps done; run \`change-axi archive ${slug} --dry-run\``);
   else help.push("No ready steps; waiting on in-flight steps");
   help.push(`Run \`change-axi status ${slug}\` for the step graph`);
+  const repos = repoStateRows(repoStates(ctx, slug));
   return {
     change: slug,
     ...whereAmI(ctx, slug),
+    ...(repos.length > 0 ? { repos } : {}),
     progress: `${tasks.length - active.length}/${tasks.length} done`,
     steps: tasks.map((t) => ({ id: t.id, state: t.state, blocked_by: t.blockers.join(",") || "none", wave: waveOf.get(t.id) ?? "-" })),
     in_flight: inFlight.join(",") || "none",
