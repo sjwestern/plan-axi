@@ -1,4 +1,4 @@
-import { renameHerdrTab } from "./herdr-tab.js";
+import { closeHerdrTabOnExit, inHerdrTab, renameHerdrTab } from "./herdr-tab.js";
 import { existsSync, mkdirSync, readSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
@@ -878,7 +878,7 @@ examples:
 `,
 };
 
-export function finishCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+export function finishCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boolean(process.stdin.isTTY && process.stdout.isTTY), ask: readLineSync }): AxiStructuredOutput {
   const p = parseArgs(FINISH_SPEC, args);
   const slug = p.pos[0] as string;
   const dry = flagBool(p, "--dry-run");
@@ -895,6 +895,10 @@ export function finishCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (dry && r.ready === false) out["help"] = ["Fix the repos marked in `detail` (rebase commands are exact), then dry-run again"];
   else if (dry) out["help"] = [`Run \`change-axi finish ${slug}\` to apply`];
   else if (r.buildHint) out["help"] = [r.buildHint];
+  if (!dry && io.tty && inHerdrTab()) {
+    const ans = io.ask("Close this herdr tab? [y/N] ");
+    if (ans !== undefined && /^y(es)?$/i.test(ans.trim())) closeHerdrTabOnExit();
+  }
   return out;
 }
 

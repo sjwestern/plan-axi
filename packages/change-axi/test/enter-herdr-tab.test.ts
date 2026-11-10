@@ -89,3 +89,14 @@ describe("enter herdr tab", () => {
     expect(r.out).toBe(base.out);
   });
 });
+
+describe("closeHerdrTabOnExit", () => {
+  it("registers an exit hook only inside herdr", async () => {
+    const { closeHerdrTabOnExit, inHerdrTab } = await import("../src/herdr-tab.js");
+    const before = process.listenerCount("exit");
+    closeHerdrTabOnExit({});
+    expect(process.listenerCount("exit")).toBe(before);
+    expect(inHerdrTab({ HERDR_ENV: "1", HERDR_TAB_ID: "t" })).toBe(true);
+    expect(inHerdrTab({ HERDR_TAB_ID: "t" })).toBe(false);
+  });
+});
