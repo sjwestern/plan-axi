@@ -1,3 +1,4 @@
+import { renameHerdrTab } from "./herdr-tab.js";
 import { existsSync, mkdirSync, readSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
@@ -1080,6 +1081,7 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
   if (step && !listTasks(ctx.root, tasksRel(slug)).some((t) => t.id === step)) {
     throw new AxiError(`no step "${step}" in ${slug}`, "NOT_FOUND", [`Run \`change-axi status ${slug}\` for step ids`]);
   }
+  renameHerdrTab(slug);
   let path = ctx.root;
   let enter: string | undefined;
   let extra: RepoWorktree[] | undefined;

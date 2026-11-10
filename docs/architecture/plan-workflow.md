@@ -72,6 +72,8 @@ Type, plan type, scope and trailer key are configurable under `[commit]`. If a c
 
 `change-axi enter <slug> [step]` runs the `start` preflight and commit when the change is queued, finds or leases the worktree, then spawns the configured agent command there (cwd = worktree, no `treehouse enter`) with the prompt `apply <slug> [step]`. See ADR-0006-agent-launch-uses-a-command-template.
 
+Inside herdr (`HERDR_ENV=1` and `HERDR_TAB_ID` set), `enter` first renames the current tab to the slug via `herdr tab rename`, best effort: errors are ignored.
+
 Agent choice: `--agent <profile>`, then the step's `Tier:` through `[apply.tiers]`, then `[apply] agent`, env, autodetect (ADR-0007-agent-profiles-and-step-tiers-extend-the-launch-template). plan-propose reads `change-axi guidance` and sets each step's tier at proposal time; the human edits it in review, and apply only resolves it.
 
 Existing branch: when a worktree already has `<slug>` checked out it is reused. Otherwise, if branch `<slug>` exists, it is compared with the default branch. No commits beyond the default branch: the branch is deleted and recreated. Commits present: the branch is kept, a free worktree is leased without `-b`, and `git switch <slug>` runs there (failure gives `GIT_ERROR`, e.g. branch checked out elsewhere). If the comparison cannot be made (`rev-list` fails, e.g. no `main`/`master`), `enter` stops with `VALIDATION_ERROR` and never deletes: inspect with `git log <base>..<slug>`, then delete the branch or `git switch <slug>` in a free worktree by hand.
