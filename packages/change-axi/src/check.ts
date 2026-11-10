@@ -124,7 +124,7 @@ export function checkChange(ctx: Ctx, slug: string): CheckResult {
   if (listed.size > 0) {
     const configured = new Set(readRepoConfigs(ctx.root).map((r) => r.name));
     for (const name of listed) {
-      if (!configured.has(name)) errors.push(`REPO_UNKNOWN: proposal.md Repos lists "${name}" but .plan-axi.toml has no [repos.${name}] (define it with path = "~/...")`);
+      if (!configured.has(name)) errors.push(`REPO_UNKNOWN: proposal.md Repos lists "${name}" but .plan-axi.toml has no [repos.${name}] (define it with path = "~/..."; or drop it: \`change-axi proposal set ${slug} --repos ${[...listed].filter((n) => n !== name).join(",") || "none"}\`)`);
     }
   }
   const owns = new Map<string, string[]>();
@@ -154,7 +154,7 @@ export function checkChange(ctx: Ctx, slug: string): CheckResult {
       const list = splitList(ownsLine);
       owns.set(f, list.map(pathRoot));
       for (const repo of new Set(list.map((e) => splitOwnsRepo(e).repo))) {
-        if (repo !== undefined && !listed.has(repo)) errors.push(`OWNS_REPO_UNLISTED: ${f} Owns uses "${repo}:" but proposal.md has no "${repo}" in its Repos header (add \`Repos: ${repo}\`)`);
+        if (repo !== undefined && !listed.has(repo)) errors.push(`OWNS_REPO_UNLISTED: ${f} Owns uses "${repo}:" but proposal.md has no "${repo}" in its Repos header (fix: \`change-axi proposal set ${slug} --repos ${[...listed, repo].join(",")}\`)`);
       }
       for (const e of list) {
         if (!TOOL_DIRS.some((d) => e === d || e.startsWith(`${d}/`))) continue;

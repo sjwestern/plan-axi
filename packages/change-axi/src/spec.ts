@@ -34,7 +34,7 @@ export const STEP_SECTIONS: SectionSpec[] = [
 ];
 
 export const PROPOSAL_HEADER_LINES: SectionSpec[] = [
-  { name: "Repos", guide: "Optional: other repos this change edits, comma separated `name@base` (base branch; omit `@base` for the repo default). Names come from `[repos.<name>]` in .plan-axi.toml. The plan repo is implicit. Step Owns use `<repo>:<path>` for these repos." },
+  { name: "Repos", guide: "Optional: other repos this change edits, comma separated `name@base` (base branch; omit `@base` for the repo default). Names come from `[repos.<name>]` in .plan-axi.toml. The plan repo is implicit. Set with `change-axi proposal set <slug> --repos a@base,b` (or `new --repos`). Step Owns use `<repo>:<path>` for these repos." },
 ];
 
 export const STEP_HEADER_LINES: SectionSpec[] = [

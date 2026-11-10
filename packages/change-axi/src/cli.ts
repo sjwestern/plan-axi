@@ -14,7 +14,7 @@ export const DESCRIPTION =
 
 export const TOP_HELP = `usage: change-axi [command] [args] [flags]
 commands[24]:
-  (none)=active changes, spec, new, idea, backlog, step, dep, sections, show, where, write, append, check, status, claim, done, commit-plan, start, archive, finish, enter, guidance, config, setup
+  (none)=active changes, spec, new, idea, backlog, proposal, step, dep, sections, show, where, write, append, check, status, claim, done, commit-plan, start, archive, finish, enter, guidance, config, setup
 flags[2]:
   --root <dir> (after command; default git root), --help, -v/-V/--version
 examples:
@@ -32,6 +32,7 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   idea: { run: c.ideaCommand, help: c.IDEA_SPEC.help },
   backlog: { run: c.backlogCommand, help: c.BACKLOG_SPEC.help },
   step: { run: c.stepCommand, help: c.STEP_SPEC.help },
+  proposal: { run: c.proposalCommand, help: c.PROPOSAL_SPEC.help },
   dep: { run: c.depCommand, help: c.DEP_SPEC.help },
   sections: { run: c.sectionsCommand, help: c.SECTIONS_SPEC.help },
   show: { run: c.showCommand, help: c.SHOW_SPEC.help },

@@ -43,7 +43,7 @@ Materialize the draft (from `plan-explore` or the user's description) as a revie
 
 ## Rules
 
-- Multi-repo: when the change edits repos besides this one, add a `Repos: name@base, name` header to `proposal.md` (base optional, default branch otherwise; each name needs `[repos.<name>]` in `.plan-axi.toml`). Prefix `Owns:` entries for those repos with `<repo>:`; unprefixed entries belong to the plan repo. `change-axi check` errors on a prefix not in `Repos:`.
+- Multi-repo: when the change edits repos besides this one, set the `Repos:` header with `change-axi proposal set <slug> --repos name@base,name` (or `change-axi new <slug> --repos ...`; never hand-edit) (base optional, default branch otherwise; each name needs `[repos.<name>]` in `.plan-axi.toml`). Prefix `Owns:` entries for those repos with `<repo>:`; unprefixed entries belong to the plan repo. `change-axi check` errors on a prefix not in `Repos:`.
 - `Owns:` = files the step will **edit** (the write set used for parallel-overlap checks). Files it only reads go in `Docs:` or Context, never `Owns:`.
 - Tool-owned dirs (`.agents/`, `.pi/`, `.claude/`, ...) may be in `Owns:` only when the user asked for that change and `proposal.md` names the path; otherwise `check` errors (`OWNS_TOOL_DIR`).
 - Docs outside the configured layout (`docs-axi config`): do not move or restructure them as part of a plan. Reference them by their real path. If `docs-axi list other` shows many docs outside the layout, recommend a separate migration (`plan-migrate-docs` skill) before or after this change, and keep it out of this plan's steps.

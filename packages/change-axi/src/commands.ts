@@ -23,6 +23,7 @@ import { git } from "./git.js";
 import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
 import { listEnterable } from "./enter-list.js";
 import { leaseRepos, leaseWorktree, startChange, type RepoWorktree } from "./start.js";
+import { readRepoConfigs } from "./planconfig.js";
 import { repoStateRows, repoStates } from "./repostate.js";
 import { changeHome, currentChangeSlug, whereAmI } from "./home.js";
 import { checkChange, computeWaves } from "./check.js";
@@ -38,7 +39,9 @@ import {
   requireReadable,
   resolveChange,
   resolveDoc,
+  parseRepos,
   splitList,
+  splitOwnsRepo,
   stepFiles,
   tasksRel,
   SLUG_RE,
@@ -105,24 +108,103 @@ export function specCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
 export const NEW_SPEC: CmdSpec = {
   name: "new",
-  flags: { "--from": "string" },
+  flags: { "--from": "string", "--repos": "string" },
   min: 1,
   max: 2,
-  usage: 'change-axi new <slug> ["<title>"] [--from <old-slug>]',
-  help: `usage: change-axi new <slug> ["<title>"] [--from <old-slug>]
+  usage: 'change-axi new <slug> ["<title>"] [--from <old-slug>] [--repos a@base,b]',
+  help: `usage: change-axi new <slug> ["<title>"] [--from <old-slug>] [--repos a@base,b]
 Create specs/changes/active/<slug>/proposal.md (empty required sections), ensure .tasks.toml, and queue the change in backlog.md.
 slug: kebab-case, verb first, max 50 chars. Must not be active, archived, or already a planned change in the backlog.
 Adopt: when <slug> is an unplanned backlog item (kind idea|bug|chore from \`change-axi idea\`), it becomes a change in place.
 The title is optional then (the item's title is kept) and the item body seeds the proposal's Why section.
 --from <old-slug>: adopt the unplanned item <old-slug> under a new slug. Title, body, priority, repo and blocked-by links
 are carried over; the old item is removed. Both happen or neither does.
+--repos a@base,b: set the proposal \`Repos:\` header (other repos the change edits; same as \`proposal set --repos\`).
 Does not commit.
 examples:
   change-axi new split-auth-module "Split the auth module"
   change-axi new dark-mode-toggle
   change-axi new add-dark-mode --from dark-mode-toggle
+  change-axi new sync-api "Sync API" --repos web@develop,docs
 `,
 };
+
+// ---------------------------------------------------------------- proposal set
+
+export const PROPOSAL_SPEC: CmdSpec = {
+  name: "proposal",
+  flags: { "--repos": "string" },
+  min: 2,
+  max: 2,
+  usage: "change-axi proposal set <slug> --repos a@base,b|none",
+  help: `usage: change-axi proposal set <slug> --repos <name[@base],...|none>
+Set the proposal \`Repos:\` header: other repos the change edits (the plan repo is implicit).
+  name       must have [repos.<name>] in .plan-axi.toml
+  @base      base branch; omit for the repo default branch
+  none       remove the header (refused while a step Owns still uses a \`<repo>:\` prefix)
+Replaces the whole list. Step Owns for these repos use \`<repo>:<path>\` (\`change-axi step set <slug> <step> --owns ..\`).
+Does not commit.
+examples:
+  change-axi proposal set sync-api --repos web@develop,docs
+  change-axi proposal set sync-api --repos none
+`,
+};
+
+/** Normalize a --repos value to `name@base, name`, validating names against config. Empty string means no repos. */
+export function normalizeRepos(ctx: Ctx, value: string): string {
+  if (value.trim().toLowerCase() === "none") return "";
+  const refs = parseRepos(`Repos: ${value}\n`);
+  if (refs.length === 0) throw new AxiError("--repos needs at least one name", "VALIDATION_ERROR", ["Use name@base,name or `none` to clear"]);
+  const configured = readRepoConfigs(ctx.root).map((r) => r.name);
+  const seen = new Set<string>();
+  for (const r of refs) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]+$/.test(r.name)) throw new AxiError(`bad repo name "${r.name}"`, "VALIDATION_ERROR", ["Names: letters, digits, - and _ (2+ chars)"]);
+    if (seen.has(r.name)) throw new AxiError(`repo "${r.name}" listed twice`, "VALIDATION_ERROR");
+    seen.add(r.name);
+    if (!configured.includes(r.name)) {
+      throw new AxiError(`no [repos.${r.name}] in .plan-axi.toml`, "VALIDATION_ERROR", [
+        `Define it: [repos.${r.name}] path = "~/path/to/repo"`,
+        `Configured: ${configured.join(", ") || "(none)"}`,
+      ]);
+    }
+  }
+  return refs.map((r) => (r.base ? `${r.name}@${r.base}` : r.name)).join(", ");
+}
+
+/** Set, replace or remove the `Repos:` header line of a proposal text. */
+export function withReposHeader(text: string, value: string): string {
+  const re = /^Repos:.*$/m;
+  if (value === "") return text.replace(/^Repos:.*\n/m, "");
+  if (re.test(text)) return text.replace(re, `Repos: ${value}`);
+  return text.replace(/^(# .*\n\n?)/, `$1Repos: ${value}\n`);
+}
+
+export function proposalCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
+  const p = parseArgs(PROPOSAL_SPEC, args);
+  const [sub, slug] = p.pos as [string, string];
+  if (sub !== "set") throw new AxiError(`unknown proposal command ${sub}`, "VALIDATION_ERROR", ["Use `proposal set`"]);
+  const dir = requireChange(ctx, slug);
+  const repos = flagStr(p, "--repos");
+  if (repos === undefined) throw new AxiError("nothing to set", "VALIDATION_ERROR", [`usage: ${PROPOSAL_SPEC.usage}`]);
+  const value = normalizeRepos(ctx, repos);
+  const keep = new Set(parseRepos(`Repos: ${value}\n`).map((r) => r.name));
+  for (const f of stepFiles(dir)) {
+    for (const e of splitList(headerLine(readLf(join(dir, f)), "Owns"))) {
+      const repo = splitOwnsRepo(e).repo;
+      if (repo !== undefined && !keep.has(repo)) {
+        throw new AxiError(`${f} Owns uses "${repo}:"`, "VALIDATION_ERROR", [
+          `Keep it: change-axi proposal set ${slug} --repos ${[...keep, repo].join(",")}`,
+          `Or change the Owns first: change-axi step set ${slug} ${f.replace(/\.md$/, "")} --owns ...`,
+        ]);
+      }
+    }
+  }
+  const abs = join(dir, "proposal.md");
+  const raw = readLf(abs);
+  const text = withReposHeader(raw, value);
+  if (text !== raw) writeText(abs, applyEol(text, "\n"));
+  return { proposal: `proposal.md ${text !== raw ? "updated" : "unchanged (no-op)"}`, repos: value === "" ? "-" : value };
+}
 
 function seedWhy(skeleton: string, body: string): string {
   const text = body.trim();
@@ -142,6 +224,8 @@ export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const slug = p.pos[0] as string;
   const titleArg = p.pos[1] === undefined ? undefined : requireSingleLine("title", p.pos[1]);
   const from = flagStr(p, "--from");
+  const reposArg = flagStr(p, "--repos");
+  const reposValue = reposArg === undefined ? "" : normalizeRepos(ctx, reposArg);
   checkSlug(slug);
   const dir = changeDir(ctx, slug);
   const taken = resolveChange(ctx, slug);
@@ -172,7 +256,7 @@ export function newCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   }
   mkdirSync(dir, { recursive: true });
   try {
-    writeText(join(dir, "proposal.md"), seedWhy(proposalSkeleton(title), source?.body ?? ""));
+    writeText(join(dir, "proposal.md"), withReposHeader(seedWhy(proposalSkeleton(title), source?.body ?? ""), reposValue));
   } catch (e) {
     rmSync(dir, { recursive: true, force: true });
     throw e;

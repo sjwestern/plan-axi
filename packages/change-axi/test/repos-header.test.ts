@@ -90,3 +90,29 @@ describe("spec proposal", () => {
     expect(r.out).toMatch(/Repos/);
   });
 });
+
+describe("proposal set / new --repos", () => {
+  it("sets, replaces, clears and validates", async () => {
+    writeFileSync(join(dir, ".plan-axi.toml"), '[repos.web]\npath = "/tmp/web"\n[repos.docs]\npath = "/tmp/docs"\n');
+    expect((await run("proposal", "set", P, "--repos", "web@dev, docs")).code).toBe(0);
+    expect(readFileSync(proposal(), "utf8")).toContain("Repos: web@dev, docs\n");
+    await run("proposal", "set", P, "--repos", "web");
+    expect(readFileSync(proposal(), "utf8")).toMatch(/Repos: web\n/);
+    expect((await run("proposal", "set", P, "--repos", "nope")).code).not.toBe(0);
+    await run("proposal", "set", P, "--repos", "none");
+    expect(readFileSync(proposal(), "utf8")).not.toContain("Repos:");
+  });
+  it("refuses to drop a repo a step Owns uses; check hints the fix", async () => {
+    writeFileSync(join(dir, ".plan-axi.toml"), '[repos.web]\npath = "/tmp/web"\n');
+    await run("proposal", "set", P, "--repos", "web");
+    await run("step", "set", P, "01", "--owns", "web:src/");
+    const r = await run("proposal", "set", P, "--repos", "none");
+    expect(r.code).not.toBe(0);
+    expect(r.out).toContain("--repos web");
+  });
+  it("new --repos seeds the header", async () => {
+    writeFileSync(join(dir, ".plan-axi.toml"), '[repos.web]\npath = "/tmp/web"\n');
+    await run("new", "other-change", "Other", "--repos", "web@dev");
+    expect(readFileSync(join(dir, "specs/changes/active/other-change/proposal.md"), "utf8")).toContain("# Other\n\nRepos: web@dev\n");
+  });
+});
