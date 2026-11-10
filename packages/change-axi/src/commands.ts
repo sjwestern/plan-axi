@@ -941,11 +941,11 @@ export function startCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
 export const FINISH_SPEC: CmdSpec = {
   name: "finish",
-  flags: { "--dry-run": "boolean", "--skip-docs-check": "boolean", "--delete-branch": "boolean" },
+  flags: { "--dry-run": "boolean", "--skip-docs-check": "boolean", "--delete-branch": "boolean", "--close-tab": "boolean" },
   min: 1,
   max: 1,
-  usage: "change-axi finish <slug> [--dry-run] [--skip-docs-check] [--delete-branch]",
-  help: `usage: change-axi finish <slug> [--dry-run] [--skip-docs-check] [--delete-branch]
+  usage: "change-axi finish <slug> [--dry-run] [--skip-docs-check] [--delete-branch] [--close-tab]",
+  help: `usage: change-axi finish <slug> [--dry-run] [--skip-docs-check] [--delete-branch] [--close-tab]
 Finish a change from the main checkout: archive it on its branch if not yet archived (commit "archive <slug>"),
 fast-forward merge the branch into the default branch, and release the treehouse worktree.
 Preflight: on the default branch with a clean tree, branch <slug> exists with a worktree, default branch is an ancestor of the branch.
@@ -956,13 +956,14 @@ A rerun skips repos already merged. --dry-run prints a repo table with ahead/beh
   --dry-run          run the preflight and archive checks, change nothing
   --skip-docs-check  pass through to archive
   --delete-branch    after the worktree is returned, delete the merged branch (git branch -d); failure is a warning
+  --close-tab        close the current herdr tab after finishing (no-op outside herdr)
 examples:
   change-axi finish split-auth --dry-run
   change-axi finish split-auth
 `,
 };
 
-export function finishCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boolean(process.stdin.isTTY && process.stdout.isTTY), ask: readLineSync }): AxiStructuredOutput {
+export function finishCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(FINISH_SPEC, args);
   const slug = p.pos[0] as string;
   const dry = flagBool(p, "--dry-run");
@@ -979,10 +980,7 @@ export function finishCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Bool
   if (dry && r.ready === false) out["help"] = ["Fix the repos marked in `detail` (rebase commands are exact), then dry-run again"];
   else if (dry) out["help"] = [`Run \`change-axi finish ${slug}\` to apply`];
   else if (r.buildHint) out["help"] = [r.buildHint];
-  if (!dry && io.tty && inHerdrTab()) {
-    const ans = io.ask("Close this herdr tab? [y/N] ");
-    if (ans !== undefined && /^y(es)?$/i.test(ans.trim())) closeHerdrTabOnExit();
-  }
+  if (!dry && flagBool(p, "--close-tab") && inHerdrTab()) closeHerdrTabOnExit();
   return out;
 }
 
