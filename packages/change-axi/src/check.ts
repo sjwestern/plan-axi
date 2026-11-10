@@ -2,11 +2,12 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { splitDoc } from "docs-axi/lib/sectionedit";
 import { sectionText, findSectionOrUndefined } from "docs-axi/lib/sections";
-import { activeDir, archivedDir, backlogSlugs, changeDir, getDocsConfig, headerLine, readLf, splitList, stepFiles, tasksRel, TOOL_DIRS, SLUG_RE, MAX_SLUG, type Ctx } from "./change.js";
+import { activeDir, archivedDir, backlogSlugs, changeDir, getDocsConfig, headerLine, parseRepos, readLf, splitList, splitOwnsRepo, stepFiles, tasksRel, TOOL_DIRS, SLUG_RE, MAX_SLUG, type Ctx } from "./change.js";
 import { adrInfos, checkRefs, type AdrInfo } from "docs-axi/lib/adrrefs";
 import { loadDocs } from "docs-axi/lib/model";
 import { PROPOSAL_SECTIONS, STEP_SECTIONS, TIERS, tierProfile, tiersConfigured } from "./spec.js";
 import { loadProfiles } from "./agent.js";
+import { readRepoConfigs } from "./planconfig.js";
 import { listTasks, type Task } from "./tasks.js";
 
 export interface CheckResult {
@@ -119,6 +120,13 @@ export function checkChange(ctx: Ctx, slug: string): CheckResult {
       for (const f of steps) if (!body.includes(f)) warnings.push(`STEP_NOT_LISTED: proposal "Steps" does not mention ${f}`);
     }
   }
+  const listed = new Set(parseRepos(proposalText).map((r) => r.name));
+  if (listed.size > 0) {
+    const configured = new Set(readRepoConfigs(ctx.root).map((r) => r.name));
+    for (const name of listed) {
+      if (!configured.has(name)) errors.push(`REPO_UNKNOWN: proposal.md Repos lists "${name}" but .plan-axi.toml has no [repos.${name}] (define it with path = "~/...")`);
+    }
+  }
   const owns = new Map<string, string[]>();
   for (const f of steps) {
     const text = readLf(join(dir, f));
@@ -145,6 +153,9 @@ export function checkChange(ctx: Ctx, slug: string): CheckResult {
     } else {
       const list = splitList(ownsLine);
       owns.set(f, list.map(pathRoot));
+      for (const repo of new Set(list.map((e) => splitOwnsRepo(e).repo))) {
+        if (repo !== undefined && !listed.has(repo)) errors.push(`OWNS_REPO_UNLISTED: ${f} Owns uses "${repo}:" but proposal.md has no "${repo}" in its Repos header (add \`Repos: ${repo}\`)`);
+      }
       for (const e of list) {
         if (!TOOL_DIRS.some((d) => e === d || e.startsWith(`${d}/`))) continue;
         if (!proposalText.includes(e) && !proposalText.includes(pathRoot(e))) {

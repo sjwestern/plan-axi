@@ -33,8 +33,12 @@ export const STEP_SECTIONS: SectionSpec[] = [
   { name: "Done when", guide: "Checkable local proof: tests that pass, commands and expected output. The step is committed only when this holds." },
 ];
 
+export const PROPOSAL_HEADER_LINES: SectionSpec[] = [
+  { name: "Repos", guide: "Optional: other repos this change edits, comma separated `name@base` (base branch; omit `@base` for the repo default). Names come from `[repos.<name>]` in .plan-axi.toml. The plan repo is implicit. Step Owns use `<repo>:<path>` for these repos." },
+];
+
 export const STEP_HEADER_LINES: SectionSpec[] = [
-  { name: "Owns", guide: "Comma separated repo-relative paths or globs the step EDITS (write set for parallel overlap checks). Read-only context goes in Docs." },
+  { name: "Owns", guide: "Comma separated repo-relative paths or globs the step EDITS (write set for parallel overlap checks). Paths in another repo use `<repo>:<path>`, and the repo must be listed in the proposal `Repos:` header. Read-only context goes in Docs." },
   { name: "Docs", guide: "Docs to read before starting, comma separated paths, or `none`." },
   { name: "Tier", guide: "Optional: `small`, `standard` or `deep`. Picks the agent profile for the step through `[apply.tiers]`. Omit for no tier." },
 ];

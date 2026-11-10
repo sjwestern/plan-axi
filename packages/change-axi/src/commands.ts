@@ -44,7 +44,7 @@ import {
   type BacklogItemInfo,
   type Ctx,
 } from "./change.js";
-import { STEP_HEADER_LINES, STEP_SECTIONS, proposalSections, proposalSkeleton, stepSkeleton, TIERS, tierProfile } from "./spec.js";
+import { PROPOSAL_HEADER_LINES, STEP_HEADER_LINES, STEP_SECTIONS, proposalSections, proposalSkeleton, stepSkeleton, TIERS, tierProfile } from "./spec.js";
 import { listTasks, runTasks } from "./tasks.js";
 
 const guideRows = (list: { name: string; guide: string }[]): Record<string, string>[] => list.map((s) => ({ section: s.name, guide: s.guide }));
@@ -87,7 +87,7 @@ export function specCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const p = parseArgs(SPEC_SPEC, args);
   const which = p.pos[0];
   const sections = proposalSections(getDocsConfig(ctx).layout);
-  if (which === "proposal") return { proposal: guideRows(sections), help: ['Fill with `change-axi write <slug> proposal --section "<name>" --body "..."`'] };
+  if (which === "proposal") return { header: guideRows(PROPOSAL_HEADER_LINES), proposal: guideRows(sections), help: ['Fill with `change-axi write <slug> proposal --section "<name>" --body "..."`'] };
   if (which === "step") {
     return {
       header: guideRows(STEP_HEADER_LINES),
@@ -96,7 +96,7 @@ export function specCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     };
   }
   if (which !== undefined) throw new AxiError(`unknown kind ${which}`, "VALIDATION_ERROR", ["Kinds: proposal, step"]);
-  return { proposal: guideRows(sections), step: guideRows(STEP_SECTIONS), header: guideRows(STEP_HEADER_LINES) };
+  return { proposalHeader: guideRows(PROPOSAL_HEADER_LINES), proposal: guideRows(sections), header: guideRows(STEP_HEADER_LINES), step: guideRows(STEP_SECTIONS) };
 }
 
 // ---------------------------------------------------------------- new

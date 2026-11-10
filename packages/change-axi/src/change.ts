@@ -173,3 +173,27 @@ export function splitList(v: string | undefined): string[] {
     .map((s) => s.trim().replace(/\\/g, "/").replace(/^\.\//, ""))
     .filter((s) => s !== "" && s.toLowerCase() !== "none");
 }
+
+export interface RepoRef {
+  name: string;
+  /** Base branch from `name@base`; undefined means the repo default branch. */
+  base?: string;
+}
+
+/** Entries of the proposal `Repos:` header (`name@base, name`). Empty when absent. */
+export function parseRepos(proposalText: string): RepoRef[] {
+  const out: RepoRef[] = [];
+  for (const item of splitList(headerLine(proposalText, "Repos"))) {
+    const at = item.indexOf("@");
+    const name = (at < 0 ? item : item.slice(0, at)).trim();
+    const base = at < 0 ? "" : item.slice(at + 1).trim();
+    if (name !== "") out.push({ name, ...(base !== "" ? { base } : {}) });
+  }
+  return out;
+}
+
+/** Split an Owns entry `<repo>:<path>`; repo is undefined for plain paths (plan repo). One-letter prefixes are drive letters. */
+export function splitOwnsRepo(entry: string): { repo?: string; path: string } {
+  const m = /^([A-Za-z0-9][A-Za-z0-9_-]+):(?![\\/]{2})(.*)$/.exec(entry);
+  return m ? { repo: m[1] as string, path: m[2] as string } : { path: entry };
+}
