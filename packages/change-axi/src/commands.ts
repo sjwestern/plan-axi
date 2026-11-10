@@ -22,7 +22,7 @@ import { git } from "./git.js";
 import { applySetup, hasSetupBlock, removeSetup } from "./setup.js";
 import { listEnterable } from "./enter-list.js";
 import { leaseWorktree, startChange } from "./start.js";
-import { changeHome, currentChangeSlug } from "./home.js";
+import { changeHome, currentChangeSlug, whereAmI } from "./home.js";
 import { checkChange, computeWaves } from "./check.js";
 import {
   activeDir,
@@ -57,14 +57,14 @@ export function homeCommand(ctx: Ctx): AxiStructuredOutput {
   const dir = activeDir(ctx);
   const slugs = existsSync(dir) ? readdirSync(dir).filter((f) => existsSync(join(dir, f, "proposal.md")) || existsSync(join(dir, f, "tasks.md"))).sort() : [];
   if (slugs.length === 0) {
-    return { changes: "0 active changes", help: ['Run `change-axi new <slug> "<title>"` to start a plan', "Run `change-axi spec proposal` for the required sections"] };
+    return { ...whereAmI(ctx), changes: "0 active changes", help: ['Run `change-axi new <slug> "<title>"` to start a plan', "Run `change-axi spec proposal` for the required sections"] };
   }
   const rows = slugs.map((slug) => {
     const tasks = existsSync(join(dir, slug, "tasks.md")) ? listTasks(ctx.root, tasksRel(slug)) : [];
     const done = tasks.filter((t) => t.state === "done").length;
     return { slug, steps: tasks.length, done, in_flight: tasks.filter((t) => t.state === "in_flight").length };
   });
-  return { changes: rows, help: ["Run `change-axi status <slug>` for the step graph", "Run `change-axi check <slug>` to validate a plan"] };
+  return { ...whereAmI(ctx), changes: rows, help: ["Run `change-axi status <slug>` for the step graph", "Run `change-axi check <slug>` to validate a plan"] };
 }
 
 // ---------------------------------------------------------------- spec
@@ -549,7 +549,15 @@ export function showCommand(ctx: Ctx, args: string[]): string {
 }
 
 function edit(ctx: Ctx, args: string[], mode: "write" | "append"): AxiStructuredOutput {
-  const p = parseArgs(mode === "write" ? WRITE_SPEC : APPEND_SPEC, args);
+  let p: ReturnType<typeof parseArgs>;
+  try {
+    p = parseArgs(mode === "write" ? WRITE_SPEC : APPEND_SPEC, args);
+  } catch (e) {
+    if (e instanceof AxiError && e.code === "VALIDATION_ERROR" && /arguments? for/.test(e.message)) {
+      throw new AxiError(e.message, "VALIDATION_ERROR", [`Valid form: printf '<text>' | change-axi ${mode} <slug> <proposal|step-id> --section "<name>"`, "Only <slug> and the doc are positional; the section is --section and the text comes from stdin, --body or --body-file"]);
+    }
+    throw e;
+  }
   const sel = flagStr(p, "--section");
   if (sel === undefined || sel.trim() === "") throw new AxiError("--section is required", "VALIDATION_ERROR", [`Run \`change-axi sections ${p.pos[0]} ${p.pos[1]}\``]);
   const d = docPath(ctx, p.pos[0] as string, p.pos[1] as string, true);
@@ -1039,8 +1047,8 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
   const p = parseArgs(ENTER_SPEC, args);
   if (flagBool(p, "--list")) {
     const rows = listEnterable(ctx);
-    if (rows.length === 0) return { changes: "0 active changes", help: ['Run `change-axi new <slug> "<title>"` to start a plan'] };
-    return { changes: rows, help: ["Run `change-axi enter <slug>` to start or resume one"] };
+    if (rows.length === 0) return { ...whereAmI(ctx), changes: "0 active changes", help: ['Run `change-axi new <slug> "<title>"` to start a plan'] };
+    return { ...whereAmI(ctx), changes: rows, help: ["Run `change-axi enter <slug>` to start or resume one"] };
   }
   let slug = p.pos[0];
   if (!slug) {

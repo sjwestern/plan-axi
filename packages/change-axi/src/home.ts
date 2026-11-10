@@ -13,6 +13,14 @@ export function currentChangeSlug(ctx: Ctx): string | undefined {
   return existsSync(join(activeDir(ctx), branch, "tasks.md")) ? branch : undefined;
 }
 
+/** Current branch and checkout path (the worktree path when in a linked worktree). */
+export function whereAmI(ctx: Ctx, fallbackBranch = ""): Record<string, string> {
+  const branch = git(ctx, ["branch", "--show-current"], true) || fallbackBranch;
+  const top = git(ctx, ["rev-parse", "--show-toplevel"], true);
+  const linked = git(ctx, ["rev-parse", "--git-dir"], true) !== git(ctx, ["rev-parse", "--git-common-dir"], true);
+  return { branch, ...(top ? { [linked ? "worktree" : "checkout"]: top } : {}) };
+}
+
 export function changeHome(ctx: Ctx, slug: string): AxiStructuredOutput {
   const tasks = listTasks(ctx.root, tasksRel(slug));
   const active = tasks.filter((t) => t.state !== "done");
@@ -28,6 +36,7 @@ export function changeHome(ctx: Ctx, slug: string): AxiStructuredOutput {
   help.push(`Run \`change-axi status ${slug}\` for the step graph`);
   return {
     change: slug,
+    ...whereAmI(ctx, slug),
     progress: `${tasks.length - active.length}/${tasks.length} done`,
     steps: tasks.map((t) => ({ id: t.id, state: t.state, blocked_by: t.blockers.join(",") || "none", wave: waveOf.get(t.id) ?? "-" })),
     in_flight: inFlight.join(",") || "none",
