@@ -5,12 +5,15 @@ import { guardAdrs } from "./adrguard.js";
 import { archiveChange } from "./archive.js";
 import type { Ctx } from "./change.js";
 import { defaultBranch, git } from "./git.js";
-import { statusRows, tryTreehouse } from "./start.js";
+import { loadRepoRuntimes, type RepoRuntime } from "./repos.js";
+import { changeRepos, repoDefaultBranch, repoStatusRows, statusRows, tryTreehouse } from "./start.js";
 
 export interface FinishOptions {
   dryRun: boolean;
   skipDocsCheck: boolean;
   deleteBranch: boolean;
+  /** Injected runtimes for the extra repos (tests); defaults to the configured ones. */
+  runtimes?: Map<string, RepoRuntime>;
 }
 
 export interface FinishReport {
@@ -22,6 +25,147 @@ export interface FinishReport {
   branchDeleted?: string;
   warnings?: string[];
   buildHint?: string;
+  /** Per-repo table for changes with a `Repos:` header (extra repos only). */
+  repos?: Record<string, string>[];
+  /** False when a dry run found a repo that blocks the real finish. */
+  ready?: boolean;
+}
+
+export type RepoFinishState = "ready" | "merged" | "rebase-needed" | "dirty" | "wrong-branch" | "unavailable";
+
+export interface RepoFinishPlan {
+  repo: string;
+  base: string;
+  state: RepoFinishState;
+  ahead: string;
+  behind: string;
+  note: string;
+  rt?: RepoRuntime;
+  /** Leased worktree (process path) and treehouse slot name, when one holds the branch. */
+  wt?: string;
+  slot?: string;
+}
+
+function gitOk(rt: RepoRuntime, args: string[]): boolean {
+  try {
+    rt.git(args);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Preflight one extra repo: clean worktree and main checkout, branch exists, base is an ancestor of the branch. */
+function planRepo(rt: RepoRuntime, slug: string, baseRef: string | undefined): RepoFinishPlan {
+  const base = baseRef ?? repoDefaultBranch(rt);
+  const mk = (state: RepoFinishState, note: string, extra: Partial<RepoFinishPlan> = {}): RepoFinishPlan => ({ repo: rt.name, base, state, ahead: "-", behind: "-", note, rt, ...extra });
+  try {
+    const row = repoStatusRows(rt).find((r) => r.branch === slug) ?? repoStatusRows(rt).find((r) => r.leaseHolder === slug);
+    const wt = row ? rt.toWsl(row.path) : undefined;
+    const slot = row?.name;
+    const loc = { ...(wt ? { wt } : {}), ...(slot ? { slot } : {}) };
+    if (rt.git(["rev-parse", "--verify", "--quiet", `refs/heads/${slug}`], { allowFail: true }) === "") {
+      return mk("merged", "branch gone (merged earlier)", loc);
+    }
+    if (gitOk(rt, ["merge-base", "--is-ancestor", slug, base])) return mk("merged", `${slug} already in ${base}`, { ahead: "0", behind: "0", ...loc });
+    const counts = rt.git(["rev-list", "--left-right", "--count", `${base}...${slug}`]).split(/\s+/);
+    const behind = counts[0] ?? "?";
+    const ahead = counts[1] ?? "?";
+    const counted = { ahead, behind, ...loc };
+    if (wt) {
+      const dirty = rt.git(["-C", rt.toNative(wt), "status", "--porcelain", "--untracked-files=no"], { raw: true });
+      if (dirty.trim() !== "") return mk("dirty", `worktree ${wt} has uncommitted changes; commit them`, counted);
+    }
+    if (rt.git(["status", "--porcelain", "--untracked-files=no"], { raw: true }).trim() !== "") {
+      return mk("dirty", `${base} checkout ${rt.path} has uncommitted changes`, counted);
+    }
+    const current = rt.git(["branch", "--show-current"]);
+    if (current !== base) return mk("wrong-branch", `${rt.path} is on "${current}", not ${base}; switch it`, counted);
+    if (behind !== "0") {
+      const git = rt.viaWindows ? "git.exe" : "git";
+      return mk("rebase-needed", `${git} -C ${wt ? rt.toNative(wt) : rt.nativePath} rebase ${base}`, counted);
+    }
+    return mk("ready", `ff ${slug} into ${base}`, counted);
+  } catch (e) {
+    return mk("unavailable", e instanceof AxiError ? e.message : String(e));
+  }
+}
+
+/** Preflight every extra repo in the change `Repos:` header. Empty for single-repo changes. */
+export function planRepos(ctx: Ctx, slug: string, runtimes?: Map<string, RepoRuntime>): RepoFinishPlan[] {
+  let refs: ReturnType<typeof changeRepos>;
+  try {
+    refs = changeRepos(ctx, slug);
+  } catch (e) {
+    if (e instanceof AxiError && e.code === "NOT_FOUND") return [];
+    throw e;
+  }
+  if (refs.length === 0) return [];
+  const rts = runtimes ?? loadRepoRuntimes(ctx.root);
+  return refs.map((ref) => {
+    const rt = rts.get(ref.name);
+    if (!rt) return { repo: ref.name, base: ref.base ?? "?", state: "unavailable", ahead: "-", behind: "-", note: `no [repos.${ref.name}] in config` };
+    return planRepo(rt, slug, ref.base);
+  });
+}
+
+export function repoPlanRows(plans: RepoFinishPlan[]): Record<string, string>[] {
+  return plans.map((p) => ({ repo: p.repo, base: p.base, ahead: p.ahead, behind: p.behind, state: p.state, detail: p.note }));
+}
+
+function blockers(plans: RepoFinishPlan[]): RepoFinishPlan[] {
+  return plans.filter((p) => p.state !== "ready" && p.state !== "merged");
+}
+
+function blockedError(plans: RepoFinishPlan[], slug: string): AxiError {
+  const bad = blockers(plans);
+  return new AxiError(
+    `${bad.length} repo(s) not ready: ${bad.map((b) => `${b.repo} (${b.state})`).join(", ")}; nothing was merged`,
+    "VALIDATION_ERROR",
+    [...bad.map((b) => `${b.repo}: ${b.note}`), `Fix them (run \`change-axi finish ${slug} --dry-run\` to recheck), then run finish again`],
+  );
+}
+
+/** ff-merge each ready extra repo, return its lease, optionally delete the branch. Merged repos are skipped on rerun. */
+function mergeRepos(plans: RepoFinishPlan[], slug: string, deleteBranch: boolean, warnings: string[]): { repo: string; result: string }[] {
+  const done: { repo: string; result: string }[] = [];
+  const pending = (from: number): string[] => plans.slice(from).filter((p) => p.state === "ready").map((p) => p.repo);
+  plans.forEach((p, i) => {
+    const rt = p.rt as RepoRuntime;
+    let result = `already in ${p.base}`;
+    if (p.state === "ready") {
+      try {
+        rt.git(["merge", "--ff-only", slug]);
+        result = rt.git(["rev-parse", "--short", "HEAD"]);
+      } catch (e) {
+        const merged = done.filter((d) => d.result !== `already in ${p.base}`).map((d) => d.repo);
+        throw new AxiError(`merge failed in repo ${p.repo}: ${(e as Error).message}`, "GIT_ERROR", [
+          `merged: ${merged.join(", ") || "none"}`,
+          `pending: ${pending(i).join(", ")}, plus the plan repo`,
+          `Fix ${p.repo}, then rerun \`change-axi finish ${slug}\`; merged repos are skipped`,
+        ]);
+      }
+    }
+    let stuck = false;
+    if (p.slot) {
+      try {
+        rt.treehouse(["return", p.slot]);
+      } catch (e) {
+        if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
+        stuck = true;
+        warnings.push(`${p.repo}: merged, but worktree ${p.wt} not returned (${e.message}); rerun finish after closing what holds it`);
+      }
+    }
+    if (deleteBranch && !stuck && rt.git(["rev-parse", "--verify", "--quiet", `refs/heads/${slug}`], { allowFail: true }) !== "") {
+      try {
+        rt.git(["branch", "-d", slug]);
+      } catch (e) {
+        warnings.push(`${p.repo}: could not delete ${slug}: ${(e as Error).message}`);
+      }
+    }
+    done.push({ repo: p.repo, result });
+  });
+  return done;
 }
 
 /** Add guidance to fixable failures: restart the agent in the worktree and ask it to fix. */
@@ -57,7 +201,16 @@ function checkOnBranch(ctx: Ctx, slug: string, base: string, o: FinishOptions): 
     adrs = r.adrs;
     untouched = r.untouched;
   }
-  return { archived: already ? "skipped (already archived)" : "dry run (would archive)", adrs, untouched, merged: `ready: ${slug} is up to date with ${base}; the human runs \`change-axi finish ${slug}\` from the main checkout`, returned: "n/a (run from main)" };
+  const plans = planRepos(ctx, slug, o.runtimes);
+  const ok = blockers(plans).length === 0;
+  return {
+    archived: already ? "skipped (already archived)" : "dry run (would archive)",
+    adrs,
+    untouched,
+    merged: ok ? `ready: ${slug} is up to date with ${base}; the human runs \`change-axi finish ${slug}\` from the main checkout` : `not ready: ${blockers(plans).length} repo(s) need attention`,
+    returned: "n/a (run from main)",
+    ...(plans.length > 0 ? { repos: repoPlanRows(plans), ready: ok } : {}),
+  };
 }
 
 export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishReport {
@@ -82,14 +235,26 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
     ]);
   }
   const warnings: string[] = [];
+  const plans = planRepos(ctx, slug, o.runtimes);
+  const repoInfo = (ps: RepoFinishPlan[], results?: { repo: string; result: string }[]): Partial<FinishReport> =>
+    ps.length === 0
+      ? {}
+      : {
+          repos: repoPlanRows(ps).map((r) => {
+            const res = results?.find((d) => d.repo === r.repo);
+            return res ? { ...r, state: "merged", detail: res.result } : r;
+          }),
+          ready: blockers(ps).length === 0,
+        };
   let archived = "skipped (already archived)";
   let adrs: FinishReport["adrs"] = [];
   let untouched: string[] = [];
   let merged: string;
+  let results: { repo: string; result: string }[] | undefined;
 
   if (mergedAlready) {
     merged = `already in ${base}`;
-    if (o.dryRun) return { archived, adrs, untouched, merged, returned: row ? `planned: ${row.path}` : "none found", ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
+    if (o.dryRun) return { archived, adrs, untouched, merged, returned: row ? `planned: ${row.path}` : "none found", ...repoInfo(plans), ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
   } else {
     const wt: Ctx = { root: (row as { path: string }).path };
     const wtDirty = git(wt, ["status", "--porcelain", "--untracked-files=no"]);
@@ -99,6 +264,7 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
     if (!isAncestorOf(ctx, base, slug)) {
       withAgentHint(new AxiError(`${base} is not an ancestor of ${slug}`, "VALIDATION_ERROR", [`In the worktree: git rebase ${base}`]), slug);
     }
+    if (!o.dryRun && blockers(plans).length > 0) throw blockedError(plans, slug);
     if (!hasArchived(ctx, slug, slug)) {
       try {
         guardAdrs(wt, `change-axi finish ${slug}${o.dryRun ? " --dry-run" : ""}`);
@@ -115,7 +281,8 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
       adrs = r.adrs;
       untouched = r.untouched;
     }
-    if (o.dryRun) return { archived, adrs, untouched, merged: `planned: ff ${slug} into ${base}`, returned: `planned: ${wt.root}`, ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
+    if (o.dryRun) return { archived, adrs, untouched, merged: `planned: ff ${slug} into ${base}`, returned: `planned: ${wt.root}`, ...repoInfo(plans), ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
+    results = mergeRepos(plans, slug, o.deleteBranch, warnings);
     git(ctx, ["merge", "--ff-only", slug]);
     merged = git(ctx, ["rev-parse", "--short", "HEAD"]);
   }
@@ -151,7 +318,7 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
   const agents = join(ctx.root, "AGENTS.md");
   const hint = existsSync(agents) ? /`(npm (?:install && npm )?run build)`|^(npm run build)\s*$/m.exec(readFileSync(agents, "utf8")) : null;
   const cmd = hint ? (hint[1] ?? hint[2]) : undefined;
-  return { archived, adrs, untouched, merged, returned, ...(branchDeleted ? { branchDeleted } : {}), ...(warnings.length > 0 ? { warnings } : {}), ...(cmd ? { buildHint: `Rebuild if the change touched code: ${cmd}` } : {}) };
+  return { archived, adrs, untouched, merged, returned, ...repoInfo(plans, results), ...(branchDeleted ? { branchDeleted } : {}), ...(warnings.length > 0 ? { warnings } : {}), ...(cmd ? { buildHint: `Rebuild if the change touched code: ${cmd}` } : {}) };
 }
 
 function hasArchived(ctx: Ctx, ref: string, slug: string): boolean {
