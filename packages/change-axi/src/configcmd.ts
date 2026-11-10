@@ -2,13 +2,15 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
-import { parseToml, type Value } from "docs-axi/lib/config";
+import { docsConfigProblems, parseToml, type Value } from "docs-axi/lib/config";
 import { applyTomlEdit, quote, removeKey, removeTable, upsertKey } from "docs-axi/lib/tomlwrite";
 import type { AxiStructuredOutput } from "docs-axi/lib/types";
 import type { CmdSpec } from "docs-axi/lib/args";
 import { PI_THINKING_FALLBACK, checkProfile, type AgentProfile, type CheckResult } from "./agent.js";
 import type { Ctx } from "./change.js";
-import { planConfigProblems, readPlanConfig, verifyProfiles } from "./planconfig.js";
+import { checkMerged, checkText, type ConfigFile, type ConfigProblem } from "./configcheck.js";
+import { TOKEN, WORD } from "./commitstyle.js";
+import { planConfigProblems, readPlanConfig } from "./planconfig.js";
 import { TIERS } from "./spec.js";
 
 const FLAGS: Record<string, "string" | "boolean"> = {
@@ -58,7 +60,7 @@ other:
   --commit-type / --commit-scope / --commit-plan-type / --commit-trailer <value>
   --user                    write the user config instead of the repo file
   --force                   write even when a model or effort is reported invalid (the model list covers only providers with credentials on this machine)
-  --verify [--profile <n>]  live-check profiles (model, effort, harness on PATH); writes nothing; exits non-zero only on invalid
+  --verify [--profile <n>]  validate all config (located problems), then live-check profiles (model, effort, harness on PATH); writes nothing; exits non-zero on any error or invalid profile
 Structural errors (unknown tier, undefined profile, profile without harness/command) always fail and leave the file unchanged.
 Missing harness or a failed live check is a warning and the file is still written.
 examples:
@@ -117,8 +119,6 @@ function userConfigPath(): string {
   return join(process.env["XDG_CONFIG_HOME"] || join(homedir(), ".config"), "plan-axi", "config.toml");
 }
 
-const WORD = /^[a-z0-9-]+$/;
-const TOKEN = /^[A-Za-z][A-Za-z0-9-]*$/;
 const COMMIT: [string, string, string, RegExp, boolean][] = [
   ["--commit-type", "type", "commit type", WORD, false],
   ["--commit-scope", "scope", "commit scope", WORD, true],
@@ -152,16 +152,57 @@ function merge(user: Record<string, Value>, repo: Record<string, Value>): Record
 
 const worst = (rs: CheckResult[]): CheckResult["status"] => (rs.some((r) => r.status === "invalid") ? "invalid" : rs.some((r) => r.status === "skipped") ? "skipped" : "ok");
 
+/** All config problems: each file alone, the merged view, and `[docs]` (located, errors and warnings). */
+function configProblems(root: string): { problems: ConfigProblem[]; files: ConfigFile[]; unparseable: boolean } {
+  const problems: ConfigProblem[] = [];
+  const files: ConfigFile[] = [];
+  let unparseable = false;
+  for (const path of [userConfigPath(), join(root, ".plan-axi.toml")]) {
+    if (!existsSync(path)) continue;
+    const r = checkText(path, readFileSync(path, "utf8"));
+    problems.push(...r.problems);
+    if (r.raw) files.push({ file: path, raw: r.raw });
+    else unparseable = true;
+  }
+  problems.push(...checkMerged(files));
+  for (const d of docsConfigProblems(root)) {
+    // syntax errors are already reported by checkText
+    if (d.key === "" && problems.some((p) => p.file === d.file && p.key === "")) continue;
+    problems.push({ file: d.file, key: d.key, severity: "error", message: d.message });
+  }
+  return { problems, files, unparseable };
+}
+
 function verifyRows(root: string, names: string[] | undefined): AxiStructuredOutput {
-  const results = verifyProfiles(root, names);
-  const rows = results.map((v) => {
-    const status = worst(v.results);
-    const reasons = v.results.filter((r) => r.status !== "ok").map((r) => r.message);
-    return { profile: v.profile, status, reason: reasons.length > 0 ? reasons.join("; ") : v.results.map((r) => r.message).join("; ") };
-  });
-  if (rows.some((r) => r.status === "invalid")) process.exitCode = 1;
-  if (rows.length === 0) return { verify: "no profiles defined", help: ["Add one: change-axi config --profile <name> --harness pi --model <provider/id>"] };
-  return { verify: rows };
+  const { problems, files, unparseable } = configProblems(root);
+  const raw = files.reduce<Record<string, Value>>((acc, f) => merge(acc, f.raw), {});
+  const defined: string[] = [];
+  for (const k of Object.keys(raw)) {
+    if (!k.startsWith("apply.agents.")) continue;
+    const rest = k.slice("apply.agents.".length);
+    const i = rest.lastIndexOf(".");
+    if (i > 0 && !defined.includes(rest.slice(0, i))) defined.push(rest.slice(0, i));
+  }
+  for (const n of names ?? []) {
+    if (!defined.includes(n)) throw new AxiError(`unknown agent profile "${n}"`, "VALIDATION_ERROR", [`Defined profiles: ${defined.join(", ") || "none"}`]);
+  }
+  const rows: Array<{ profile: string; status: CheckResult["status"]; reason: string }> = [];
+  if (!unparseable) {
+    for (const name of names ?? defined) {
+      const prof = profileFromRaw(raw, name);
+      if (!prof.harness && !prof.command) continue; // reported as a problem
+      const results = checkProfile(prof);
+      const reasons = results.filter((r) => r.status !== "ok").map((r) => r.message);
+      rows.push({ profile: name, status: worst(results), reason: reasons.length > 0 ? reasons.join("; ") : results.map((r) => r.message).join("; ") });
+    }
+  }
+  if (problems.some((p) => p.severity === "error") || rows.some((r) => r.status === "invalid")) process.exitCode = 1;
+  const out: Record<string, unknown> = {
+    problems: problems.length === 0 ? "none" : problems.map((p) => ({ file: p.file, key: p.key, severity: p.severity, message: p.message })),
+    verify: rows.length > 0 ? rows : "no profiles defined",
+  };
+  if (rows.length === 0 && defined.length === 0) out["help"] = ["Add one: change-axi config --profile <name> --harness pi --model <provider/id>"];
+  return out as AxiStructuredOutput;
 }
 
 export function configCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {

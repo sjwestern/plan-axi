@@ -194,5 +194,69 @@ describe.skipIf(process.platform === "win32")("config", () => {
       expect(r.code).not.toBe(0);
       expect(existsSync(file())).toBe(false);
     });
+
+    describe("config problems", () => {
+      it("valid config: problems none, exit 0", async () => {
+        fakePi();
+        seed();
+        const r = await run("config", "--verify");
+        expect(r.out).toContain("problems: none");
+        expect(r.code).toBe(1); // prov/nope is invalid
+        writeFileSync(file(), '[apply.agents.a]\nharness = "pi"\nmodel = "prov/good"\n');
+        const ok = await run("config", "--verify");
+        expect(ok.out).toContain("problems: none");
+        expect(ok.code).toBe(0);
+      });
+      it("typo key warns and exits 0", async () => {
+        writeFileSync(file(), '[commit]\ntpye = "feat"\n');
+        const r = await run("config", "--verify");
+        expect(r.out).toContain("warning");
+        expect(r.out).toContain('did you mean \\"commit.type\\"');
+        expect(r.code).toBe(0);
+      });
+      it("bad tier and bad commit type exit 1 naming the file", async () => {
+        writeFileSync(file(), '[apply.tiers]\nsmall = "ghost"\n[commit]\ntype = "Bad Type"\n');
+        const r = await run("config", "--verify");
+        expect(r.code).toBe(1);
+        expect(r.out).toContain(file());
+        expect(r.out).toContain('undefined profile \\"ghost\\"');
+        expect(r.out).toContain("commit.type");
+      });
+      it("missing {prompt} is an error", async () => {
+        writeFileSync(file(), '[apply]\nagent = "pi"\n');
+        const r = await run("config", "--verify");
+        expect(r.code).toBe(1);
+        expect(r.out).toContain("{prompt}");
+      });
+      it("user + repo split: tier in repo maps to profile in user file", async () => {
+        mkdirSync(join(xdg, "plan-axi"), { recursive: true });
+        writeFileSync(userFile(), '[apply.agents.a]\ncommand = "echo {prompt}"\n[commit]\ntype = "Bad"\n');
+        writeFileSync(file(), '[apply.tiers]\nsmall = "a"\n');
+        const r = await run("config", "--verify");
+        expect(r.code).toBe(1);
+        expect(r.out).toContain(userFile());
+        expect(r.out).not.toContain("undefined profile");
+      });
+      it("syntax error is reported for the file", async () => {
+        writeFileSync(file(), "[apply\n");
+        const r = await run("config", "--verify");
+        expect(r.code).toBe(1);
+        expect(r.out).toContain(file());
+      });
+      it("--profile limits live checks but still validates all config", async () => {
+        fakePi();
+        writeFileSync(file(), '[apply.agents.a]\nharness = "pi"\nmodel = "prov/good"\n[commit]\ntype = "Bad"\n');
+        const r = await run("config", "--verify", "--profile", "a");
+        expect(r.code).toBe(1);
+        expect(r.out).toContain("commit.type");
+        expect((await run("config", "--verify", "--profile", "zz")).code).not.toBe(0);
+      });
+      it("docs problems are listed", async () => {
+        writeFileSync(file(), '[docs]\nadr = "nope"\n');
+        const r = await run("config", "--verify");
+        expect(r.code).toBe(1);
+        expect(r.out).toContain("docs.adr");
+      });
+    });
   });
 });

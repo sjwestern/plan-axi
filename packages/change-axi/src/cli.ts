@@ -72,6 +72,8 @@ export async function main(options: MainOptions = {}): Promise<void> {
   const resolveCtx = (args: string[]): Ctx => {
     const flag = rootFlag(args);
     const root = flag === undefined ? findRepoRoot(cwd) : isAbsolute(flag) ? flag : resolve(cwd, flag);
+    // `config --verify` reports an invalid [docs] layout itself instead of failing here
+    if (args.includes("--verify")) return { root };
     return { root, docsConfig: loadConfig(root) };
   };
   const commands: Record<string, (args: string[], ctx: Ctx | undefined) => AxiRenderable> = {};
