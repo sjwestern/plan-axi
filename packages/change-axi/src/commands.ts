@@ -644,6 +644,7 @@ export function statusCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   }
   return {
     change: slug,
+    ...whereAmI(ctx),
     progress: `${tasks.length - active.length}/${tasks.length} done`,
     steps: tasks.map((t) => ({ id: t.id, state: t.state, blocked_by: t.blockers.join(",") || "none", wave: waveOf.get(t.id) ?? "-" })),
     ready: ready.join(",") || "none",
@@ -882,6 +883,9 @@ export function finishCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 }
 
 // ---------------------------------------------------------------- guidance
+
+/** Appended to the prompt given to the launched agent: stops the habitual `git branch` check. */
+const AGENT_PROMPT_HINT = " (orient with bare `change-axi`, it prints branch and worktree; do not run `git branch --show-current`)";
 
 const MODEL_SETUP = `  [apply.agents.small]        # profile: harness required (or command = "... {prompt}")
   harness = "pi"              # only pi is a built-in adapter
@@ -1123,7 +1127,7 @@ export function enterCommand(ctx: Ctx, args: string[], io: PickIO = { tty: Boole
     help.push('No agent found. Set one in .plan-axi.toml: [apply]  agent = "pi {prompt}"  (or export CHANGE_AXI_AGENT)');
     help.push(`Then start your agent in the worktree with: ${prompt}`);
   } else {
-    const vars = { prompt, slug, ...(step ? { step } : {}), path };
+    const vars = { prompt: `${prompt}${AGENT_PROMPT_HINT}`, slug, ...(step ? { step } : {}), path };
     const cmd = agent.profile ? buildProfileCommand(agent.profile, vars) : buildCommand(agent.template, vars);
     out["agent"] = agent.profile ? `${agent.profile.name} (${agent.source}${agent.source.startsWith("tier ") ? ` -> ${agent.profile.name}` : ""})` : `${agent.template} (${agent.source})`;
     out["command"] = cmd;

@@ -59,14 +59,14 @@ describe("enter", () => {
     fakeAgent();
     const r = await run("enter", P, "--run");
     expect(r.code).toBe(0);
-    expect(readFileSync(join(dir, "agent.arg"), "utf8")).toBe(`apply ${P} 01-do-it`);
+    expect(readFileSync(join(dir, "agent.arg"), "utf8")).toBe(`apply ${P} 01-do-it (orient with bare \`change-axi\`, it prints branch and worktree; do not run \`git branch --show-current\`)`);
     expect(readFileSync(join(dir, "agent.cwd"), "utf8").trim()).toBe(execFileSync("pwd", { cwd: dir, encoding: "utf8" }).trim());
   });
 
   it("passes the step", async () => {
     fakeAgent();
     await run("enter", P, "01-do-it", "--run");
-    expect(readFileSync(join(dir, "agent.arg"), "utf8")).toBe(`apply ${P} 01-do-it`);
+    expect(readFileSync(join(dir, "agent.arg"), "utf8")).toBe(`apply ${P} 01-do-it (orient with bare \`change-axi\`, it prints branch and worktree; do not run \`git branch --show-current\`)`);
   });
 
   it("--print runs nothing", async () => {
@@ -81,7 +81,7 @@ describe("enter", () => {
     writeFileSync(join(dir, ".plan-axi.toml"), '[apply.agents.small]\nharness = "pi"\nmodel = "p/m"\neffort = "low"\n');
     const r = await run("enter", P, "01-do-it", "--agent", "small", "--print");
     expect(r.out).toContain("small (--agent small)");
-    expect(r.out).toContain(`pi --model 'p/m' --thinking 'low' 'apply ${P} 01-do-it'`);
+    expect(r.out).toContain(`pi --model 'p/m' --thinking 'low' 'apply ${P} 01-do-it (orient with bare \`change-axi\`, it prints branch and worktree; do not run \`git branch --show-current\`)'`);
   });
 
   it("--agent with an unknown profile errors", async () => {

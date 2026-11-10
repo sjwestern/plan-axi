@@ -66,7 +66,7 @@ describe("enter tier resolution", () => {
     await run("step", "set", P, S, "--tier", "small");
     const r = await run("enter", P, S, "--print");
     expect(r.out).toContain("small (tier small -> small)");
-    expect(r.out).toContain(`pi --model 'p/m' 'apply ${P} ${S}'`);
+    expect(r.out).toContain(`pi --model 'p/m' 'apply ${P} ${S} (orient with bare \`change-axi\`, it prints branch and worktree; do not run \`git branch --show-current\`)'`);
   });
   it("--agent beats tier; tier beats [apply] agent", async () => {
     cfg(PROFILES);
