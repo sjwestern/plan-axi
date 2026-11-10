@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 - 2026-11-10
 
 ### Bug fixes
 - Setup AGENTS.md instructions for backlog
@@ -26,6 +26,7 @@
 - **skills:** Pick plan-apply mode from change-axi output
 - **plan-axi:** Document multi-repo changes
 - **change-axi:** Describe config --verify validation and checker layout
+- Regenerate changelog
 
 
 ### Features
