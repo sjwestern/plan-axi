@@ -35,6 +35,7 @@ Materialize the draft (from `plan-explore` or the user's description) as a revie
 
 ## Revising a plan (review feedback, scope change)
 
+- Cheat-sheet: `printf '<text>' | change-axi append <slug> <proposal|step-id> --section "<name>"` (section is a flag, not a positional; body via stdin, `--body` or `--body-file`).
 - Edit one section: `change-axi write <slug> <proposal|step> --section "<name>"`. Add to a list: `change-axi append`. Add a missing section: `--add`.
 - Change order: `change-axi dep <slug> <step> --on|--off <ids>`. Add a step: `change-axi step add`. Edit Owns/Docs/Tier/title: `change-axi step set`.
 - Remove a step: delete the file, then `tasks-axi rm <id> --file specs/changes/active/<slug>/tasks.md` (fails while other tasks depend on it; `dep --off` first).

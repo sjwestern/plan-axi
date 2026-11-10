@@ -17,6 +17,7 @@ Two modes, chosen by the current branch (`git branch --show-current`):
 - Step task id = step file stem; its body is `Spec: <file>.md`.
 - Plan tool: `change-axi` (`enter`/`start` launch, `finish` merges and releases the worktree, `archive` only archives; bare `change-axi` on a change branch shows its status) (call the binary on PATH; if "command not found", stop and tell the user to install it with `npm run build && npm link`). `CHECK` below = `change-axi check <slug> --waves`. `change-axi status <slug>` shows steps, waves and what is ready. `change-axi show <slug> <step> [--section Work]` reads a step or one section of it.
 - Models: `change-axi config` (no flags) shows the profile, tier and agent setup; set models with its flags (`--profile --harness --model --effort --tier`, `--user` for personal choices) and live-check with `change-axi config --verify`. Never hand-edit `.plan-axi.toml` for this.
+- Doc edits cheat-sheet: `printf '<text>' | change-axi write|append <slug> <proposal|step-id> --section "<name>"`. Only slug and doc are positional; the section is `--section`, never a third positional. Body: stdin, `--body "..."` or `--body-file <path>`. Bare `change-axi` prints `branch` and `worktree` (or `checkout` when not a linked worktree); never run `git branch --show-current`.
 - Docs: `docs-axi` (binary on PATH; if "command not found", stop and tell the user to install it).
 
 ## Launch (on main)
@@ -40,7 +41,7 @@ The skill picks its mode from the branch, so prompts stay short. Give the user t
 
 **Bootstrap first.** In a fresh worktree, if `node_modules` or build output is missing, run the repo's bootstrap (see AGENTS.md or CONTRIBUTING) before anything else.
 
-Then run bare `change-axi` for orientation (progress, in-flight, ready steps). Work is one step at a time per agent. Given a step id (`apply <slug> <id>`), do that step only and stop. Otherwise loop until there are no ready steps you can take. Read the proposal only by section (`change-axi show <slug> proposal --section <name>`), starting with Why.
+Then run bare `change-axi` for orientation: it prints the branch, worktree path, progress, in-flight and ready steps. Do not run `git branch --show-current`; the branch is the change slug. Work is one step at a time per agent. Given a step id (`apply <slug> <id>`), do that step only and stop. Otherwise loop until there are no ready steps you can take. Read the proposal only by section (`change-axi show <slug> proposal --section <name>`), starting with Why.
 
 
 1. **Pick.** `tasks-axi ready --file specs/changes/active/<slug>/tasks.md`. If told a specific task, use it. Do not take a task whose `Owns:` overlaps a task already in flight (`tasks-axi list --state in_flight --file ...`; read both step files).
