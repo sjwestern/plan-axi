@@ -24,6 +24,50 @@ export interface PlanConfig {
   resolved: ResolvedTier[];
 }
 
+export const REPO_PLATFORMS = ["windows", "native"] as const;
+const REPO_KEYS = ["path", "platform", "git", "treehouse"] as const;
+
+export interface RepoConfig {
+  name: string;
+  path: string;
+  /** "windows": a Windows checkout reached from WSL (ignored outside WSL). Default "native". */
+  platform: (typeof REPO_PLATFORMS)[number];
+  /** Override command for git (whitespace-split). */
+  git?: string;
+  /** Override command for treehouse (whitespace-split). */
+  treehouse?: string;
+}
+
+/** `[repos.<name>]` tables from a raw config map. Entries without a string path are skipped (see planConfigProblems). */
+export function repoConfigs(raw: Record<string, Value>): RepoConfig[] {
+  const byName = new Map<string, Record<string, Value>>();
+  for (const [k, v] of Object.entries(raw)) {
+    if (!k.startsWith("repos.")) continue;
+    const rest = k.slice("repos.".length);
+    const i = rest.lastIndexOf(".");
+    if (i <= 0) continue;
+    const name = rest.slice(0, i);
+    if (!byName.has(name)) byName.set(name, {});
+    byName.get(name)![rest.slice(i + 1)] = v;
+  }
+  const out: RepoConfig[] = [];
+  for (const [name, f] of byName) {
+    const str = (key: string): string | undefined => (typeof f[key] === "string" && (f[key] as string).trim() !== "" ? (f[key] as string).trim() : undefined);
+    const path = str("path");
+    if (path === undefined) continue;
+    const platform = str("platform") === "windows" ? "windows" : "native";
+    const git = str("git");
+    const treehouse = str("treehouse");
+    out.push({ name, path, platform, ...(git ? { git } : {}), ...(treehouse ? { treehouse } : {}) });
+  }
+  return out;
+}
+
+/** Merged user+repo `[repos.*]` config (repo file overrides user file per key). */
+export function readRepoConfigs(root: string): RepoConfig[] {
+  return repoConfigs(loadRawConfig(root));
+}
+
 /** Merged user+repo plan config as one read model. */
 export function readPlanConfig(root: string): PlanConfig {
   const profiles = loadProfiles(root);
@@ -82,6 +126,26 @@ export function planConfigProblems(raw: Record<string, Value>): string[] {
     if (typeof v !== "string" || v.trim() === "") problems.push(`tier "${tier}" must map to a profile name`);
     else if (!names.has(v.trim())) problems.push(`tier "${tier}" maps to undefined profile "${v.trim()}"`);
   }
+  const repoFields = new Map<string, Set<string>>();
+  for (const k of Object.keys(raw)) {
+    if (!k.startsWith("repos.")) continue;
+    const rest = k.slice("repos.".length);
+    const i = rest.lastIndexOf(".");
+    if (i <= 0) {
+      problems.push(`"${k}" must be inside a [repos.<name>] table`);
+      continue;
+    }
+    const name = rest.slice(0, i);
+    const field = rest.slice(i + 1);
+    if (!repoFields.has(name)) repoFields.set(name, new Set());
+    repoFields.get(name)!.add(field);
+    if (!(REPO_KEYS as readonly string[]).includes(field)) problems.push(`unknown key "${field}" in [repos.${name}]; valid keys: ${REPO_KEYS.join(", ")}`);
+    else if (typeof raw[k] !== "string" || (raw[k] as string).trim() === "") problems.push(`[repos.${name}] ${field} must be a non-empty string`);
+    else if (field === "platform" && !(REPO_PLATFORMS as readonly string[]).includes((raw[k] as string).trim())) {
+      problems.push(`[repos.${name}] platform "${raw[k] as string}" is not valid; use one of: ${REPO_PLATFORMS.join(", ")}`);
+    }
+  }
+  for (const [name, fields] of repoFields) if (!fields.has("path")) problems.push(`[repos.${name}] needs path`);
   const d = raw["propose.default_tier"];
   if (d !== undefined && (typeof d !== "string" || !(TIERS as readonly string[]).includes(d.trim()))) {
     problems.push(`default_tier ${JSON.stringify(d)} is not valid; use one of: ${TIERS.join(", ")}`);
