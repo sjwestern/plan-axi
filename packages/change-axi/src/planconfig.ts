@@ -1,6 +1,7 @@
 import { AxiError } from "axi-sdk-js";
 import { loadRawConfig, parseToml, type Value } from "docs-axi/lib/config";
 import { checkProfile, defaultCheckDeps, loadProfiles, type AgentProfile, type CheckDeps, type CheckResult } from "./agent.js";
+import { checkFile, checkMerged, REPO_PLATFORMS } from "./configcheck.js";
 import { commitStyle, type CommitStyle } from "./commitstyle.js";
 import { loadGuidance, type Guidance } from "./guidance.js";
 import { TIERS, tierProfile } from "./spec.js";
@@ -24,8 +25,7 @@ export interface PlanConfig {
   resolved: ResolvedTier[];
 }
 
-export const REPO_PLATFORMS = ["windows", "native"] as const;
-const REPO_KEYS = ["path", "platform", "git", "treehouse"] as const;
+export { REPO_PLATFORMS };
 
 export interface RepoConfig {
   name: string;
@@ -93,64 +93,10 @@ export function readPlanConfig(root: string): PlanConfig {
   return cfg;
 }
 
-/** Structural problems in a raw config map (no live checks). */
+/** Structural errors in a raw config map, as messages (warnings omitted; no live checks). */
 export function planConfigProblems(raw: Record<string, Value>): string[] {
-  const problems: string[] = [];
-  const profilePrefix = "apply.agents.";
-  const names = new Set<string>();
-  const known = new Map<string, Set<string>>();
-  for (const k of Object.keys(raw)) {
-    if (!k.startsWith(profilePrefix)) continue;
-    const rest = k.slice(profilePrefix.length);
-    const i = rest.lastIndexOf(".");
-    if (i <= 0) continue;
-    const name = rest.slice(0, i);
-    names.add(name);
-    if (!known.has(name)) known.set(name, new Set());
-    known.get(name)!.add(rest.slice(i + 1));
-  }
-  const nonEmpty = (k: string): boolean => typeof raw[k] === "string" && (raw[k] as string).trim() !== "";
-  for (const name of names) {
-    if (!nonEmpty(`${profilePrefix}${name}.harness`) && !nonEmpty(`${profilePrefix}${name}.command`)) {
-      problems.push(`agent profile "${name}" needs harness or command`);
-    }
-  }
-  for (const k of Object.keys(raw)) {
-    if (!k.startsWith("apply.tiers.")) continue;
-    const tier = k.slice("apply.tiers.".length);
-    if (!(TIERS as readonly string[]).includes(tier)) {
-      problems.push(`unknown tier "${tier}" in [apply.tiers]; valid tiers: ${TIERS.join(", ")}`);
-      continue;
-    }
-    const v = raw[k];
-    if (typeof v !== "string" || v.trim() === "") problems.push(`tier "${tier}" must map to a profile name`);
-    else if (!names.has(v.trim())) problems.push(`tier "${tier}" maps to undefined profile "${v.trim()}"`);
-  }
-  const repoFields = new Map<string, Set<string>>();
-  for (const k of Object.keys(raw)) {
-    if (!k.startsWith("repos.")) continue;
-    const rest = k.slice("repos.".length);
-    const i = rest.lastIndexOf(".");
-    if (i <= 0) {
-      problems.push(`"${k}" must be inside a [repos.<name>] table`);
-      continue;
-    }
-    const name = rest.slice(0, i);
-    const field = rest.slice(i + 1);
-    if (!repoFields.has(name)) repoFields.set(name, new Set());
-    repoFields.get(name)!.add(field);
-    if (!(REPO_KEYS as readonly string[]).includes(field)) problems.push(`unknown key "${field}" in [repos.${name}]; valid keys: ${REPO_KEYS.join(", ")}`);
-    else if (typeof raw[k] !== "string" || (raw[k] as string).trim() === "") problems.push(`[repos.${name}] ${field} must be a non-empty string`);
-    else if (field === "platform" && !(REPO_PLATFORMS as readonly string[]).includes((raw[k] as string).trim())) {
-      problems.push(`[repos.${name}] platform "${raw[k] as string}" is not valid; use one of: ${REPO_PLATFORMS.join(", ")}`);
-    }
-  }
-  for (const [name, fields] of repoFields) if (!fields.has("path")) problems.push(`[repos.${name}] needs path`);
-  const d = raw["propose.default_tier"];
-  if (d !== undefined && (typeof d !== "string" || !(TIERS as readonly string[]).includes(d.trim()))) {
-    problems.push(`default_tier ${JSON.stringify(d)} is not valid; use one of: ${TIERS.join(", ")}`);
-  }
-  return problems;
+  const files = [{ file: ".plan-axi.toml", raw }];
+  return [...checkFile(files[0]!.file, raw), ...checkMerged(files)].filter((p) => p.severity === "error").map((p) => p.message);
 }
 
 /** Throws VALIDATION_ERROR when candidate config text has structural problems. */

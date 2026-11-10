@@ -8,8 +8,8 @@ export interface CommitStyle {
   trailer: string;
 }
 
-const WORD = /^[a-z0-9-]+$/;
-const TOKEN = /^[A-Za-z][A-Za-z0-9-]*$/;
+export const WORD = /^[a-z0-9-]+$/;
+export const TOKEN = /^[A-Za-z][A-Za-z0-9-]*$/;
 
 /** Commit style from `[commit]` config (repo over user), with defaults. */
 export function commitStyle(root: string): CommitStyle {
