@@ -39,6 +39,17 @@ backlog.md                               one tasks-axi task per change
 - treehouse (external): worktrees and branches.
 - Skills: prompts only; they call the CLIs.
 
+## Multi-repo changes
+
+A change can edit repos besides the plan repo. See ADR-0014-changes-span-repos-with-one-worktree-per-repo-and-bases-in.
+
+- Config: `[repos.<name>]` in `.plan-axi.toml` with `path` (home-relative), optional `platform = "windows"` (only meaningful under WSL; elsewhere ignored) and optional `git` / `treehouse` command overrides.
+- Proposal header `Repos: name@base, name` lists the extra repos. Base lives in the plan because it varies per change; no `@base` means the repo default branch. The plan repo is implicit.
+- Step `Owns:` entries for another repo carry a `<repo>:` prefix; `check` errors when the prefix is not in `Repos:`.
+- `start` and `enter` lease one worktree per repo on branch `<slug>`, from its base; reruns reuse them. Bare `change-axi`, `status` and `done` show per-repo branch and clean/dirty state, and `done` reports OUTSIDE_OWNS per repo.
+- A Windows repo under WSL runs Windows git, treehouse and pwsh through the repo runtime, never WSL git.
+- `finish` preflights every repo (clean worktree and checkout, branch exists, base is an ancestor), refuses to merge anything while one is blocked, ff-merges the extra repos, returns their leases, then archives and finishes the plan repo last. A rerun skips repos already merged; a failure lists merged and pending repos.
+
 ## Step execution
 
 Pick a ready step, claim it (`change-axi claim`), implement inside `Owns:`, verify Done when, commit own paths only, then `change-axi done` (commits only tasks.md, warns on writes outside Owns). See ADR-0004-plans-are-committed-on-main-steps-run-in-a-worktree and ADR-0005-owns-lists-the-files-a-step-edits.

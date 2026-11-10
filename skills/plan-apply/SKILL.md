@@ -63,6 +63,16 @@ change-axi finish <slug>
 
 See skill `plan-archive`.
 
+## Multi-repo changes
+
+When `proposal.md` has a `Repos:` header, the change spans repos besides the plan repo.
+
+- `start`/`enter` lease one worktree per repo on branch `<slug>` from its base (reruns reuse them). Bare `change-axi` and `status` list each repo's branch, base, worktree and clean/dirty state.
+- Edit another repo only in its worktree, inside the step's `<repo>:`-prefixed `Owns:`. Commit there with that repo's own git and the same message style; `change-axi done` reports `OUTSIDE_OWNS` per repo.
+- Never use WSL git on a repo with `platform = "windows"`; use `git.exe` (the tool runtime does this for you).
+- `change-axi finish <slug> --dry-run` shows a repo table with ahead/behind and the exact rebase command for any repo that needs one. Rebase and commit until every repo is `ready`.
+- The human's real `finish` refuses until all repos are rebased and clean, ff-merges the extra repos, then finishes the plan repo last. A rerun skips repos already merged.
+
 ## Plan changes during apply
 
 The main-branch plan is frozen; amend it on this branch. Edit sections with `change-axi write|append`, add steps with `change-axi step add`, change order with `change-axi dep`. Change the graph with `change-axi dep` (it reverts cycles) and edit plan text with `change-axi write`; re-run `CHECK`. Commit the plan change on its own with `change-axi commit-plan <slug> --reason "<why>"` (message `docs(plan): <why>` plus the `Change` trailer); if it is not available, use `git commit -m "docs(plan): <why>" -m "Change: <slug>"`. Tell the other agent if it affects their task.

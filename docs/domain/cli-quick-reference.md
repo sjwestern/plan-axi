@@ -64,6 +64,23 @@ change-axi setup [--remove]                # managed plan-axi block in AGENTS.md
 change-axi archive split-auth --dry-run    # then --commit; accepts the change's ADRs
 change-axi finish split-auth [--dry-run] [--delete-branch]   # on main: archive if needed, ff-merge the branch, release the worktree, optionally delete the branch; safe to rerun if the return got stuck (editor still open)
 ```
+Multi-repo changes: configure `[repos.<name>]` and list the repos in the proposal header; `start`/`enter` then lease a worktree per repo and `finish` merges them all, plan repo last.
+
+```toml
+[repos.api]
+path = "~/projects/org/api"   # home-relative; ~ is the Windows profile for a windows repo under WSL
+platform = "windows"          # optional; only under WSL, ignored elsewhere
+git = "git.exe"               # optional command overrides
+treehouse = "treehouse.exe"
+```
+
+```text
+Repos: api@release/2.1, web          # proposal header; no @base = repo default branch
+Owns: api:src/auth/, src/docs/       # <repo>: prefix for another repo; no prefix = plan repo
+```
+
+`change-axi finish <slug> --dry-run` prints a table (repo, base, ahead, behind, state, detail). State is `ready`, `merged`, `rebase-needed` (detail is the exact rebase command), `dirty`, `wrong-branch` or `unavailable`. The real finish refuses until every repo is ready, and a rerun skips repos already merged.
+
 In a worktree the PATH binaries are the main checkout's build. Smoke-test your own code with `node packages/change-axi/dist/bin/change-axi.js <args>` (after `npm run build`) or `npm run dev -w packages/change-axi -- <args>` (rebuilds, then runs). docs-axi: use the `dist` form.
 
 ## Referring to changes
