@@ -5,10 +5,10 @@ description: Implement a committed change plan. On the main branch it starts the
 
 # Apply
 
-Two modes, chosen by the current branch (`git branch --show-current`):
+Two modes, chosen by running bare `change-axi` and reading its `branch` and `worktree`/`checkout` lines (never `git branch --show-current`):
 
-- **Main branch** -> **Launch**: preflight, mark the change in progress, lease a worktree, print the hand-off prompt. Writes no code.
-- **Feature branch named like a change slug** -> **Execute**: implement steps in dependency order.
+- **`branch` is the default branch (`checkout` shown)** -> **Launch**: preflight, mark the change in progress, lease a worktree, print the hand-off prompt. Writes no code.
+- **`branch` is a change slug (`worktree` shown)** -> **Execute**: implement steps in dependency order.
 
 ## Conventions
 
