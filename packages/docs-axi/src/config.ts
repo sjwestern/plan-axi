@@ -143,64 +143,138 @@ function union(a: string[], b: string[]): string[] {
   return [...a, ...b.filter((x) => !a.includes(x))];
 }
 
-/** Build and validate the layout from the merged keys; `origin` maps a key to the file that set it. */
-function resolveLayout(kv: Record<string, Value>, origin: Record<string, string>): Layout {
+export interface DocsConfigProblem {
+  file: string;
+  key: string;
+  message: string;
+}
+
+/**
+ * Every layout problem in the keys, in the order the rules run. `local` keeps only rules that depend
+ * on a single key's value (a file checked alone); otherwise cross-key rules run too (merged view).
+ * `origin` maps a key to the file that set it.
+ */
+function layoutProblems(kv: Record<string, Value>, origin: Record<string, string>, local: boolean): DocsConfigProblem[] {
+  const out: DocsConfigProblem[] = [];
   const at = (k: string): string => origin[k] ?? "config";
-  let dir = "docs";
+  const add = (key: string, message: string): void => {
+    out.push({ file: at(key), key, message });
+  };
   if ("docs.dir" in kv) {
     const v = kv["docs.dir"];
-    if (typeof v !== "string" || v.trim() === "") bad(at("docs.dir"), "docs.dir must be a non-empty string");
-    dir = (v as string).trim();
+    if (typeof v !== "string" || v.trim() === "") add("docs.dir", "docs.dir must be a non-empty string");
   }
   let names = DEFAULT_SECTIONS;
   if ("docs.sections" in kv) {
     const v = kv["docs.sections"];
-    if (!Array.isArray(v) || v.length === 0) bad(at("docs.sections"), "docs.sections must be a non-empty array of names");
-    names = v as string[];
+    if (!Array.isArray(v) || v.length === 0) add("docs.sections", "docs.sections must be a non-empty array of names");
+    else names = v;
   }
   const seen = new Set<string>();
   for (const n of names) {
-    if (!NAME_RE.test(n)) bad(at("docs.sections"), `docs.sections: "${n}" is not a lowercase slug`);
-    if (n === "other") bad(at("docs.sections"), 'docs.sections: "other" is reserved');
-    if (seen.has(n)) bad(at("docs.sections"), `docs.sections: duplicate section "${n}"`);
+    if (!NAME_RE.test(n)) add("docs.sections", `docs.sections: "${n}" is not a lowercase slug`);
+    if (n === "other") add("docs.sections", 'docs.sections: "other" is reserved');
+    if (seen.has(n)) add("docs.sections", `docs.sections: duplicate section "${n}"`);
     seen.add(n);
   }
   const guidePrefix = "docs.section.";
   for (const k of Object.keys(kv)) {
     if (!k.startsWith(guidePrefix)) continue;
     const m = /^docs\.section\.(.+)\.guide$/.exec(k);
-    if (!m) bad(at(k), `unknown key ${k} (expected docs.section.<name>.guide)`);
-    if (typeof kv[k] !== "string") bad(at(k), `${k} must be a string`);
-    if (!seen.has(m![1] as string)) bad(at(k), `${k}: "${m![1]}" is not in docs.sections`);
+    if (!m) {
+      add(k, `unknown key ${k} (expected docs.section.<name>.guide)`);
+      continue;
+    }
+    if (typeof kv[k] !== "string") add(k, `${k} must be a string`);
+    else if (!local && !seen.has(m[1] as string)) add(k, `${k}: "${m[1]}" is not in docs.sections`);
   }
+  if ("docs.adr" in kv) {
+    const v = kv["docs.adr"];
+    if (typeof v === "string") {
+      if (!local && !seen.has(v)) add("docs.adr", `docs.adr: "${v}" is not in docs.sections`);
+    } else if (v !== false) add("docs.adr", "docs.adr must be a section name or false");
+  }
+  if (!local) {
+    for (const name of names) {
+      const g = kv[`${guidePrefix}${name}.guide`];
+      const guide = typeof g === "string" && g.trim() !== "" ? g.trim() : DEFAULT_GUIDES[name];
+      if (guide === undefined) add("docs.sections", `section "${name}" needs a guide: set docs.section.${name}.guide`);
+    }
+  }
+  return out;
+}
+
+/** Build and validate the layout from the merged keys; throws the first problem. */
+function resolveLayout(kv: Record<string, Value>, origin: Record<string, string>): Layout {
+  const first = layoutProblems(kv, origin, false)[0];
+  if (first) bad(first.file, first.message);
+  const dir = "docs.dir" in kv ? (kv["docs.dir"] as string).trim() : "docs";
+  const names = "docs.sections" in kv ? (kv["docs.sections"] as string[]) : DEFAULT_SECTIONS;
+  const seen = new Set(names);
+  const guidePrefix = "docs.section.";
   let adr: string | undefined;
   if ("docs.adr" in kv) {
     const v = kv["docs.adr"];
-    if (v === false) adr = undefined;
-    else if (typeof v === "string") {
-      if (!seen.has(v)) bad(at("docs.adr"), `docs.adr: "${v}" is not in docs.sections`);
-      adr = v;
-    } else bad(at("docs.adr"), "docs.adr must be a section name or false");
+    adr = typeof v === "string" ? v : undefined;
   } else if (seen.has(DEFAULT_ADR)) adr = DEFAULT_ADR;
   const sections: SectionDef[] = names.map((name) => {
     const g = kv[`${guidePrefix}${name}.guide`];
     const guide = typeof g === "string" && g.trim() !== "" ? g.trim() : DEFAULT_GUIDES[name];
-    if (guide === undefined) {
-      bad(at("docs.sections"), `section "${name}" needs a guide: set docs.section.${name}.guide`);
-    }
     return { name, guide: guide as string, kind: name === adr ? "adr" : "doc" };
   });
   return adr === undefined ? { dir, sections } : { dir, sections, adr };
+}
+
+const CONFIG_SOURCES = (root: string) =>
+  [
+    ["user", userConfigPath()],
+    ["repo", join(root, ".plan-axi.toml")],
+  ] as const;
+
+/**
+ * All `[docs]` problems, collected rather than thrown: each existing user/repo file is checked alone
+ * (key-local rules), then the merged layout (cross-key rules), each attributed to the file that set the key.
+ * Unreadable TOML is reported as one problem for that file.
+ */
+export function docsConfigProblems(root: string): DocsConfigProblem[] {
+  const out: DocsConfigProblem[] = [];
+  const push = (p: DocsConfigProblem): void => {
+    if (!out.some((q) => q.file === p.file && q.key === p.key && q.message === p.message)) out.push(p);
+  };
+  const layoutKv: Record<string, Value> = {};
+  const origin: Record<string, string> = {};
+  for (const [, path] of CONFIG_SOURCES(root)) {
+    if (!existsSync(path)) continue;
+    let kv: Record<string, Value>;
+    try {
+      kv = parseToml(readFileSync(path, "utf8"), path);
+    } catch (e) {
+      push({ file: path, key: "", message: e instanceof Error ? e.message : String(e) });
+      continue;
+    }
+    const own: Record<string, Value> = {};
+    const ownOrigin: Record<string, string> = {};
+    for (const [k, v] of Object.entries(kv)) {
+      if (k === "docs.ignore" && !Array.isArray(v)) push({ file: path, key: k, message: "docs.ignore must be an array" });
+      else if (k.startsWith("docs.map.") && !Array.isArray(v)) push({ file: path, key: k, message: `${k} must be an array` });
+      else if (k === "docs.dir" || k === "docs.sections" || k === "docs.adr" || k.startsWith("docs.section.")) {
+        own[k] = v;
+        ownOrigin[k] = path;
+        layoutKv[k] = v;
+        origin[k] = path;
+      }
+    }
+    for (const p of layoutProblems(own, ownOrigin, true)) push(p);
+  }
+  for (const p of layoutProblems(layoutKv, origin, false)) push(p);
+  return out;
 }
 
 export function loadConfig(root: string): DocsConfig {
   const cfg: DocsConfig = { ignore: [...DEFAULT_IGNORE], map: {}, sources: [], layout: resolveLayout({}, {}) };
   const layoutKv: Record<string, Value> = {};
   const origin: Record<string, string> = {};
-  for (const [label, path] of [
-    ["user", userConfigPath()],
-    ["repo", join(root, ".plan-axi.toml")],
-  ] as const) {
+  for (const [label, path] of CONFIG_SOURCES(root)) {
     if (!existsSync(path)) continue;
     const kv = parseToml(readFileSync(path, "utf8"), path);
     cfg.sources.push(label);
