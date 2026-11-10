@@ -1,9 +1,9 @@
 # Backlog
 
 ## In flight
+- [ ] name-herdr-tab-on-enter - Name the herdr tab after the change on enter (kind: change) (since 2026-11-10)
 ## Queued
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
-- [ ] name-herdr-tab-on-enter - Name the herdr tab after the change on enter (kind: change) (since 2026-11-10)
 - [ ] try-firstmate-supervising-plan-axi-runs-feed-ready - Try firstmate supervising plan-axi runs: feed ready steps (step file as brief) to firstmate tasks, mark done via change-axi; compare with add-run-wave before building run (kind: idea) (since 2026-11-10)
 ## Done
 - [x] add-multi-repo-changes - Support changes that span several repos (kind: change) (done 2026-11-10)
