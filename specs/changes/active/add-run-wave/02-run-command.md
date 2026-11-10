@@ -20,6 +20,7 @@ Reuse `checkChange` waves, `listTasks`, the worktree lookup from `enter` (`lease
 5. Output TOON: `wave`, `steps[]{step,profile,tab,state}`, help with the next action (review, then `run` again).
 6. Register `run` in `commands.ts` and `cli.ts` with usage text.
 7. `run.test.ts` with the fake herdr: two-step wave opens two tabs; rerun opens none; wave gating; dry-run and print fallback outside herdr; `--only`.
+8. Re-add the second help line in `enterCommand`'s multi-ready listing (removed as a dead hint before `run` existed): ``Or run `change-axi run <slug>` to run them``.
 
 ## Done when
 
