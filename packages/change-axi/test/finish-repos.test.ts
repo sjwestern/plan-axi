@@ -196,6 +196,7 @@ describe("finish across repos", { timeout: 30000 }, () => {
     const r = finishChange({ root: dir }, S, opts(rts, { deleteBranch: true }));
     expect(r.repos?.map((x) => x["state"])).toEqual(["merged", "merged"]);
     expect(api.returns).toEqual(["1"]); // not returned twice
+    expect(r.returned.map((x) => `${x.repo}:${x.status}`)).toEqual(["plan:returned", "api:none found", "web:returned"]);
     expect(existsSync(join(web.path, "w1"))).toBe(true);
     expect(sh(dir, "rev-parse", "HEAD")).toBe(sh(wt, "rev-parse", "HEAD"));
   });

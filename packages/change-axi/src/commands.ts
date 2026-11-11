@@ -973,7 +973,7 @@ export function finishCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   if (r.adrs.length > 0) out["adrs"] = r.adrs;
   if (r.untouched.length > 0) out["docs_not_updated"] = r.untouched.join(", ");
   out["merged"] = r.merged;
-  out["returned"] = r.returned;
+  if (r.returned.length > 0) out["returned"] = r.returned;
   if (r.repos) out["repos"] = r.repos;
   if (r.branchDeleted) out["branch_deleted"] = r.branchDeleted;
   if (r.warnings) out["warnings"] = r.warnings;

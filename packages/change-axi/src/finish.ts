@@ -21,7 +21,8 @@ export interface FinishReport {
   adrs: { path: string; action: string }[];
   untouched: string[];
   merged: string;
-  returned: string;
+  /** One row per worktree: the plan repo first, then each extra repo (WSL or Windows path as the repo sees it). */
+  returned: ReturnedRow[];
   branchDeleted?: string;
   warnings?: string[];
   buildHint?: string;
@@ -29,6 +30,13 @@ export interface FinishReport {
   repos?: Record<string, string>[];
   /** False when a dry run found a repo that blocks the real finish. */
   ready?: boolean;
+}
+
+export interface ReturnedRow {
+  repo: string;
+  path: string;
+  slot: string;
+  status: "returned" | "not returned" | "planned" | "none found";
 }
 
 export type RepoFinishState = "ready" | "merged" | "rebase-needed" | "dirty" | "wrong-branch" | "unavailable";
@@ -127,7 +135,16 @@ function blockedError(plans: RepoFinishPlan[], slug: string): AxiError {
 }
 
 /** ff-merge each ready extra repo, return its lease, optionally delete the branch. Merged repos are skipped on rerun. */
-function mergeRepos(plans: RepoFinishPlan[], slug: string, deleteBranch: boolean, warnings: string[]): { repo: string; result: string }[] {
+function plannedReturns(plans: RepoFinishPlan[]): ReturnedRow[] {
+  return plans.map((p) => planRow(p, p.slot ? "planned" : "none found"));
+}
+
+function planRow(p: RepoFinishPlan, status: ReturnedRow["status"]): ReturnedRow {
+  const rt = p.rt;
+  return { repo: p.repo, path: p.wt ? (rt ? rt.toNative(p.wt) : p.wt) : "-", slot: p.slot ?? "-", status };
+}
+
+function mergeRepos(plans: RepoFinishPlan[], slug: string, deleteBranch: boolean, warnings: string[], returns: ReturnedRow[]): { repo: string; result: string }[] {
   const done: { repo: string; result: string }[] = [];
   const pending = (from: number): string[] => plans.slice(from).filter((p) => p.state === "ready").map((p) => p.repo);
   plans.forEach((p, i) => {
@@ -147,12 +164,15 @@ function mergeRepos(plans: RepoFinishPlan[], slug: string, deleteBranch: boolean
       }
     }
     let stuck = false;
+    if (!p.slot) returns.push(planRow(p, "none found"));
     if (p.slot) {
       try {
         rt.treehouse(["return", p.slot]);
+        returns.push(planRow(p, "returned"));
       } catch (e) {
         if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
         stuck = true;
+        returns.push(planRow(p, "not returned"));
         warnings.push(`${p.repo}: merged, but worktree ${p.wt} not returned (${e.message}); rerun finish after closing what holds it`);
       }
     }
@@ -208,7 +228,7 @@ function checkOnBranch(ctx: Ctx, slug: string, base: string, o: FinishOptions): 
     adrs,
     untouched,
     merged: ok ? `ready: ${slug} is up to date with ${base}; the human runs \`change-axi finish ${slug}\` from the main checkout` : `not ready: ${blockers(plans).length} repo(s) need attention`,
-    returned: "n/a (run from main)",
+    returned: [],
     ...(plans.length > 0 ? { repos: repoPlanRows(plans), ready: ok } : {}),
   };
 }
@@ -251,10 +271,11 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
   let untouched: string[] = [];
   let merged: string;
   let results: { repo: string; result: string }[] | undefined;
+  const extraReturns: ReturnedRow[] = [];
 
   if (mergedAlready) {
     merged = `already in ${base}`;
-    if (o.dryRun) return { archived, adrs, untouched, merged, returned: row ? `planned: ${row.path}` : "none found", ...repoInfo(plans), ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
+    if (o.dryRun) return { archived, adrs, untouched, merged, returned: [row ? { repo: "plan", path: row.path, slot: row.name, status: "planned" } : { repo: "plan", path: "-", slot: "-", status: "none found" }, ...plannedReturns(plans)], ...repoInfo(plans), ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
   } else {
     const wt: Ctx = { root: (row as { path: string }).path };
     const wtDirty = git(wt, ["status", "--porcelain", "--untracked-files=no"]);
@@ -281,23 +302,23 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
       adrs = r.adrs;
       untouched = r.untouched;
     }
-    if (o.dryRun) return { archived, adrs, untouched, merged: `planned: ff ${slug} into ${base}`, returned: `planned: ${wt.root}`, ...repoInfo(plans), ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
-    results = mergeRepos(plans, slug, o.deleteBranch, warnings);
+    if (o.dryRun) return { archived, adrs, untouched, merged: `planned: ff ${slug} into ${base}`, returned: [{ repo: "plan", path: wt.root, slot: row?.name ?? "-", status: "planned" }, ...plannedReturns(plans)], ...repoInfo(plans), ...(o.deleteBranch ? { branchDeleted: `planned: delete ${slug}` } : {}) };
+    results = mergeRepos(plans, slug, o.deleteBranch, warnings, extraReturns);
     git(ctx, ["merge", "--ff-only", slug]);
     merged = git(ctx, ["rev-parse", "--short", "HEAD"]);
   }
 
   const rerun = `change-axi finish ${slug}${o.deleteBranch ? " --delete-branch" : ""}`;
-  let returned = "none found";
+  let planReturn: ReturnedRow = { repo: "plan", path: "-", slot: "-", status: "none found" };
   let stuck = false;
   if (row) {
-    returned = row.path;
+    planReturn = { repo: "plan", path: row.path, slot: row.name, status: "returned" };
     try {
       tryTreehouse(ctx, ["return", row.name]);
     } catch (e) {
       if (!(e instanceof AxiError) || e.code !== "TREEHOUSE_ERROR") throw e;
       stuck = true;
-      returned = `not returned: ${row.path}`;
+      planReturn.status = "not returned";
       const procs = /live processes after termination: ([^|]*)/.exec(e.message)?.[1]?.trim();
       warnings.push(
         `merged, but worktree not returned: processes still run in ${row.path}${procs ? ` (${procs})` : ""}. Likely an editor (VS Code) reopening them; close its window for that folder, then rerun \`${rerun}\` to finish the job (slot ${row.name}; safe to repeat)`,
@@ -318,7 +339,7 @@ export function finishChange(ctx: Ctx, slug: string, o: FinishOptions): FinishRe
   const agents = join(ctx.root, "AGENTS.md");
   const hint = existsSync(agents) ? /`(npm (?:install && npm )?run build)`|^(npm run build)\s*$/m.exec(readFileSync(agents, "utf8")) : null;
   const cmd = hint ? (hint[1] ?? hint[2]) : undefined;
-  return { archived, adrs, untouched, merged, returned, ...repoInfo(plans, results), ...(branchDeleted ? { branchDeleted } : {}), ...(warnings.length > 0 ? { warnings } : {}), ...(cmd ? { buildHint: `Rebuild if the change touched code: ${cmd}` } : {}) };
+  return { archived, adrs, untouched, merged, returned: [planReturn, ...extraReturns], ...repoInfo(plans, results), ...(branchDeleted ? { branchDeleted } : {}), ...(warnings.length > 0 ? { warnings } : {}), ...(cmd ? { buildHint: `Rebuild if the change touched code: ${cmd}` } : {}) };
 }
 
 function hasArchived(ctx: Ctx, ref: string, slug: string): boolean {

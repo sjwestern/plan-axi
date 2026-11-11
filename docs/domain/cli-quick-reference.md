@@ -82,6 +82,8 @@ Owns: api:src/auth/, src/docs/       # <repo>: prefix for another repo; no prefi
 
 `change-axi finish <slug> --dry-run` prints a table (repo, base, ahead, behind, state, detail). State is `ready`, `merged`, `rebase-needed` (detail is the exact rebase command), `dirty`, `wrong-branch` or `unavailable`. The real finish refuses until every repo is ready, and a rerun skips repos already merged.
 
+`finish` also prints a `returned` table with one row per leased worktree (repo, path, slot, status): the plan repo first (`plan`), then each extra repo, with WSL or Windows paths as the repo sees them. Status is `returned`, `not returned` (also a warning), `planned` (dry run) or `none found`.
+
 In a worktree the PATH binaries are the main checkout's build. Smoke-test your own code with `node packages/change-axi/dist/bin/change-axi.js <args>` (after `npm run build`) or `npm run dev -w packages/change-axi -- <args>` (rebuilds, then runs). docs-axi: use the `dist` form.
 
 ## Referring to changes
