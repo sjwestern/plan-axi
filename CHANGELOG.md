@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 - 2026-11-11
+
+### Documentation
+- Regenerate changelog
+
 
 ### Features
 - **change-axi:** Report every returned worktree in finish as a returned list
