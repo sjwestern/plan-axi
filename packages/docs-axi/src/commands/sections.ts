@@ -121,9 +121,9 @@ export const APPEND_SPEC: CmdSpec = {
   flags: { ...WRITE_FLAGS },
   min: 1,
   max: 1,
-  usage: "docs-axi append <path|adr-number> --section <ref> [--body <t> | --body-file <p>] [--add]",
+  usage: "docs-axi append <path|adr-number> --section <ref> [--body <t> | --body-file <p>]",
   help: `usage: docs-axi append <path|adr-number> --section <ref> [flags]
-Add text to the end of a section's own content (lists, logs). Same input and flags as \`write\`.
+Add text to the end of a section's own content (lists, logs). Same input as \`write\`. Creates the section if missing (no --add needed).
 Not idempotent: running twice appends twice.
 examples:
   docs-axi append <section>/<doc> --section "Open questions" --body "- Tax rounding?"
@@ -140,7 +140,7 @@ function applyEdit(ctx: Ctx, args: string[], mode: "write" | "append"): AxiStruc
     mode,
     selector,
     text,
-    add: flagBool(p, "--add"),
+    add: mode === "append" || flagBool(p, "--add"),
     tree: flagBool(p, "--tree"),
     ...(afterSel !== undefined ? { after: afterSel } : {}),
   });

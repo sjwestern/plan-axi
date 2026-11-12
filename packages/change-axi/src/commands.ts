@@ -601,7 +601,7 @@ export const WRITE_SPEC: CmdSpec = {
   usage: "change-axi write <slug> <proposal|step> --section <ref> [--body <t> | --body-file <p>] [--add] [--after <ref>] [--tree]",
   help: `usage: change-axi write <slug> <proposal|step> --section <ref> [flags]
 Replace one section's content (body from stdin, --body or --body-file; - = stdin). Heading kept. Output never echoes the body.
---add creates a missing section; --after places it; --tree also replaces subsections.
+--add creates a missing section (append always does); --after places it; --tree also replaces subsections.
 examples:
   printf 'Slow builds.' | change-axi write split-auth proposal --section Why
 `,
@@ -650,7 +650,7 @@ function edit(ctx: Ctx, args: string[], mode: "write" | "append"): AxiStructured
   const raw = readLf(d.abs);
   const text = readBodyInput(p) as string;
   const afterSel = flagStr(p, "--after");
-  const r = editSection(raw, { mode, selector: sel, text, add: flagBool(p, "--add"), tree: flagBool(p, "--tree"), ...(afterSel !== undefined ? { after: afterSel } : {}) });
+  const r = editSection(raw, { mode, selector: sel, text, add: mode === "append" || flagBool(p, "--add"), tree: flagBool(p, "--tree"), ...(afterSel !== undefined ? { after: afterSel } : {}) });
   if (!r.changed) return { [mode]: `${d.label} "${r.ref}" unchanged (no-op)` };
   writeText(d.abs, r.next);
   const out: AxiStructuredOutput = { [mode]: `${d.label} "${r.ref}" ${r.action}`, lines: r.lines };

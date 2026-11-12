@@ -122,6 +122,11 @@ describe("write / append", () => {
     expect(read("domain/billing.md")).toContain("## Why\n\n- a\n- b\n\n## Rules");
   });
 
+  it("append creates a missing section", async () => {
+    await repo.run("append", "domain/billing", "--section", "Extras", "--body", "- n");
+    expect(read("domain/billing.md")).toContain("## Extras\n\n- n");
+  });
+
   it("keeps the index in sync and preserves CRLF", async () => {
     const { writeFileSync } = await import("node:fs");
     const p = join(repo.dir, "docs/domain/billing.md");
