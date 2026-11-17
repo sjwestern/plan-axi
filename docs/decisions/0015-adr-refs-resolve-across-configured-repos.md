@@ -1,7 +1,7 @@
 ---
 title: ADR refs resolve across configured repos
 summary: Why plan ADR refs also resolve against ADRs in repos that set a docs key, with repo-qualified refs
-status: proposed
+status: accepted
 ---
 
 # ADR refs resolve across configured repos

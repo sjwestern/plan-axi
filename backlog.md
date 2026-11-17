@@ -1,12 +1,12 @@
 # Backlog
 
 ## In flight
-- [ ] resolve-adr-refs-across-repos - Resolve ADR refs against ADRs in configured repos (kind: change) (since 2026-11-17)
 ## Queued
 - [ ] add-run-wave - Run a wave of steps in herdr tabs (kind: change) (since 2026-10-19)
 - [ ] try-firstmate-supervising-plan-axi-runs-feed-ready - Try firstmate supervising plan-axi runs: feed ready steps (step file as brief) to firstmate tasks, mark done via change-axi; compare with add-run-wave before building run (kind: idea) (since 2026-11-10)
 - [ ] add-medium-tier - Add medium model tier between small and standard (kind: change) (since 2026-11-17)
 ## Done
+- [x] resolve-adr-refs-across-repos - Resolve ADR refs against ADRs in configured repos (kind: change) (done 2026-11-17)
 - [x] validate-hand-edited-config - Validate hand-edited config with config --verify (kind: change) (done 2026-11-10)
 - [x] name-herdr-tab-on-enter - Name the herdr tab after the change on enter (kind: change) (done 2026-11-10)
 - [x] add-multi-repo-changes - Support changes that span several repos (kind: change) (done 2026-11-10)
