@@ -12,6 +12,8 @@ export interface AdrInfo {
   number: number;
   slug: string;
   path: string;
+  /** Name of the source repo when the ADR lives outside the plan repo. */
+  repo?: string;
 }
 
 export type RefResolution =

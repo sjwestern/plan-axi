@@ -36,6 +36,8 @@ export interface RepoConfig {
   git?: string;
   /** Override command for treehouse (whitespace-split). */
   treehouse?: string;
+  /** Docs dir of this repo, relative to its path. Marks the repo as an ADR source for refs in plans. */
+  docs?: string;
 }
 
 /** `[repos.<name>]` tables from a raw config map. Entries without a string path are skipped (see planConfigProblems). */
@@ -58,7 +60,8 @@ export function repoConfigs(raw: Record<string, Value>): RepoConfig[] {
     const platform = str("platform") === "windows" ? "windows" : "native";
     const git = str("git");
     const treehouse = str("treehouse");
-    out.push({ name, path, platform, ...(git ? { git } : {}), ...(treehouse ? { treehouse } : {}) });
+    const docs = str("docs");
+    out.push({ name, path, platform, ...(git ? { git } : {}), ...(treehouse ? { treehouse } : {}), ...(docs ? { docs } : {}) });
   }
   return out;
 }

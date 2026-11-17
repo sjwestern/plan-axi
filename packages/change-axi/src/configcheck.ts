@@ -17,7 +17,7 @@ export interface ConfigFile {
 }
 
 export const REPO_PLATFORMS = ["windows", "native"] as const;
-export const REPO_KEYS = ["path", "platform", "git", "treehouse"] as const;
+export const REPO_KEYS = ["path", "platform", "git", "treehouse", "docs"] as const;
 export const PROFILE_KEYS = ["harness", "model", "effort", "command"] as const;
 export const COMMAND_PLACEHOLDERS = ["prompt", "slug", "step", "path", "repos"] as const;
 
@@ -142,6 +142,9 @@ function checkValue(key: string, v: Value): Array<{ severity: Severity; message:
     if (!nonEmpty(v)) return err(`[repos.${name}] ${last} must be a non-empty string`);
     if (last === "platform" && !(REPO_PLATFORMS as readonly string[]).includes(v.trim())) {
       return err(`[repos.${name}] platform "${v}" is not valid; use one of: ${REPO_PLATFORMS.join(", ")}`);
+    }
+    if (last === "docs" && (/^([A-Za-z]:)?[\\/]/.test(v.trim()) || v.trim().split(/[\\/]/).includes(".."))) {
+      return err(`[repos.${name}] docs "${v}" must be a relative directory inside the repo`);
     }
   }
   return [];
