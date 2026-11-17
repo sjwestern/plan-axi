@@ -1,6 +1,6 @@
 # 02 - Resolve and qualify ADR refs across source repos
 
-Owns: packages/change-axi/src/check.ts, packages/change-axi/src/adrguard.ts, packages/docs-axi/src/adrrefs.ts, packages/change-axi/test/adrguard.test.ts, packages/change-axi/test/refs.test.ts
+Owns: packages/change-axi/src/check.ts, packages/change-axi/src/adrguard.ts, packages/docs-axi/src/adrrefs.ts, packages/change-axi/test/adrguard.test.ts, packages/change-axi/test/adrsources.test.ts, packages/docs-axi/test/adrrefs.test.ts
 Docs: none
 
 ## Goal
