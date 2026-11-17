@@ -18,7 +18,6 @@ const skills = readdirSync(src, { withFileTypes: true })
   .map((d) => d.name);
 
 if (!uninstall) mkdirSync(dest, { recursive: true });
-let failed = false;
 for (const name of skills) {
   const target = join(src, name);
   const link = join(dest, name);
@@ -32,11 +31,11 @@ for (const name of skills) {
   }
   if (ours) { console.log(`ok       ${link}`); continue; }
   if (st) {
-    console.error(`conflict ${link} exists and is not a link to ${target}`);
-    failed = true;
+    // Already installed, for example from another checkout of this repo: leave it alone and carry on.
+    const to = st.isSymbolicLink() ? ` -> ${readlinkSync(link)}` : "";
+    console.log(`skipped  ${link} (already exists${to}; not replaced)`);
     continue;
   }
   symlinkSync(target, link, "junction");
   console.log(`linked   ${link} -> ${target}`);
 }
-process.exit(failed ? 1 : 0);
