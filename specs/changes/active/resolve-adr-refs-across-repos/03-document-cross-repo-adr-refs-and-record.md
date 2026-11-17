@@ -1,6 +1,6 @@
 # 03 - Document cross-repo ADR refs and record the decision
 
-Owns: docs/domain/cli-quick-reference.md, docs/architecture/plan-workflow.md
+Owns: docs/domain/cli-quick-reference.md, docs/architecture/plan-workflow.md, docs/decisions/0015-adr-refs-resolve-across-configured-repos.md, docs/README.md
 Docs: none
 
 ## Goal
