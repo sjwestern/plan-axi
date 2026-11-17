@@ -4,6 +4,7 @@ import { AxiError } from "axi-sdk-js";
 import { adrInfos, adrToken, checkRefs, type AdrInfo } from "docs-axi/lib/adrrefs";
 import { loadDocs } from "docs-axi/lib/model";
 import { readText, normalizeEol } from "docs-axi/lib/fsutil";
+import { loadSourceAdrs } from "./adrsources.js";
 import { getDocsConfig, type Ctx } from "./change.js";
 import { defaultBranch, git } from "./git.js";
 
@@ -83,8 +84,9 @@ export function checkAdrs(ctx: Ctx): AdrGuardResult {
       }
     }
   }
+  const refAdrs = [...adrs, ...loadSourceAdrs(ctx.root).adrs];
   for (const t of texts) {
-    for (const p of checkRefs(t.text, adrs)) {
+    for (const p of checkRefs(t.text, refAdrs, { qualified: true })) {
       refs = true;
       errors.push(`${p.code}: ${t.name}: ${p.detail}`);
     }

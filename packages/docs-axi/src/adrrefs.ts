@@ -2,10 +2,12 @@
 import type { Doc } from "./model.js";
 
 export interface AdrRef {
-  /** Full matched token, e.g. `ADR-0012-some-slug`. */
+  /** Full matched token, e.g. `ADR-0012-some-slug` or `repo:ADR-0012-some-slug`. */
   token: string;
   number: number;
   slug: string;
+  /** Source repo from a qualified ref (`repo:ADR-NNNN-slug`). */
+  repo?: string;
 }
 
 export interface AdrInfo {
@@ -18,9 +20,10 @@ export interface AdrInfo {
 
 export type RefResolution =
   | { ok: true; adr: AdrInfo }
-  | { ok: false; reason: "unknown-number" | "slug-mismatch"; expected?: string };
+  | { ok: false; reason: "unknown-number" | "slug-mismatch"; expected?: string }
+  | { ok: false; reason: "ambiguous"; expected: string };
 
-const FULL_RE = /(?<![\w-])ADR-(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)/g;
+const FULL_RE = /(?<![\w-])(?:([a-z0-9][a-z0-9-]*):)?ADR-(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)/g;
 const BARE_RE = /(?<![\w-])ADR[ -](\d+)(?![\w])/g;
 
 /** Drop fenced blocks and inline code, keeping line count. */
@@ -38,23 +41,35 @@ export function stripCode(body: string): string {
   return out.join("\n");
 }
 
-/** Full-form refs outside code. */
-export function findRefs(text: string): AdrRef[] {
+/**
+ * Full-form refs outside code. Qualified refs (`repo:ADR-NNNN-slug`, an ADR in another repo) are skipped
+ * unless `qualified` is set, so tools that rewrite refs in one repo never touch them.
+ */
+export function findRefs(text: string, opts: { qualified?: boolean } = {}): AdrRef[] {
   const refs: AdrRef[] = [];
   for (const m of stripCode(text).matchAll(FULL_RE)) {
-    refs.push({ token: m[0], number: Number(m[1]), slug: m[2] as string });
+    if (m[1] !== undefined && !opts.qualified) continue;
+    refs.push({ token: m[0], number: Number(m[2]), slug: m[3] as string, ...(m[1] !== undefined ? { repo: m[1] } : {}) });
   }
   return refs;
 }
 
-/** Number and slug must both match. */
+/**
+ * Number and slug must both match. A qualified ref only looks at ADRs of that repo. An unqualified ref looks at all of
+ * `adrs`; when the same number and slug exist in more than one repo it is ambiguous and must be qualified.
+ */
 export function resolveRef(ref: AdrRef, adrs: AdrInfo[]): RefResolution {
-  const hit = adrs.find((a) => a.number === ref.number);
-  if (!hit) return { ok: false, reason: "unknown-number" };
-  if (hit.slug !== ref.slug) {
-    return { ok: false, reason: "slug-mismatch", expected: adrToken(hit) };
+  const byNumber = adrs.filter((a) => a.number === ref.number && (ref.repo === undefined || a.repo === ref.repo));
+  if (byNumber.length === 0) return { ok: false, reason: "unknown-number" };
+  const hits = byNumber.filter((a) => a.slug === ref.slug);
+  if (hits.length === 0) {
+    return { ok: false, reason: "slug-mismatch", expected: `${ref.repo ? `${ref.repo}:` : ""}${adrToken(byNumber[0] as AdrInfo)}` };
   }
-  return { ok: true, adr: hit };
+  if (hits.length > 1) {
+    const forms = hits.map((a) => (a.repo ? `${a.repo}:${adrToken(a)}` : adrToken(a)));
+    return { ok: false, reason: "ambiguous", expected: forms.join(" or ") };
+  }
+  return { ok: true, adr: hits[0] as AdrInfo };
 }
 
 export const adrToken = (a: { number: number; slug: string }): string =>
@@ -84,20 +99,25 @@ export function adrInfos(docs: Doc[]): AdrInfo[] {
 }
 
 export interface RefProblem {
-  code: "ADR_REF_UNKNOWN" | "ADR_REF_BARE";
+  code: "ADR_REF_UNKNOWN" | "ADR_REF_BARE" | "ADR_REF_AMBIGUOUS";
   detail: string;
 }
 
-/** Check all ADR refs in one text. Messages name the expected form and the fix. */
-export function checkRefs(text: string, adrs: AdrInfo[]): RefProblem[] {
+/**
+ * Check all ADR refs in one text. Messages name the expected form and the fix. Qualified refs are checked only
+ * with `qualified` set (plan checks); docs checks leave them alone.
+ */
+export function checkRefs(text: string, adrs: AdrInfo[], opts: { qualified?: boolean } = {}): RefProblem[] {
   const problems: RefProblem[] = [];
   const seen = new Set<string>();
-  for (const r of findRefs(text)) {
+  for (const r of findRefs(text, opts)) {
     if (seen.has(r.token)) continue;
     seen.add(r.token);
     const res = resolveRef(r, adrs);
     if (res.ok) continue;
-    if (res.reason === "slug-mismatch") {
+    if (res.reason === "ambiguous") {
+      problems.push({ code: "ADR_REF_AMBIGUOUS", detail: `${r.token}: exists in more than one repo; qualify it as ${res.expected}` });
+    } else if (res.reason === "slug-mismatch") {
       problems.push({
         code: "ADR_REF_UNKNOWN",
         detail: `${r.token}: slug does not match ADR ${String(r.number).padStart(4, "0")}; use ${res.expected} (or run \`docs-axi adr fix-refs\`)`,
@@ -105,7 +125,7 @@ export function checkRefs(text: string, adrs: AdrInfo[]): RefProblem[] {
     } else {
       problems.push({
         code: "ADR_REF_UNKNOWN",
-        detail: `${r.token}: no ADR numbered ${String(r.number).padStart(4, "0")}; refs are ADR-NNNN-slug of an existing ADR`,
+        detail: `${r.token}: no ADR numbered ${String(r.number).padStart(4, "0")}${r.repo ? ` in repo ${r.repo}` : ""}; refs are ADR-NNNN-slug of an existing ADR`,
       });
     }
   }

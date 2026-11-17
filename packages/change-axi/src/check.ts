@@ -7,6 +7,7 @@ import { adrInfos, checkRefs, type AdrInfo } from "docs-axi/lib/adrrefs";
 import { loadDocs } from "docs-axi/lib/model";
 import { PROPOSAL_SECTIONS, STEP_SECTIONS, TIERS, tierProfile, tiersConfigured } from "./spec.js";
 import { loadProfiles } from "./agent.js";
+import { loadSourceAdrs } from "./adrsources.js";
 import { readRepoConfigs } from "./planconfig.js";
 import { listTasks, type Task } from "./tasks.js";
 
@@ -179,10 +180,14 @@ export function checkChange(ctx: Ctx, slug: string): CheckResult {
   } catch {
     warnings.push("ADR_REFS_UNCHECKED: could not load docs; ADR refs not checked");
   }
+  // ADRs of source repos ([repos.<name>] docs = "..."): refs in plans may cite them, unqualified or as <repo>:ADR-NNNN-slug
+  const sources = loadSourceAdrs(ctx.root);
+  adrs = [...adrs, ...sources.adrs];
+  for (const name of sources.unavailable) warnings.push(`ADR_SOURCE_UNAVAILABLE: repo ${name}: checkout or docs dir not readable; its ADRs are not used to resolve refs`);
   const refFiles = [...(hasProposal ? ["proposal.md"] : []), ...steps];
   for (const f of refFiles) {
     const text = f === "proposal.md" ? proposalText : readLf(join(dir, f));
-    for (const p of checkRefs(text, adrs)) errors.push(`${p.code}: ${f}: ${p.detail}`);
+    for (const p of checkRefs(text, adrs, { qualified: true })) errors.push(`${p.code}: ${f}: ${p.detail}`);
     const bad = new Set<string>();
     for (const m of text.matchAll(/(?<![\w-])change:([a-z0-9][a-z0-9-]*)/g)) {
       const ref = m[1] as string;

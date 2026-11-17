@@ -31,6 +31,35 @@ describe("adrrefs", () => {
     expect(checkRefs(text, adrs)).toEqual([]);
   });
 
+  describe("qualified refs and source repos", () => {
+    const multi = [
+      { number: 9, slug: "shared", path: "decisions/0009-shared.md" },
+      { number: 9, slug: "shared", path: "decisions/0009-shared.md", repo: "app" },
+      { number: 9, slug: "app-only", path: "decisions/0009-app-only.md", repo: "app" },
+      { number: 4, slug: "other", path: "decisions/0004-other.md", repo: "lib" },
+    ];
+    it("resolves an ADR that exists only in a source repo", () => {
+      expect(checkRefs("ADR-0004-other", multi)).toEqual([]);
+      expect(checkRefs("ADR-0004-wrong", multi)[0]?.code).toBe("ADR_REF_UNKNOWN");
+    });
+    it("skips qualified refs unless asked, so docs tools leave them alone", () => {
+      expect(findRefs("see app:ADR-0009-app-only")).toEqual([]);
+      expect(checkRefs("see app:ADR-0009-app-only", [])).toEqual([]);
+      expect(findRefs("see app:ADR-0009-app-only", { qualified: true })[0]).toMatchObject({ repo: "app", number: 9, token: "app:ADR-0009-app-only" });
+    });
+    it("resolves a qualified ref only inside that repo", () => {
+      expect(checkRefs("app:ADR-0009-app-only", multi, { qualified: true })).toEqual([]);
+      expect(checkRefs("lib:ADR-0009-app-only", multi, { qualified: true })[0]?.code).toBe("ADR_REF_UNKNOWN");
+      expect(checkRefs("app:ADR-0009-wrong", multi, { qualified: true })[0]?.detail).toContain("app:ADR-0009-shared");
+    });
+    it("reports an unqualified ref found in two repos as ambiguous", () => {
+      const p = checkRefs("ADR-0009-shared", multi, { qualified: true });
+      expect(p[0]?.code).toBe("ADR_REF_AMBIGUOUS");
+      expect(p[0]?.detail).toContain("app:ADR-0009-shared");
+      expect(checkRefs("app:ADR-0009-shared", multi, { qualified: true })).toEqual([]);
+    });
+  });
+
   it("builds infos from docs", () => {
     expect(adrInfos([{ adrNumber: 12, slug: "0012-some-decision", path: "p" } as never])).toEqual([
       { number: 12, slug: "some-decision", path: "p" },

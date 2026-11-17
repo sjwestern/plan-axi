@@ -106,3 +106,47 @@ describe("ADR guard on finish", () => {
     expect(r.out).toContain("ADR_DUPLICATE_NUMBER");
   });
 });
+
+describe("ADR refs to a source repo", () => {
+  let code: string;
+  const cite = async (text: string): Promise<void> => {
+    await run("write", "demo", "proposal", "--section", "Context", "--body", text);
+  };
+  beforeEach(() => {
+    code = mkdtempSync(join(tmpdir(), "change-axi-adrsrc-"));
+    mkdirSync(join(code, "docs/decisions"), { recursive: true });
+    writeFileSync(join(code, "docs/decisions/0009-legacy-first.md"), "---\ntitle: Legacy first\nsummary: s\ntags: [x]\nstatus: accepted\n---\n\n# Legacy first\n");
+    writeFileSync(join(dir, ".plan-axi.toml"), `[repos.app]\npath = "${code}"\ndocs = "docs"\n`);
+  });
+  afterEach(() => rmSync(code, { recursive: true, force: true }));
+
+  it("check accepts plain and qualified refs to an ADR that only the source repo has", async () => {
+    await plan("demo");
+    await cite("See ADR-0009-legacy-first and app:ADR-0009-legacy-first.");
+    const r = await run("check", "demo");
+    expect(r.out).not.toContain("ADR_REF");
+    expect(r.code).toBe(0);
+  });
+  it("check still rejects a wrong slug and an unknown repo qualifier", async () => {
+    await plan("demo");
+    await cite("See ADR-0009-wrong-slug and nope:ADR-0009-legacy-first.");
+    const r = await run("check", "demo");
+    expect(r.code).not.toBe(0);
+    expect(r.out).toContain("ADR_REF_UNKNOWN");
+    expect(r.out).toContain("ADR-0009-legacy-first");
+  });
+  it("commit-plan guard resolves refs against the source repo", async () => {
+    await plan("demo");
+    await cite("See ADR-0009-legacy-first.");
+    const r = await run("commit-plan", "demo");
+    expect(r.out).not.toContain("ADR_REF_UNKNOWN");
+  });
+  it("warns and skips a source repo that is not readable", async () => {
+    rmSync(join(code, "docs"), { recursive: true, force: true });
+    await plan("demo");
+    await cite("See ADR-0009-legacy-first.");
+    const r = await run("check", "demo");
+    expect(r.out).toContain("ADR_SOURCE_UNAVAILABLE");
+    expect(r.out).toContain("ADR_REF_UNKNOWN");
+  });
+});
