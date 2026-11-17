@@ -19,6 +19,7 @@ Read: docs/decisions ADR-0012-adr-references-carry-number-and-slug-and-clashes-a
 ## Out of scope
 
 - Cross-repo number clash guards. Each repo still numbers and guards its own ADRs, and docs-axi adr add, renumber and fix-refs stay single-repo.
+- docs-axi check resolving source repo ADRs: docs bodies cannot cite them yet.
 - Writing to ADRs in other repos.
 - Moving or merging ADRs between repos. A later docs migration into the plan repo removes the need for source repos.
 
@@ -41,9 +42,10 @@ Add an optional docs key to RepoConfig (planconfig.ts) and a loader in docs-axi 
 
 ## Docs impact
 
-- docs/decisions - new ADR: ADR refs resolve across configured repos (via docs-axi adr add).
-- docs/domain/cli-quick-reference.md - update: docs key on repos and the qualified ref form.
-- docs/architecture/plan-workflow.md - update: where multi-repo ADR refs resolve.
+- `docs/decisions/0015-adr-refs-resolve-across-configured-repos.md` - new ADR: refs resolve across configured repos.
+- `docs/domain/cli-quick-reference.md` - update: docs key on repos and the qualified ref form.
+- `docs/architecture/plan-workflow.md` - update: where multi-repo ADR refs resolve.
+- `docs/README.md` - update: index entry for the new ADR.
 
 ## Risks and open questions
 
