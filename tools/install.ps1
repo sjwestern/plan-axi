@@ -56,6 +56,7 @@ foreach ($line in Get-Content $Manifest) {
             } finally { Pop-Location }
         }
         'npm' { Invoke-Checked npm @('install', '-g', "$source@$ref") }
+        'dotnet' { Invoke-Checked dotnet @('tool', 'update', '--global', $source, '--version', $ref) }
         'git-dotnet' {
             $dir = Get-Checkout $name $source $ref
             Invoke-Checked powershell @('-NoProfile', '-File', (Join-Path $dir 'scripts/install.ps1'))

@@ -66,6 +66,9 @@ while read -r name kind source ref extra; do
     npm)
       npm install -g "$source@$ref"
       ;;
+    dotnet)
+      dotnet tool update --global "$source" --version "$ref"
+      ;;
     git-dotnet)
       dir="$(checkout "$name" "$source" "$ref")"
       bash "$dir/scripts/install.sh"

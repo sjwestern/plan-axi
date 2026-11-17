@@ -16,6 +16,7 @@ One tool per line, four whitespace-separated fields: `<name> <kind> <source> <re
 | --- | --- | --- | --- |
 | `git-npm` | git URL | tag, branch or commit | clone, `npm install`, `npm run build`, `npm link` each `packages/*`, `npm run skills:install` |
 | `npm` | npm package name | version | `npm install -g <name>@<version>` |
+| `dotnet` | NuGet package id | version | `dotnet tool update --global <id> --version <version>` |
 | `git-dotnet` | git URL | tag, branch or commit | clone, run `scripts/install.sh` (`scripts/install.ps1` on Windows) |
 
 The base manifest installs `plan-axi` (`change-axi`, `docs-axi` and the plan skills), `tasks-axi` and `dotnet-test-axi`.
