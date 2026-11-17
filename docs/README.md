@@ -14,6 +14,7 @@ Manage with `docs-axi` (search, new, update, check). Keep files small and single
 
 - [CLI quick reference](domain/cli-quick-reference.md) - One-screen reference for docs-axi and change-axi commands with examples
 - [Glossary](domain/glossary.md) - Terms used across plan-axi: change, step, Owns, wave, backlog, ADR
+- [Tools manifest](domain/tools-manifest.md) - Format of tools/tools.manifest and how tools/install.sh and install.ps1 install pinned tools
 
 ## Architecture
 

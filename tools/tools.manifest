@@ -1,0 +1,11 @@
+# Base tool manifest. One tool per line: <name> <kind> <source> <ref>
+# Blank lines and lines starting with # are ignored. See docs/domain/tools-manifest.md.
+#
+# kinds:
+#   git-npm     clone <source> at <ref>, npm install, npm run build, npm link the workspace
+#               packages, then npm run skills:install (plan-axi: change-axi, docs-axi, skills)
+#   npm         npm install -g <source>@<ref>
+#   git-dotnet  clone <source> at <ref>, run scripts/install.sh (scripts/install.ps1 on Windows)
+plan-axi         git-npm     https://github.com/sjwestern/plan-axi.git         v0.1.3
+tasks-axi        npm         tasks-axi                                         0.2.6
+dotnet-test-axi  git-dotnet  https://github.com/sjwestern/dotnet-test-axi.git  v0.4.0
