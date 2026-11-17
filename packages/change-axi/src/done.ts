@@ -12,6 +12,8 @@ export interface DoneResult {
   warnings: string[];
 }
 
+/** Plan-repo files that change-axi and tasks-axi write themselves (the start commit); agents never own them. */
+const TOOL_OWNED = new Set(["backlog.md", ".tasks.toml"]);
 const root = (s: string): string => s.replace(/[*?[{].*$/, "").replace(/\/+$/, "");
 const inOwns = (path: string, owns: string[]): boolean => owns.some((o) => {
   const r = root(o);
@@ -37,7 +39,7 @@ export function done(ctx: Ctx, slug: string, stepArg: string, since?: string, ru
   }
   const changed = base ? git(ctx, ["diff", "--name-only", `${base}..HEAD`], true).split("\n").filter(Boolean) : [];
   const planDir = `specs/changes/active/${slug}/`;
-  const outside = changed.filter((p) => !p.startsWith(planDir) && !inOwns(p, owns));
+  const outside = changed.filter((p) => !p.startsWith(planDir) && !TOOL_OWNED.has(p) && !inOwns(p, owns));
   const extra: string[] = [];
   for (const s of repoStates(ctx, slug, runtimes)) {
     if (!s.rt || !s.wt) {

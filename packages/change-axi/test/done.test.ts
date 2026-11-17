@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -52,6 +52,18 @@ describe("done", () => {
     expect(git("show", "--name-only", "--format=%s", "HEAD")).toBe("chore(plan): done demo 01-first\n\nspecs/changes/active/demo/tasks.md");
     expect(git("status", "--porcelain")).toContain("other-dirty.txt");
     expect((await run("done", "demo", "01")).out).toContain("already done");
+  });
+
+  it("ignores backlog.md and .tasks.toml, which the tools write themselves", async () => {
+    await run("claim", "demo", "01");
+    appendFileSync(join(dir, "backlog.md"), "\nfree-form note\n");
+    appendFileSync(join(dir, ".tasks.toml"), "\n# note\n");
+    write("src/a/x.ts");
+    git("add", "backlog.md", ".tasks.toml", "src/a/x.ts");
+    git("commit", "-q", "-m", "start and work");
+    const r = await run("done", "demo", "01");
+    expect(r.code).toBe(0);
+    expect(r.out).not.toContain("OUTSIDE_OWNS");
   });
 
   it("warns on paths outside Owns", async () => {
