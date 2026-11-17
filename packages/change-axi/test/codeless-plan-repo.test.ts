@@ -132,4 +132,23 @@ describe("plan repo with no code", { timeout: 30000 }, () => {
     expect(existsSync(join(api.path, "src/a.ts"))).toBe(true);
     expect(sh(dir, "rev-parse", "HEAD")).toBe(sh(wt, "rev-parse", "HEAD"));
   });
+
+  it("finishes and archives when the plan repo has no docs dir at all", () => {
+    sh(wt, "rm", "-rq", "docs");
+    sh(wt, "commit", "-q", "-m", "plans only");
+    const ctx = { root: wt };
+    const api = codeRepo("api");
+    const apiWt = leaseRepoWorktree(api.rt, S).path;
+    execFileSync("tasks-axi", ["start", "01-do-it", "--file", `specs/changes/active/${S}/tasks.md`], { cwd: wt });
+    mkdirSync(join(apiWt, "src"));
+    writeFileSync(join(apiWt, "src/a.ts"), "1");
+    sh(apiWt, "add", "-A");
+    sh(apiWt, "commit", "-q", "-m", "work");
+    const rts = new Map([["api", api.rt]]);
+    done(ctx as never, S, "01-do-it", undefined, rts);
+    const fin = finishChange({ root: dir }, S, { dryRun: false, skipDocsCheck: true, deleteBranch: false, runtimes: rts });
+    expect(fin.repos?.map((x) => x["state"])).toEqual(["merged"]);
+    expect(existsSync(join(dir, "docs"))).toBe(false);
+    expect(readdirSync(join(dir, "specs/changes/archived")).some((n) => n.endsWith(S))).toBe(true);
+  });
 });

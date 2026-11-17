@@ -160,7 +160,9 @@ export function archiveChange(ctx: Ctx, slug: string, o: ArchiveOptions): Archiv
   const refs = scan();
   if (refs.length > 0) report.references = refs;
   if (o.commit) {
-    git(ctx, ["add", "--", "specs", layout.dir, "backlog.md"]);
+    // A plan repo may have no docs dir yet (plans only), and git add fails on a missing pathspec.
+    const paths = ["specs", ...(existsSync(join(ctx.root, layout.dir)) ? [layout.dir] : []), "backlog.md"];
+    git(ctx, ["add", "--", ...paths]);
     try {
       commit(ctx, `archive ${slug}`, slug);
     } catch (e) {
