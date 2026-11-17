@@ -103,7 +103,7 @@ Verify a plan: `change-axi check <slug>` (exit 1 on errors), `change-axi status 
 
 ## Skills
 
-Install with `npm run skills:install` (symlinks `skills/*` into `~/.agents/skills`, which pi and other agents read; idempotent, refuses to overwrite non-link conflicts). Remove with `npm run skills:uninstall`. Use `node scripts/install-skills.mjs --dir <path>` for another location. They call `tasks-axi` (pin `0.2.6`) and `docs-axi`.
+Install with `npm run skills:install` (symlinks `skills/*` into `~/.agents/skills`, which pi and other agents read; idempotent; a skill that already exists, for example linked from another checkout, is skipped with a note and never replaced). Remove with `npm run skills:uninstall`. Use `node scripts/install-skills.mjs --dir <path>` for another location. They call `tasks-axi` (pin `0.2.6`) and `docs-axi`.
 
 Flow:
 
