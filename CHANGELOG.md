@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 - 2026-11-17
+
+### Features
+- **tools:** Add a base tool manifest and installer scripts (sh and ps1), with NuGet global tool support
+
+### Chores
+- **publication:** Add MIT license and private-content commit guard
+
+### Tests
+- **change-axi:** Cover plan repos with no code
+
 ## 0.1.3 - 2026-11-12
 
 ### Features
