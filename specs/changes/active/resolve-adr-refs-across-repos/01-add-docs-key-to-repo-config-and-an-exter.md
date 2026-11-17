@@ -1,6 +1,6 @@
 # 01 - Add docs key to repo config and an external ADR loader
 
-Owns: packages/change-axi/src/planconfig.ts, packages/docs-axi/src/adrrefs.ts, packages/change-axi/test/planconfig.test.ts, packages/docs-axi/test/adrrefs.test.ts
+Owns: packages/change-axi/src/planconfig.ts, packages/change-axi/src/configcheck.ts, packages/change-axi/src/adrsources.ts, packages/docs-axi/src/adrrefs.ts, packages/change-axi/test/planconfig.test.ts, packages/change-axi/test/adrsources.test.ts
 Docs: none
 
 ## Goal
