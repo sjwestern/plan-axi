@@ -94,7 +94,7 @@ Trial review of the pi session (what to fix, by priority):
 7. Unverified: enter against a real treehouse lease and real agent (tests use a fake agent script); claude/codex/gemini/opencode prompt syntax in the autodetect table.
 Still open from before: step rm, ADR required-section checks in docs-axi check, CI (ubuntu/windows/macos), changesets, publishing, preserve mixed EOL in docs/README.md, tasks-axi upstream issues (silent cycles, `start` on done reopens, `add` existing id no-op), `change-axi check --all`.
 What worked (keep): claim via `tasks-axi start`, `show --section` reads, own-path commits, separate `done` commit, archive dry-run -> ADR check -> `archive --commit`. All step commits stayed inside Owns.
-Process notes: propose with change-axi only (dogfood); plan is committed on main = approval; `.tasks.toml`/`backlog.md` are created by `change-axi new`. Example repo (example-repo): 10 of 11 plans pass `change-axi check`; the oldest (example-change) was fixed by another agent (missing step Context sections).
+Process notes: propose with change-axi only (dogfood); plan is committed on main = approval; `.tasks.toml`/`backlog.md` are created by `change-axi new`. Example repo: 10 of 11 plans pass `change-axi check`; the oldest example plan was fixed by another agent (missing step Context sections).
 
 ## Open work (current, 2026-10-17; supersedes older "Next steps" lists)
 Done since: change-axi claim/done/archive/start/enter/setup/finish, bootstrap docs, archive hints, step add prefixes.
