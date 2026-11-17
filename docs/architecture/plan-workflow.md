@@ -50,6 +50,10 @@ A change can edit repos besides the plan repo. See ADR-0014-changes-span-repos-w
 - A Windows repo under WSL runs Windows git, treehouse and pwsh through the repo runtime, never WSL git.
 - `finish` preflights every repo (clean worktree and checkout, branch exists, base is an ancestor), refuses to merge anything while one is blocked, ff-merges the extra repos, returns their leases, then archives and finishes the plan repo last. A rerun skips repos already merged; a failure lists merged and pending repos.
 
+### Plan repos with no code
+
+The plan repo needs no code, build, `package.json` or `AGENTS.md`. It can hold only `.plan-axi.toml`, `specs/`, `backlog.md` and docs, with every code repo under `[repos.*]`. Prefix every step `Owns:` entry with its repo (`api:src/`). Plan-repo paths outside the plan dir then show as OUTSIDE_OWNS in `done`. `finish` omits the rebuild hint when `AGENTS.md` has no build command. Covered by `test/codeless-plan-repo.test.ts`.
+
 ## Step execution
 
 Pick a ready step, claim it (`change-axi claim`), implement inside `Owns:`, verify Done when, commit own paths only, then `change-axi done` (commits only tasks.md, warns on writes outside Owns). See ADR-0004-plans-are-committed-on-main-steps-run-in-a-worktree and ADR-0005-owns-lists-the-files-a-step-edits.
