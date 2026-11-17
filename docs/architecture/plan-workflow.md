@@ -44,6 +44,7 @@ backlog.md                               one tasks-axi task per change
 A change can edit repos besides the plan repo. See ADR-0014-changes-span-repos-with-one-worktree-per-repo-and-bases-in.
 
 - Config: `[repos.<name>]` in `.plan-axi.toml` with `path` (home-relative), optional `platform = "windows"` (only meaningful under WSL; elsewhere ignored) and optional `git` / `treehouse` command overrides.
+- Optional `docs = "<dir>"` on a repo makes its ADRs citable from plans (unqualified or `repo:ADR-NNNN-slug`). See ADR-0015-adr-refs-resolve-across-configured-repos.
 - Proposal header `Repos: name@base, name` lists the extra repos. Base lives in the plan because it varies per change; no `@base` means the repo default branch. The plan repo is implicit.
 - Step `Owns:` entries for another repo carry a `<repo>:` prefix; `check` errors when the prefix is not in `Repos:`.
 - `start` and `enter` lease one worktree per repo on branch `<slug>`, from its base; reruns reuse them. Bare `change-axi`, `status` and `done` show per-repo branch and clean/dirty state, and `done` reports OUTSIDE_OWNS per repo.

@@ -73,6 +73,7 @@ path = "~/projects/org/api"   # home-relative; ~ is the Windows profile for a wi
 platform = "windows"          # optional; only under WSL, ignored elsewhere
 git = "git.exe"               # optional command overrides
 treehouse = "treehouse.exe"
+docs = "docs"                   # optional; relative docs dir: plans may cite this repo's ADRs (see ADR references)
 ```
 
 ```text
@@ -93,6 +94,8 @@ Refer to a change from another change as `change:<slug>`, never by path (archive
 ## ADR references
 
 Cite ADRs as `ADR-NNNN-slug` (number and slug of an existing file). `docs-axi check` and `change-axi check` error on bare refs (`ADR 7`) and unknown or mismatched refs (`ADR_REF_BARE`, `ADR_REF_UNKNOWN`). `change-axi commit-plan` and `finish` also fail on duplicate ADR numbers, or a number already used by another file on the default branch (`ADR_DUPLICATE_NUMBER`, `ADR_NUMBER_TAKEN`), and print the fix: `docs-axi adr renumber <ref>` for clashes, `docs-axi adr fix-refs` for refs; then retry.
+
+A plan repo can cite ADRs that live in other repos: set `docs` on those `[repos.<name>]` tables. `change-axi check` and the commit-plan and finish guards then resolve refs against the plan repo plus each such repo, read from its configured checkout (see ADR-0015-adr-refs-resolve-across-configured-repos). Qualify a ref as `repo:ADR-NNNN-slug` to look only in that repo. An unqualified ref whose number and slug exist in several repos is `ADR_REF_AMBIGUOUS`. An unreadable source repo gives the warning `ADR_SOURCE_UNAVAILABLE` and is skipped. Numbering, clash guards, `renumber` and `fix-refs` stay per repo, and `docs-axi check` does not resolve source repo ADRs.
 
 Upgrade note: existing repos run `docs-axi adr fix-refs` once, because bare refs are now errors.
 
