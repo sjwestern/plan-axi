@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 - 2026-11-17
+
+### Features
+- **docs-axi:** Read other repos' docs with `--repo <name>` and every repo with `--all-repos` (list, search, show, sections, adr list and search), and resolve ADR refs in `docs-axi check` against repos with a `docs` key, including `repo:ADR-NNNN-slug`
+
+### Chores
+- **docs-axi:** Repo config, host detection and path resolution move from change-axi into docs-axi (no behaviour change for change-axi)
+
 ## 0.3.0 - 2026-11-17
 
 ### Features
