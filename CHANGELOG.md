@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0 - 2026-11-17
+
+### Features
+- **change-axi:** Add a `docs` key to `[repos.<name>]` so plans can cite ADRs that live in other repos, including `repo:ADR-NNNN-slug` refs and ambiguity errors
+
+### Bug fixes
+- **change-axi:** Do not flag backlog.md and .tasks.toml as outside Owns
+- **change-axi:** Archive in a plan repo with no docs dir
+- **plan-axi:** Skip skills that already exist instead of failing install
+
+### Documentation
+- **plan-axi:** Document cross-repo ADR refs
+
 ## 0.2.0 - 2026-11-17
 
 ### Features
