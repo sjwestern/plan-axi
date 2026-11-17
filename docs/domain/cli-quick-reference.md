@@ -17,6 +17,8 @@ docs-axi adr                               # ADR counts by status
 docs-axi adr list --status accepted        # all|proposed|accepted|superseded|deprecated
 docs-axi adr list --full                   # adds decision text, superseded-by
 docs-axi adr search cache --all
+docs-axi search billing --repo api            # read another repo's docs (repo with docs = "..." in [repos.<name>])
+docs-axi adr list --all-repos                 # this repo plus every such repo, one result per repo (read commands only)
 docs-axi adr renumber ADR-0007-use-postgres   # next free number; rewrites refs (--to <n>)
 docs-axi adr fix-refs                      # rewrite bare ADR refs to ADR-NNNN-slug
 docs-axi sections domain/billing           # headings and refs
@@ -95,7 +97,7 @@ Refer to a change from another change as `change:<slug>`, never by path (archive
 
 Cite ADRs as `ADR-NNNN-slug` (number and slug of an existing file). `docs-axi check` and `change-axi check` error on bare refs (`ADR 7`) and unknown or mismatched refs (`ADR_REF_BARE`, `ADR_REF_UNKNOWN`). `change-axi commit-plan` and `finish` also fail on duplicate ADR numbers, or a number already used by another file on the default branch (`ADR_DUPLICATE_NUMBER`, `ADR_NUMBER_TAKEN`), and print the fix: `docs-axi adr renumber <ref>` for clashes, `docs-axi adr fix-refs` for refs; then retry.
 
-A plan repo can cite ADRs that live in other repos: set `docs` on those `[repos.<name>]` tables. `change-axi check` and the commit-plan and finish guards then resolve refs against the plan repo plus each such repo, read from its configured checkout (see ADR-0015-adr-refs-resolve-across-configured-repos). Qualify a ref as `repo:ADR-NNNN-slug` to look only in that repo. An unqualified ref whose number and slug exist in several repos is `ADR_REF_AMBIGUOUS`. An unreadable source repo gives the warning `ADR_SOURCE_UNAVAILABLE` and is skipped. Numbering, clash guards, `renumber` and `fix-refs` stay per repo, and `docs-axi check` does not resolve source repo ADRs.
+A plan repo can cite ADRs that live in other repos: set `docs` on those `[repos.<name>]` tables. `change-axi check` and the commit-plan and finish guards then resolve refs against the plan repo plus each such repo, read from its configured checkout (see ADR-0015-adr-refs-resolve-across-configured-repos). Qualify a ref as `repo:ADR-NNNN-slug` to look only in that repo. An unqualified ref whose number and slug exist in several repos is `ADR_REF_AMBIGUOUS`. An unreadable source repo gives the warning `ADR_SOURCE_UNAVAILABLE` and is skipped. Numbering, clash guards, `renumber` and `fix-refs` stay per repo, and `docs-axi check` resolves them the same way (ADR-0016-docs-axi-reads-and-checks-docs-across-configured-repos). docs-axi list, search, show, sections and adr list or search read another repo with `--repo <name>`; `--all-repos` runs list, search and adr list or search everywhere. Writes never cross repos.
 
 Upgrade note: existing repos run `docs-axi adr fix-refs` once, because bare refs are now errors.
 

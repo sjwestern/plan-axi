@@ -5,6 +5,7 @@ import { parseArgs, type CmdSpec } from "../args.js";
 import { cmp, toPosix } from "../fsutil.js";
 import { readmeState } from "../indexgen.js";
 import { adrInfos, checkRefs } from "../adrrefs.js";
+import { loadSourceAdrs } from "../repohost.js";
 import {
   ADR_FILE_RE,
   ADR_STATUSES,
@@ -110,9 +111,13 @@ export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
 
   const byNumber = new Map<number, Doc[]>();
   const adrs = adrInfos(docs);
+  // ADRs of other repos with a `docs` key in [repos.<name>]: docs may cite them, unqualified or as <repo>:ADR-NNNN-slug.
+  const sources = loadSourceAdrs(ctx.root);
+  const refAdrs = [...adrs, ...sources.adrs];
+  for (const name of sources.unavailable) warnings.push({ code: "ADR_SOURCE_UNAVAILABLE", path: name, detail: `repo ${name}: checkout or docs dir not readable; its ADRs are not used to resolve refs` });
   for (const d of docs) {
     for (const e of d.parsed.errors) add("FRONTMATTER_PARSE", d.path, e);
-    for (const p of checkRefs(d.parsed.body, adrs)) add(p.code, d.path, p.detail);
+    for (const p of checkRefs(d.parsed.body, refAdrs, { qualified: true })) add(p.code, d.path, p.detail);
     checkChangeRefs(d, warnings);
     // Docs outside the layout are indexed in place: no style checks, but dead links are reported (warnings).
     if (d.section === "other") {

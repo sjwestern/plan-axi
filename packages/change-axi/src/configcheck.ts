@@ -1,4 +1,5 @@
 import { parseToml, type Value } from "docs-axi/lib/config";
+import { REPO_PLATFORMS } from "docs-axi/lib/repohost";
 import { TOKEN, WORD } from "./commitstyle.js";
 import { TIERS } from "./spec.js";
 
@@ -16,7 +17,6 @@ export interface ConfigFile {
   raw: Record<string, Value>;
 }
 
-export const REPO_PLATFORMS = ["windows", "native"] as const;
 export const REPO_KEYS = ["path", "platform", "git", "treehouse", "docs"] as const;
 export const PROFILE_KEYS = ["harness", "model", "effort", "command"] as const;
 export const COMMAND_PLACEHOLDERS = ["prompt", "slug", "step", "path", "repos"] as const;

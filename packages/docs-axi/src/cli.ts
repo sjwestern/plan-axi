@@ -1,5 +1,7 @@
 import { isAbsolute, resolve } from "node:path";
-import { runAxiCli } from "axi-sdk-js";
+import { basename } from "node:path";
+import { AxiError, runAxiCli } from "axi-sdk-js";
+import { sourceRepos } from "./repohost.js";
 import type { AxiRenderable } from "./types.js";
 import { findRepoRoot } from "./fsutil.js";
 import type { Ctx } from "./model.js";
@@ -45,8 +47,10 @@ export const DESCRIPTION =
 export const TOP_HELP = `usage: docs-axi [command] [args] [flags]
 commands[15]:
   (none)=docs map, init, list, search, show, sections, write, append, new, adr, update, supersede, index, check, migrate, config
-flags[2]:
+flags[4]:
   --docs <dir> (after command; default <repo>/docs), --help, -v/-V/--version
+  --repo <name> (read commands: list, search, show, sections, adr list|search; reads that repo's docs, a repo with a docs key in [repos.<name>] of .plan-axi.toml)
+  --all-repos (list, search, adr list|search; runs the command in this repo and every such repo, one result per repo)
 examples:
   docs-axi
   docs-axi search billing invoice
@@ -80,6 +84,33 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   config: { run: configCommand, help: CONFIG_HELP },
 };
 
+/** Value of `--name <v>` or `--name=<v>`. */
+function valueFlag(args: string[], name: string): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i] as string;
+    if (a === name) return args[i + 1];
+    if (a.startsWith(`${name}=`)) return a.slice(name.length + 1);
+  }
+  return undefined;
+}
+
+/** Args without `--repo <v>`, `--repo=<v>` and `--all-repos`. */
+function withoutRepoFlags(args: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i] as string;
+    if (a === "--repo") i++;
+    else if (!a.startsWith("--repo=") && a !== "--all-repos") out.push(a);
+  }
+  return out;
+}
+
+/** Read-only use of another repo's docs: these commands (and `adr list|search`) only. */
+function readsAcrossRepos(name: string, args: string[]): boolean {
+  if (name === "list" || name === "search" || name === "show" || name === "sections") return true;
+  return name === "adr" && (args[0] === "list" || args[0] === "search");
+}
+
 function docsFlag(args: string[]): string | undefined {
   for (let i = 0; i < args.length; i++) {
     const a = args[i] as string;
@@ -99,6 +130,19 @@ export async function main(options: MainOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
   const resolveCtx = (args: string[]): Ctx => {
     const root = findRepoRoot(cwd);
+    const repo = valueFlag(args, "--repo");
+    if (repo !== undefined) {
+      const sources = sourceRepos(root);
+      const hit = sources.repos.find((r) => r.name === repo);
+      if (!hit) {
+        const known = sources.repos.map((r) => r.name);
+        throw new AxiError(`no readable docs repo "${repo}"`, "NOT_FOUND", [
+          known.length > 0 ? `Repos: ${known.join(", ")}` : "No repo sets `docs` in [repos.<name>] of .plan-axi.toml",
+          ...(sources.unavailable.includes(repo) ? [`${repo} is configured but its checkout or docs dir is not readable`] : []),
+        ]);
+      }
+      return { root: hit.root, docsDir: hit.docsDir, config: loadConfig(hit.root) };
+    }
     const flag = docsFlag(args);
     const config = loadConfig(root);
     const docsDir = flag === undefined ? resolve(root, config.layout.dir) : isAbsolute(flag) ? flag : resolve(cwd, flag);
@@ -106,8 +150,28 @@ export async function main(options: MainOptions = {}): Promise<void> {
   };
   const commands: Record<string, (args: string[], ctx: Ctx | undefined) => AxiRenderable> = {};
   for (const [name, c] of Object.entries(COMMANDS)) {
-    commands[name] = (args, ctx) => {
+    commands[name] = (rawArgs, ctx) => {
       const current = ctx as Ctx;
+      const wantsRepo = valueFlag(rawArgs, "--repo") !== undefined;
+      const all = rawArgs.includes("--all-repos");
+      const args = wantsRepo || all ? withoutRepoFlags(rawArgs) : rawArgs;
+      if ((wantsRepo || all) && !readsAcrossRepos(name, args)) {
+        throw new AxiError(`--repo and --all-repos only work with read commands`, "VALIDATION_ERROR", [
+          "Use them with list, search, show, sections, adr list or adr search; edit another repo's docs from that repo",
+        ]);
+      }
+      if (all) {
+        if (wantsRepo || name === "show" || name === "sections") {
+          throw new AxiError("--all-repos works with list, search, adr list and adr search, and not together with --repo", "VALIDATION_ERROR");
+        }
+        const here = resolveCtx([]);
+        const out: Record<string, unknown> = {};
+        out[basename(here.root)] = c.run(here, args);
+        for (const r of sourceRepos(here.root).repos) {
+          out[r.name] = c.run({ root: r.root, docsDir: r.docsDir, config: loadConfig(r.root) }, args);
+        }
+        return out;
+      }
       if (name === "init" && args.some((arg) => arg === "--sections" || arg.startsWith("--sections=") || arg === "--adr" || arg.startsWith("--adr="))) {
         const configResult = configCommand(current, args);
         const refreshed = resolveCtx(args);

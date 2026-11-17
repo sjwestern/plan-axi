@@ -1,10 +1,12 @@
 import { AxiError } from "axi-sdk-js";
 import { loadRawConfig, parseToml, type Value } from "docs-axi/lib/config";
 import { checkProfile, defaultCheckDeps, loadProfiles, type AgentProfile, type CheckDeps, type CheckResult } from "./agent.js";
-import { checkFile, checkMerged, REPO_PLATFORMS } from "./configcheck.js";
+import { checkFile, checkMerged } from "./configcheck.js";
 import { commitStyle, type CommitStyle } from "./commitstyle.js";
 import { loadGuidance, type Guidance } from "./guidance.js";
 import { TIERS, tierProfile } from "./spec.js";
+
+export { REPO_PLATFORMS, readRepoConfigs, repoConfigs, type RepoConfig } from "docs-axi/lib/repohost";
 
 export type Tier = (typeof TIERS)[number];
 
@@ -23,52 +25,6 @@ export interface PlanConfig {
   agent?: string;
   commit: CommitStyle;
   resolved: ResolvedTier[];
-}
-
-export { REPO_PLATFORMS };
-
-export interface RepoConfig {
-  name: string;
-  path: string;
-  /** "windows": a Windows checkout reached from WSL (ignored outside WSL). Default "native". */
-  platform: (typeof REPO_PLATFORMS)[number];
-  /** Override command for git (whitespace-split). */
-  git?: string;
-  /** Override command for treehouse (whitespace-split). */
-  treehouse?: string;
-  /** Docs dir of this repo, relative to its path. Marks the repo as an ADR source for refs in plans. */
-  docs?: string;
-}
-
-/** `[repos.<name>]` tables from a raw config map. Entries without a string path are skipped (see planConfigProblems). */
-export function repoConfigs(raw: Record<string, Value>): RepoConfig[] {
-  const byName = new Map<string, Record<string, Value>>();
-  for (const [k, v] of Object.entries(raw)) {
-    if (!k.startsWith("repos.")) continue;
-    const rest = k.slice("repos.".length);
-    const i = rest.lastIndexOf(".");
-    if (i <= 0) continue;
-    const name = rest.slice(0, i);
-    if (!byName.has(name)) byName.set(name, {});
-    byName.get(name)![rest.slice(i + 1)] = v;
-  }
-  const out: RepoConfig[] = [];
-  for (const [name, f] of byName) {
-    const str = (key: string): string | undefined => (typeof f[key] === "string" && (f[key] as string).trim() !== "" ? (f[key] as string).trim() : undefined);
-    const path = str("path");
-    if (path === undefined) continue;
-    const platform = str("platform") === "windows" ? "windows" : "native";
-    const git = str("git");
-    const treehouse = str("treehouse");
-    const docs = str("docs");
-    out.push({ name, path, platform, ...(git ? { git } : {}), ...(treehouse ? { treehouse } : {}), ...(docs ? { docs } : {}) });
-  }
-  return out;
-}
-
-/** Merged user+repo `[repos.*]` config (repo file overrides user file per key). */
-export function readRepoConfigs(root: string): RepoConfig[] {
-  return repoConfigs(loadRawConfig(root));
 }
 
 /** Merged user+repo plan config as one read model. */
