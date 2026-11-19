@@ -43,10 +43,10 @@ In checkLinks, before the scheme skip, match `<name>:<path>` against sourceRepos
 
 ## Docs impact
 
-- docs/decisions/0016-docs-axi-reads-and-checks-docs-across-configured-repos.md - update: repo-qualified doc links (already amended).
-- docs/domain/cli-quick-reference.md - update: link syntax and codes.
-- docs/architecture/plan-workflow.md - update: cross-repo links in docs.
-- CHANGELOG.md - update: entry.
+- `docs/decisions/0016-docs-axi-reads-and-checks-docs-across-configured-repos.md` - update: repo-qualified doc links (already amended).
+- `docs/domain/cli-quick-reference.md` - update: link syntax and codes.
+- `docs/architecture/plan-workflow.md` - update: cross-repo links in docs.
+- `CHANGELOG.md` - update: entry.
 
 ## Risks and open questions
 
