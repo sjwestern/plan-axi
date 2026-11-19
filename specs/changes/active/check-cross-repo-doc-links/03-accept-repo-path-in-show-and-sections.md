@@ -13,10 +13,11 @@ show and sections take a doc path or ADR number and read the plan repo, or anoth
 
 ## Work
 
-1. In cli.ts, for show and sections, treat a first positional `<name>:<path>` whose name is a source repo as --repo <name> with that path. An unknown name falls through as a plain path. Reuse the sourceRepos lookup and its NOT_FOUND error.
-2. A qualified path together with a conflicting --repo gives VALIDATION_ERROR. The same repo in both is fine.
-3. Update show and sections help text.
-4. Tests in multirepo.test.ts: show and sections by qualified path, with --section, unknown repo, conflicting --repo.
+1. In cli.ts, for show and sections, treat a first positional `<name>:<path>` as repo plus path when name is a source repo (same as --repo <name>).
+2. A name that is not a source repo but looks like a repo prefix (lowercase letters, digits, dashes, not a single letter) fails with the existing NOT_FOUND error 'no readable docs repo "<name>"' and the Repos help line, not a generic doc-not-found.
+3. A qualified path together with a conflicting --repo gives VALIDATION_ERROR. The same repo in both is fine.
+4. Update show and sections help text and examples.
+5. Tests in multirepo.test.ts: show and sections by qualified path, with --section, unknown repo (lists known repos), conflicting --repo.
 
 ## Done when
 

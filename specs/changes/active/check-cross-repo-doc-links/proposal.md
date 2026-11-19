@@ -12,10 +12,10 @@ Read: docs/decisions/0015-adr-refs-resolve-across-configured-repos.md, docs/deci
 
 - A markdown link `[text](repo:path.md#anchor)` where repo is a source repo (has docs in [repos.<name>]) is checked: the path is relative to that repo docs dir, as printed by `docs-axi list --repo <repo>`.
 - Missing doc gives BROKEN_LINK. Unreadable source repo gives warning DOC_SOURCE_UNAVAILABLE and the link is skipped.
-- Other schemes (https:, mailto:) and names that are not source repos stay ignored.
+- A prefix that is neither a source repo nor a known scheme (a likely typo) gives warning UNKNOWN_LINK_REPO listing the configured repos. https:, mailto: and similar stay ignored.
 - Unmanaged-layout docs report these as warnings, like other dead links.
-- `docs-axi show` and `sections` accept the same `repo:path`, so a link target can be pasted into show unchanged. Search takes terms and keeps --repo and --all-repos.
-- Rows from list, search, adr list and adr search read from another repo (--repo, --all-repos) print `repo:path`. The local repo rows stay plain.
+- `docs-axi show` and `sections` accept the same `repo:path`, so a link target can be pasted into show unchanged. An unknown repo name fails with the known repos listed. Search takes terms and keeps --repo and --all-repos.
+- Rows from list, search, adr list and adr search read from another repo (--repo, --all-repos) print `repo:path`. The local repo rows stay plain. Help text says so.
 
 ## Out of scope
 
@@ -38,7 +38,7 @@ In checkLinks, before the scheme skip, match `<name>:<path>` against sourceRepos
 
 ## Acceptance
 
-- npm test passes in packages/docs-axi, including new multirepo tests: resolved link, missing doc, anchor ignored, unknown prefix ignored, https ignored, unavailable source warns.
+- npm test passes in packages/docs-axi, including new multirepo tests: resolved link, missing doc, anchor ignored, typo prefix warns, https ignored, unavailable source warns, show by qualified path, qualified list rows.
 - docs-axi check passes on a plan repo with a valid qualified link and fails with BROKEN_LINK after the target is renamed.
 
 ## Docs impact
