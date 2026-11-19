@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Features
+- **docs-axi:** Check repo-qualified doc links `[text](repo:path.md)` (`BROKEN_LINK`, `DOC_SOURCE_UNAVAILABLE`), accept `repo:path` in show and sections, and print `repo:path` for other repos' rows in list, search and adr list or search
+
 ## 0.4.0 - 2026-11-17
 
 ### Features
