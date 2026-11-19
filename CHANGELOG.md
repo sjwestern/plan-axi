@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0 - 2026-11-19
+
+### Features
+- **change-axi:** `check` validates the step `Docs:` header: `NO_DOCS`, `DOCS_NONE_MIXED`, `DOCS_MISSING` and `DOCS_NO_FRONTMATTER` warnings
+
 ## 0.5.0 - 2026-11-19
 
 ### Features

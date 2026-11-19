@@ -7,7 +7,7 @@
 #   npm         npm install -g <source>@<ref>
 #   dotnet      dotnet tool update --global <source> --version <ref> (NuGet global tool)
 #   git-dotnet  clone <source> at <ref>, run scripts/install.sh (scripts/install.ps1 on Windows)
-plan-axi         git-npm     https://github.com/sjwestern/plan-axi.git         v0.5.0
+plan-axi         git-npm     https://github.com/sjwestern/plan-axi.git         v0.6.0
 tasks-axi        npm         tasks-axi                                         0.2.6
 # Switch to the NuGet line once dotnet-test-axi is published (ref = package version):
 # dotnet-test-axi  dotnet      dotnet-test-axi                                   0.5.1
