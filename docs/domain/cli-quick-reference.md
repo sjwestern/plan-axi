@@ -164,6 +164,8 @@ standard = ["changes that touch db migrations"]
 default_tier = "small"  # optional
 ```
 
+`change-axi check` also validates the step `Docs:` header: warns `NO_DOCS` (line absent), `DOCS_NONE_MIXED`, `DOCS_MISSING` (path not found; repo-prefixed and glob entries skipped) and `DOCS_NO_FRONTMATTER` (doc lacks title or summary).
+
 `change-axi check` warns `TIER_UNKNOWN` (not small/standard/deep) and `TIER_UNMAPPED` (no `[apply.tiers]` entry, or an undefined profile).
 
 Without a TTY, `enter` prints the command instead of running it (`--run` overrides).

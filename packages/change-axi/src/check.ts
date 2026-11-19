@@ -129,9 +129,41 @@ export function checkChange(ctx: Ctx, slug: string): CheckResult {
     }
   }
   const owns = new Map<string, string[]>();
+  let docIndex: Map<string, { title?: string; summary?: string }> | undefined;
+  try {
+    const config = getDocsConfig(ctx);
+    const docsDir = resolve(ctx.root, config.layout.dir);
+    if (existsSync(docsDir)) {
+      docIndex = new Map();
+      for (const d of loadDocs({ root: ctx.root, docsDir, config })) {
+        docIndex.set(`${config.layout.dir.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "")}/${d.path}`, { title: d.title, summary: d.summary });
+      }
+    }
+  } catch {
+    /* surfaced as ADR_REFS_UNCHECKED below */
+  }
   for (const f of steps) {
     const text = readLf(join(dir, f));
     sectionErrors(errors, f, text, STEP_SECTIONS, "step");
+    const docsLine = headerLine(text, "Docs");
+    if (docsLine === undefined || docsLine === "") {
+      warnings.push(`NO_DOCS: ${f} has no "Docs:" line; list docs to read first, or write "Docs: none"`);
+    } else {
+      const raw = docsLine.split(",").map((s) => s.trim()).filter((s) => s !== "");
+      const noneCount = raw.filter((s) => s.toLowerCase() === "none").length;
+      if (noneCount > 0 && raw.length > noneCount) warnings.push(`DOCS_NONE_MIXED: ${f} Docs mixes "none" with other entries`);
+      for (const entry of splitList(docsLine)) {
+        const { repo, path } = splitOwnsRepo(entry);
+        if (repo !== undefined || /[*?[{]/.test(path)) continue;
+        const rel = path.replace(/[#:].*$/, "");
+        if (!existsSync(join(ctx.root, rel))) {
+          warnings.push(`DOCS_MISSING: ${f} Docs lists ${rel} but it does not exist`);
+          continue;
+        }
+        const meta = docIndex?.get(rel);
+        if (meta && (!meta.title || !meta.summary)) warnings.push(`DOCS_NO_FRONTMATTER: ${f} Docs lists ${rel} without frontmatter title and summary (run \`docs-axi check\`)`);
+      }
+    }
     const tier = headerLine(text, "Tier");
     if (tier !== undefined && tier !== "") {
       if (!(TIERS as readonly string[]).includes(tier)) {
