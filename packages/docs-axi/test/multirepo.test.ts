@@ -57,6 +57,27 @@ describe("docs across repos", () => {
     expect(unknown.out).toContain("Repos: app");
   });
 
+  it("show and sections accept repo:path", async () => {
+    const plain = await t.run("show", "architecture/billing.md", "--repo", "app", "--section", "Billing rules");
+    const q = await t.run("show", "app:architecture/billing.md", "--section", "Billing rules");
+    expect(q.code).toBe(0);
+    expect(q.out).toBe(plain.out);
+    expect((await t.run("show", "app:decisions/0009-legacy-first.md")).out).toContain("Legacy first");
+    expect((await t.run("sections", "app:architecture/billing.md")).out).toContain("Billing rules");
+    expect((await t.run("show", "app:architecture/billing.md", "--repo", "app")).code).toBe(0);
+  });
+
+  it("rejects an unknown repo prefix and a conflicting --repo", async () => {
+    const unknown = await t.run("show", "nope:architecture/billing.md");
+    expect(unknown.code).not.toBe(0);
+    expect(unknown.out).toContain("no readable docs repo");
+    expect(unknown.out).toContain("NOT_FOUND");
+    expect(unknown.out).toContain("Repos: app");
+    const conflict = await t.run("sections", "app:architecture/billing.md", "--repo", "other");
+    expect(conflict.code).not.toBe(0);
+    expect(conflict.out).toContain("VALIDATION_ERROR");
+  });
+
   it("check resolves plain and qualified refs to a source repo and flags wrong ones", async () => {
     doc(t.dir, "cites.md", "Cites", "See ADR-0009-legacy-first and app:ADR-0009-legacy-first.");
     await t.run("index");

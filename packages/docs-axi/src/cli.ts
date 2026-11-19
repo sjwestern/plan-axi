@@ -50,11 +50,13 @@ commands[15]:
 flags[4]:
   --docs <dir> (after command; default <repo>/docs), --help, -v/-V/--version
   --repo <name> (read commands: list, search, show, sections, adr list|search; reads that repo's docs, a repo with a docs key in [repos.<name>] of .plan-axi.toml)
+  <repo>:<path> (show, sections; same as --repo <repo> with <path>)
   --all-repos (list, search, adr list|search; runs the command in this repo and every such repo, one result per repo)
 examples:
   docs-axi
   docs-axi search billing invoice
   docs-axi show domain/billing --section Refunds
+  docs-axi show api:architecture/x.md --section Y
   docs-axi write domain/billing --section Refunds --body "..."
   docs-axi new domain "Billing rules" --summary "Invoice, proration and refund rules"
   docs-axi adr list --status accepted
@@ -66,11 +68,13 @@ examples:
 
 type Handler = (ctx: Ctx, args: string[]) => AxiRenderable;
 
+const QUALIFIED_HELP = "A <repo>:<path> reads another repo's docs, same as --repo <repo> (a conflicting --repo is an error).\nmore examples:\n";
+
 const COMMANDS: Record<string, { run: Handler; help: string }> = {
   init: { run: initCommand, help: `${INIT_SPEC.help}\nOptional: --sections <a,b,c> --adr <name|none> --guide name="text" applies the layout first.` },
   list: { run: listCommand, help: LIST_SPEC.help },
   search: { run: searchCommand, help: SEARCH_SPEC.help },
-  show: { run: showCommand, help: SHOW_SPEC.help },
+  show: { run: showCommand, help: `${SHOW_SPEC.help}${QUALIFIED_HELP}  docs-axi show api:architecture/x.md --section Y\n` },
   new: { run: newCommand, help: NEW_SPEC.help },
   adr: { run: adrCommand, help: ADR_HELP },
   update: { run: updateCommand, help: UPDATE_SPEC.help },
@@ -78,7 +82,7 @@ const COMMANDS: Record<string, { run: Handler; help: string }> = {
   index: { run: indexCommand, help: INDEX_SPEC.help },
   check: { run: checkCommand, help: CHECK_SPEC.help },
   migrate: { run: migrateCommand, help: MIGRATE_SPEC.help },
-  sections: { run: sectionsCommand, help: SECTIONS_SPEC.help },
+  sections: { run: sectionsCommand, help: `${SECTIONS_SPEC.help}${QUALIFIED_HELP}  docs-axi sections api:architecture/x.md\n` },
   write: { run: writeCommand, help: WRITE_SPEC.help },
   append: { run: appendCommand, help: APPEND_SPEC.help },
   config: { run: configCommand, help: CONFIG_HELP },
@@ -111,6 +115,35 @@ function readsAcrossRepos(name: string, args: string[]): boolean {
   return name === "adr" && (args[0] === "list" || args[0] === "search");
 }
 
+const REPO_PREFIX = /^[a-z0-9][a-z0-9-]+$/;
+const VALUE_FLAGS = new Set(["--section", "--docs", "--repo"]);
+
+/**
+ * For show and sections, split a first positional `<name>:<path>` into repo name and plain args.
+ * `isKnown` accepts configured source repos; other names qualify only when they look like a repo prefix.
+ */
+function splitQualified(
+  command: string | undefined,
+  args: string[],
+  isKnown: (name: string) => boolean,
+): { repo: string; args: string[] } | undefined {
+  if (command !== "show" && command !== "sections") return undefined;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i] as string;
+    if (VALUE_FLAGS.has(a)) {
+      i++;
+      continue;
+    }
+    if (a.startsWith("--")) continue;
+    const colon = a.indexOf(":");
+    if (colon <= 0) return undefined;
+    const name = a.slice(0, colon);
+    if (!isKnown(name) && !REPO_PREFIX.test(name)) return undefined;
+    return { repo: name, args: [...args.slice(0, i), a.slice(colon + 1), ...args.slice(i + 1)] };
+  }
+  return undefined;
+}
+
 function docsFlag(args: string[]): string | undefined {
   for (let i = 0; i < args.length; i++) {
     const a = args[i] as string;
@@ -128,9 +161,18 @@ export interface MainOptions {
 
 export async function main(options: MainOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd();
-  const resolveCtx = (args: string[]): Ctx => {
+  const qualify = (command: string | undefined, args: string[]): { repo: string; args: string[] } | undefined => {
+    const known = (n: string): boolean => sourceRepos(findRepoRoot(cwd)).repos.some((r) => r.name === n);
+    const q = splitQualified(command, args, known);
+    const flag = valueFlag(args, "--repo");
+    if (q && flag !== undefined && flag !== q.repo) {
+      throw new AxiError(`path names repo "${q.repo}" but --repo is "${flag}"`, "VALIDATION_ERROR", ["Pass one of them, or the same repo in both"]);
+    }
+    return q;
+  };
+  const resolveCtx = (args: string[], command?: string): Ctx => {
     const root = findRepoRoot(cwd);
-    const repo = valueFlag(args, "--repo");
+    const repo = qualify(command, args)?.repo ?? valueFlag(args, "--repo");
     if (repo !== undefined) {
       const sources = sourceRepos(root);
       const hit = sources.repos.find((r) => r.name === repo);
@@ -152,9 +194,10 @@ export async function main(options: MainOptions = {}): Promise<void> {
   for (const [name, c] of Object.entries(COMMANDS)) {
     commands[name] = (rawArgs, ctx) => {
       const current = ctx as Ctx;
-      const wantsRepo = valueFlag(rawArgs, "--repo") !== undefined;
+      const q = qualify(name, rawArgs);
+      const wantsRepo = valueFlag(rawArgs, "--repo") !== undefined || q !== undefined;
       const all = rawArgs.includes("--all-repos");
-      const args = wantsRepo || all ? withoutRepoFlags(rawArgs) : rawArgs;
+      const args = wantsRepo || all ? withoutRepoFlags(q ? q.args : rawArgs) : rawArgs;
       if ((wantsRepo || all) && !readsAcrossRepos(name, args)) {
         throw new AxiError(`--repo and --all-repos only work with read commands`, "VALIDATION_ERROR", [
           "Use them with list, search, show, sections, adr list or adr search; edit another repo's docs from that repo",
@@ -189,6 +232,6 @@ export async function main(options: MainOptions = {}): Promise<void> {
     commands,
     home: (_args, ctx) => homeCommand(ctx as Ctx),
     getCommandHelp: (command) => COMMANDS[command]?.help,
-    resolveContext: ({ args }) => resolveCtx(args),
+    resolveContext: ({ command, args }) => resolveCtx(args, command),
   });
 }
