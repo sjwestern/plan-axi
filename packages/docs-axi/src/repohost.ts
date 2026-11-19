@@ -163,6 +163,28 @@ export function sourceRepos(planRoot: string, host: HostEnv = defaultHost()): So
   return out;
 }
 
+export interface SourceDocPaths {
+  /** Source repo name -> doc paths (relative to that repo's docs dir, posix). */
+  docs: Map<string, Set<string>>;
+  /** Names of source repos whose checkout or docs dir could not be read. */
+  unavailable: string[];
+}
+
+/** Doc paths of each source repo, loaded once per run to resolve `<repo>:<path>` links. */
+export function loadSourceDocPaths(planRoot: string, host: HostEnv = defaultHost()): SourceDocPaths {
+  const { repos, unavailable } = sourceRepos(planRoot, host);
+  const out: SourceDocPaths = { docs: new Map(), unavailable: [...unavailable] };
+  for (const r of repos) {
+    try {
+      const docs = loadDocs({ root: r.root, docsDir: r.docsDir, config: loadConfig(r.root) });
+      out.docs.set(r.name, new Set(docs.map((d) => d.path)));
+    } catch {
+      out.unavailable.push(r.name);
+    }
+  }
+  return out;
+}
+
 export interface SourceAdrs {
   /** ADRs of every available source repo, tagged with the repo name. */
   adrs: AdrInfo[];

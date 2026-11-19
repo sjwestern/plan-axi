@@ -5,7 +5,7 @@ import { parseArgs, type CmdSpec } from "../args.js";
 import { cmp, toPosix } from "../fsutil.js";
 import { readmeState } from "../indexgen.js";
 import { adrInfos, checkRefs } from "../adrrefs.js";
-import { loadSourceAdrs } from "../repohost.js";
+import { loadSourceAdrs, loadSourceDocPaths, type SourceDocPaths } from "../repohost.js";
 import {
   ADR_FILE_RE,
   ADR_STATUSES,
@@ -57,12 +57,62 @@ function stripCode(body: string): string {
   return out.join("\n");
 }
 
-function checkLinks(ctx: Ctx, d: Doc, problems: Problem[]): void {
+const KNOWN_SCHEMES = new Set(["https", "http", "mailto", "tel", "ftp", "file", "data", "javascript"]);
+
+interface LinkSources {
+  paths: SourceDocPaths;
+  /** Unavailable repos already warned about. */
+  warned: Set<string>;
+  warnings: Problem[];
+}
+
+/** Checks a `<repo>:<path>` link; known schemes and drive letters are skipped. */
+function checkQualifiedLink(raw: string, d: Doc, problems: Problem[], src: LinkSources): void {
+  const m = /^([A-Za-z][A-Za-z0-9+.-]*):(.*)$/s.exec(raw);
+  if (!m) return;
+  const prefix = m[1] as string;
+  const names = [...src.paths.docs.keys(), ...src.paths.unavailable];
+  if (!names.includes(prefix)) {
+    if (prefix.length === 1 || KNOWN_SCHEMES.has(prefix.toLowerCase())) return;
+    src.warnings.push({
+      code: "UNKNOWN_LINK_REPO",
+      path: d.path,
+      detail: `link ${raw} uses prefix ${prefix}, which is not a source repo (configured: ${names.length > 0 ? names.join(", ") : "none"})`,
+    });
+    return;
+  }
+  if (!src.paths.docs.has(prefix)) {
+    if (!src.warned.has(prefix)) {
+      src.warned.add(prefix);
+      src.warnings.push({ code: "DOC_SOURCE_UNAVAILABLE", path: prefix, detail: `repo ${prefix}: checkout or docs dir not readable; links to its docs are not checked` });
+    }
+    return;
+  }
+  let path = (m[2] as string).split("#")[0]!.split("?")[0]!;
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    /* keep raw */
+  }
+  path = path.replace(/^\/+/, "");
+  if (path !== "" && !src.paths.docs.get(prefix)!.has(path)) {
+    problems.push({ code: "BROKEN_LINK", path: d.path, detail: `link target not found in repo ${prefix}: ${path}` });
+  }
+}
+
+function checkLinks(ctx: Ctx, d: Doc, problems: Problem[], src: LinkSources): void {
   const text = stripCode(d.parsed.body);
   const seen = new Set<string>();
   for (const m of text.matchAll(LINK_RE)) {
     let target = m[1] as string;
-    if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("#")) continue;
+    if (target.startsWith("#")) continue;
+    if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(target)) {
+      if (!seen.has(target)) {
+        seen.add(target);
+        checkQualifiedLink(target, d, problems, src);
+      }
+      continue;
+    }
     target = target.split("#")[0]!.split("?")[0]!;
     if (target === "" || seen.has(target)) continue;
     seen.add(target);
@@ -114,6 +164,7 @@ export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   // ADRs of other repos with a `docs` key in [repos.<name>]: docs may cite them, unqualified or as <repo>:ADR-NNNN-slug.
   const sources = loadSourceAdrs(ctx.root);
   const refAdrs = [...adrs, ...sources.adrs];
+  const linkSrc: LinkSources = { paths: loadSourceDocPaths(ctx.root), warned: new Set(), warnings };
   for (const name of sources.unavailable) warnings.push({ code: "ADR_SOURCE_UNAVAILABLE", path: name, detail: `repo ${name}: checkout or docs dir not readable; its ADRs are not used to resolve refs` });
   for (const d of docs) {
     for (const e of d.parsed.errors) add("FRONTMATTER_PARSE", d.path, e);
@@ -125,7 +176,7 @@ export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
       if (d.path.includes("/")) {
         unmanaged.push({ code: "UNMANAGED", path: `${top}/`, detail: "top-level folder is outside the configured docs layout" });
       }
-      checkLinks(ctx, d, warnings);
+      checkLinks(ctx, d, warnings, linkSrc);
       continue;
     }
     if (!d.parsed.hasFrontmatter && d.parsed.errors.length === 0) {
@@ -160,7 +211,7 @@ export function checkCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
     } else if (!SLUG_RE.test(d.slug)) {
       add("BAD_NAME", d.path, "file names are lowercase a-z, 0-9 and dashes");
     }
-    checkLinks(ctx, d, problems);
+    checkLinks(ctx, d, problems, linkSrc);
   }
 
   for (const [n, list] of [...byNumber.entries()].sort((a, b) => a[0] - b[0])) {

@@ -67,6 +67,49 @@ describe("docs across repos", () => {
     expect(r.out).toContain("ADR_REF_UNKNOWN");
   });
 
+  it("check verifies repo-qualified doc links", async () => {
+    doc(t.dir, "links.md", "Links", "See [b](app:architecture/billing.md#top) and [h](https://example.com) and [m](mailto:a@b.c).");
+    await t.run("index");
+    const ok = await t.run("check");
+    expect(ok.code).toBe(0);
+    expect(ok.out).not.toContain("BROKEN_LINK");
+    expect(ok.out).not.toContain("UNKNOWN_LINK_REPO");
+    doc(t.dir, "links.md", "Links", "See [b](app:architecture/missing.md).");
+    await t.run("index");
+    const bad = await t.run("check");
+    expect(bad.code).not.toBe(0);
+    expect(bad.out).toContain("BROKEN_LINK");
+    expect(bad.out).toContain("app");
+  });
+
+  it("check warns on a mistyped link repo prefix", async () => {
+    doc(t.dir, "links.md", "Links", "See [b](ap:architecture/billing.md).");
+    await t.run("index");
+    const r = await t.run("check");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("UNKNOWN_LINK_REPO");
+    expect(r.out).toContain("ap");
+  });
+
+  it("check warns once when a linked source repo is unreadable", async () => {
+    doc(t.dir, "links.md", "Links", "See [b](app:architecture/billing.md) and [c](app:architecture/x.md).");
+    await t.run("index");
+    rmSync(join(code, "docs"), { recursive: true, force: true });
+    const r = await t.run("check");
+    expect(r.code).toBe(0);
+    expect(r.out.match(/DOC_SOURCE_UNAVAILABLE/g)).toHaveLength(1);
+    expect(r.out).not.toContain("BROKEN_LINK");
+  });
+
+  it("check reports a broken qualified link in a doc outside the layout as a warning", async () => {
+    mkdirSync(join(t.dir, "docs/misc"), { recursive: true });
+    writeFileSync(join(t.dir, "docs/misc/note.md"), "# Note\n\n[x](app:architecture/gone.md)\n");
+    await t.run("index");
+    const r = await t.run("check");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("BROKEN_LINK");
+  });
+
   it("check warns when a source repo is unreadable", async () => {
     rmSync(join(code, "docs"), { recursive: true, force: true });
     const r = await t.run("check");
