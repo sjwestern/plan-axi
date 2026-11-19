@@ -183,7 +183,7 @@ export async function main(options: MainOptions = {}): Promise<void> {
           ...(sources.unavailable.includes(repo) ? [`${repo} is configured but its checkout or docs dir is not readable`] : []),
         ]);
       }
-      return { root: hit.root, docsDir: hit.docsDir, config: loadConfig(hit.root) };
+      return { root: hit.root, docsDir: hit.docsDir, config: loadConfig(hit.root), repoName: hit.name };
     }
     const flag = docsFlag(args);
     const config = loadConfig(root);
@@ -211,7 +211,7 @@ export async function main(options: MainOptions = {}): Promise<void> {
         const out: Record<string, unknown> = {};
         out[basename(here.root)] = c.run(here, args);
         for (const r of sourceRepos(here.root).repos) {
-          out[r.name] = c.run({ root: r.root, docsDir: r.docsDir, config: loadConfig(r.root) }, args);
+          out[r.name] = c.run({ root: r.root, docsDir: r.docsDir, config: loadConfig(r.root), repoName: r.name }, args);
         }
         return out;
       }

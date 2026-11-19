@@ -12,6 +12,7 @@ import {
   requireDocsDir,
   resolveDocPath,
   type Ctx,
+  printRef,
   docsRel,
   type Doc,
 } from "../model.js";
@@ -27,9 +28,9 @@ function adrMark(d: Doc): string {
 }
 
 /** Default row formatter: path,title,summary plus optional status and ADR marker columns. */
-function row(d: Doc, withStatus: boolean, withAdr = false, matched?: string): Record<string, string> {
+function row(ctx: Ctx, d: Doc, withStatus: boolean, withAdr = false, matched?: string): Record<string, string> {
   const r: Record<string, string> = {
-    path: d.path,
+    path: printRef(ctx, d.path),
     title: displayTitle(d),
     summary: d.summary ?? "(no summary)",
   };
@@ -149,6 +150,7 @@ export const LIST_SPEC: CmdSpec = {
   usage: "docs-axi list [section] [--tag <t>] [--status <s>] [--limit <n>]",
   help: `usage: docs-axi list [section] [--tag <t>] [--status <s>] [--limit <n>]
 List docs with title and one-line summary, sorted by path.
+With --repo or --all-repos, rows from another repo print path as <repo>:<path>; docs-axi show accepts it.
 section: configured section name | other
 flags:
   --tag <t>      only docs with this tag
@@ -184,7 +186,7 @@ export function listCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const withAdr = shown.some((d) => d.adrNumber !== undefined);
   const out: AxiStructuredOutput = {
     count: `${shown.length} of ${hits.length}`,
-    docs: shown.map((d) => row(d, withStatus, withAdr)),
+    docs: shown.map((d) => row(ctx, d, withStatus, withAdr)),
   };
   if (hits.length > shown.length) {
     out["help"] = [`Run \`docs-axi list${section ? ` ${section}` : ""} --limit ${hits.length}\` for all`];
@@ -201,6 +203,7 @@ export const SEARCH_SPEC: CmdSpec = {
   help: `usage: docs-axi search <terms...> [--section <s>] [--all] [--limit <n>]
 Lexical search over title, tags, summary, headings and body. Ranked, deterministic.
 Docs matching more of the terms rank first.
+With --repo or --all-repos, rows from another repo print path as <repo>:<path>; docs-axi show accepts it.
 flags:
   --section <s>  configured section name | other
   --all          only docs matching every term
@@ -259,7 +262,7 @@ export function searchCommand(ctx: Ctx, args: string[]): AxiStructuredOutput {
   const withAdr = shown.some((s) => s.d.adrNumber !== undefined);
   const out: AxiStructuredOutput = {
     count: `${shown.length} of ${scored.length} matches`,
-    docs: shown.map((s) => row(s.d, withStatus, withAdr, `${s.matched}/${s.total}`)),
+    docs: shown.map((s) => row(ctx, s.d, withStatus, withAdr, `${s.matched}/${s.total}`)),
   };
   out["help"] = ["Run `docs-axi show <path>` to read one"];
   return out;
@@ -275,6 +278,7 @@ export const SHOW_SPEC: CmdSpec = {
 Print one doc, or one section with --section (see \`docs-axi sections\`; --tree adds subsections).
 Print one doc. Body is truncated at ${SHOW_CHARS} chars unless --full.
 <path> may be domain/foo, domain/foo.md, docs/domain/foo.md, or an ADR number.
+Rows from another repo print as <repo>:<path>; pass that to show unchanged.
 examples:
   docs-axi show domain/billing
   docs-axi show 7 --full
@@ -290,7 +294,7 @@ export function showCommand(ctx: Ctx, args: string[]): string {
   const full = flagBool(p, "--full");
   const parsed = parseDoc(normalizeEol(readText(join(ctx.docsDir, d.path))));
   const body = parsed.body.replace(/^\n+/, "");
-  const header: string[] = ["doc:", `  path: ${d.path}`, `  title: ${JSON.stringify(displayTitle(d))}`];
+  const header: string[] = ["doc:", `  path: ${printRef(ctx, d.path)}`, `  title: ${JSON.stringify(displayTitle(d))}`];
   if (d.summary) header.push(`  summary: ${JSON.stringify(d.summary)}`);
   if (d.tags.length) header.push(`  tags: ${d.tags.join(",")}`);
   if (d.status) header.push(`  status: ${d.status}`);
@@ -305,7 +309,7 @@ export function showCommand(ctx: Ctx, args: string[]): string {
       "",
       `... (truncated, ${body.length} chars total)`,
       "help[1]:",
-      `  Run \`docs-axi show ${d.path} --full\` to see the complete doc`,
+      `  Run \`docs-axi show ${printRef(ctx, d.path)} --full\` to see the complete doc`,
     );
   }
   return lines.join("\n");

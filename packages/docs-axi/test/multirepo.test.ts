@@ -67,6 +67,21 @@ describe("docs across repos", () => {
     expect((await t.run("show", "app:architecture/billing.md", "--repo", "app")).code).toBe(0);
   });
 
+  it("prints repo:path for other repos and show accepts it", async () => {
+    const l = await t.run("list", "--repo", "app");
+    expect(l.out).toContain("app:architecture/billing.md");
+    const s = await t.run("search", "plans invoices", "--all-repos");
+    expect(s.out).toContain("app:architecture/billing.md");
+    expect(s.out).toMatch(/\n\s+architecture\/flow\.md/);
+    expect(s.out).not.toContain("app:architecture/flow.md");
+    const a = await t.run("adr", "list", "--repo", "app");
+    expect(a.out).toContain("app:0009");
+    expect((await t.run("show", "app:0009")).out).toContain("Legacy first");
+    expect((await t.run("list")).out).not.toContain("app:");
+    const printed = /app:architecture\/billing\.md/.exec(l.out)?.[0] as string;
+    expect((await t.run("show", printed)).out).toContain("Billing rules");
+  });
+
   it("rejects an unknown repo prefix and a conflicting --repo", async () => {
     const unknown = await t.run("show", "nope:architecture/billing.md");
     expect(unknown.code).not.toBe(0);

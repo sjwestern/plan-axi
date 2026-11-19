@@ -1,7 +1,7 @@
 import { AxiError } from "axi-sdk-js";
 import type { AxiStructuredOutput } from "../types.js";
 import { flagBool, flagStr, parseArgs, parseLimit, type CmdSpec } from "../args.js";
-import { ADR_STATUSES, displayTitle, requireDocsDir, type Ctx, type Doc } from "../model.js";
+import { ADR_STATUSES, displayTitle, printRef, requireDocsDir, type Ctx, type Doc } from "../model.js";
 import { findSectionOrUndefined, parseSections, sectionText, splitLines } from "../sections.js";
 import { adrFixRefsCommand } from "./adrfixrefs.js";
 import { adrRenumberCommand } from "./adrrenumber.js";
@@ -19,6 +19,7 @@ subcommands:
   add "<title>" --summary "<one line>" [flags]     create the next numbered ADR
   renumber <ref|path> [--to <n>]                   move an ADR to a new number and fix every ADR-NNNN-slug ref
   fix-refs [--dry-run]                             rewrite bare/stale ADR refs to ADR-NNNN-slug (one-time migration)
+With --repo or --all-repos, ADRs from another repo print as <repo>:<number>; docs-axi show accepts it.
 examples:
   docs-axi adr list --status accepted
   docs-axi adr search cache --all
@@ -43,11 +44,11 @@ const SEARCH_SPEC: CmdSpec = {
   help: "",
 };
 
-function num(d: Doc): string {
-  return d.adrNumber === undefined ? "-" : String(d.adrNumber).padStart(4, "0");
+function num(ctx: Ctx, d: Doc): string {
+  return d.adrNumber === undefined ? "-" : printRef(ctx, String(d.adrNumber).padStart(4, "0"));
 }
 
-function decision(d: Doc): string {
+function decision(ctx: Ctx, d: Doc): string {
   const secs = parseSections(d.parsed.body);
   const s = findSectionOrUndefined(secs, "Decision");
   if (s === undefined) return "(no Decision section)";
@@ -55,20 +56,20 @@ function decision(d: Doc): string {
   if (text === "") return "(empty)";
   const flat = text.replace(/\s+/g, " ");
   return flat.length > DECISION_CHARS
-    ? `${flat.slice(0, DECISION_CHARS)}... (truncated, ${flat.length} chars; \`docs-axi show ${d.path} --section Decision\`)`
+    ? `${flat.slice(0, DECISION_CHARS)}... (truncated, ${flat.length} chars; \`docs-axi show ${printRef(ctx, d.path)} --section Decision\`)`
     : flat;
 }
 
-function adrRow(d: Doc, full: boolean, matched?: string): Record<string, string> {
+function adrRow(ctx: Ctx, d: Doc, full: boolean, matched?: string): Record<string, string> {
   const r: Record<string, string> = {
-    number: num(d),
+    number: num(ctx, d),
     title: displayTitle(d),
     status: d.status ?? "-",
     summary: d.summary ?? "(no summary)",
   };
   if (matched !== undefined) r["matched"] = matched;
   if (full) {
-    r["decision"] = decision(d);
+    r["decision"] = decision(ctx, d);
     r["superseded-by"] = d.supersededBy ?? "-";
   }
   return r;
@@ -111,7 +112,7 @@ function list(ctx: Ctx, section: string, args: string[]): AxiStructuredOutput {
   const shown = hits.slice(0, limit);
   const out: AxiStructuredOutput = {
     count: `${shown.length} of ${hits.length}`,
-    adrs: shown.map((d) => adrRow(d, full)),
+    adrs: shown.map((d) => adrRow(ctx, d, full)),
   };
   out["help"] = [
     ...(hits.length > shown.length ? [`Run \`docs-axi adr list --limit ${hits.length}\` for all`] : []),
@@ -138,7 +139,7 @@ function search(ctx: Ctx, section: string, args: string[]): AxiStructuredOutput 
   const shown = scored.slice(0, limit);
   return {
     count: `${shown.length} of ${scored.length} matches`,
-    adrs: shown.map((s) => adrRow(s.d, full, `${s.matched}/${s.total}`)),
+    adrs: shown.map((s) => adrRow(ctx, s.d, full, `${s.matched}/${s.total}`)),
     help: ["Run `docs-axi show <number>` to read one"],
   };
 }

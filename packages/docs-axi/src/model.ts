@@ -49,6 +49,13 @@ export interface Ctx {
   root: string;
   docsDir: string;
   config: DocsConfig;
+  /** Set when the docs belong to a source repo other than the plan repo; printed refs get a `<repoName>:` prefix. */
+  repoName?: string;
+}
+
+/** A doc path or ADR number as printed for this ctx: `repo:ref` for another repo, plain otherwise. */
+export function printRef(ctx: Ctx, ref: string): string {
+  return ctx.repoName === undefined ? ref : `${ctx.repoName}:${ref}`;
 }
 
 export interface Doc {
